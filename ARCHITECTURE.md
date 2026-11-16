@@ -193,6 +193,20 @@ APK（使用者拿自己的 API Key 运行）
 
 **为什么值得写下来**：否则下一个 agent 会因为「上游是这么写的」而把上面三条决策当成越界改动。
 
+## 决策 16：APK 版本号从 `package.json` 读取（决策 8 的例外）
+
+来源：`android/app/build.gradle`。
+
+**问题**：`android/` 是生成物，按决策 8 不手改。但 Capacitor 生成的 `versionCode 1` / `versionName "1.0"` 永不递增，而 Android 拒绝用同版本号或更低的包覆盖安装——这意味着每个版本都要有独立的号，否则用户装不上新版。
+
+**取舍**：每次发版手改 `build.gradle` 两行，还是让它读 `package.json`。
+
+**选择**：在 `app/build.gradle` 里用 `JsonSlurper` 读 `package.json` 的 `version`，`versionName` 直接用它，`versionCode` 折算成 `major*10000 + minor*100 + patch`（0.2.0 → 200）。发版只改 `package.json` 一处。
+
+**sync 会不会冲掉**：不会。`cap sync` 重写的是 `capacitor.build.gradle` 与 `assets/`，不改 `app/build.gradle`。这是决策 8 里唯一保留的手改点，故单独登记。
+
+**代价**：minor 与 patch 各占 100 个位，`0.100.0` 之类的版本会撞号——实际不会用到。版本号跃迁时必须保证折算后的 `versionCode` 单调递增，否则覆盖安装失败。
+
 ## 尚未决策（悬空）
 
 - **项目命名**：目录 `DeepSeek 复刻APP` / remote `DeepSeek-APP-Replica` / `package.json` name `chat-demo` / README 标题 `DeepSeek APP Replica`。四处不统一，`package.json` 未改。改不改、改成什么，待定。
