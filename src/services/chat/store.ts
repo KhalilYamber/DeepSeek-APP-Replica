@@ -386,10 +386,14 @@ const waitForIdle = (sessionId?: string) =>
   })
 
 /**
- * 替换历史对话：先写入暂存，成功后原子替换旧记录；写入为空即删除全部会话与附件。
+ * 替换历史对话：先写入暂存，成功后按模式写入正式记录；写入为空即删除全部会话与附件。
+ * 合并模式保留现有会话，覆盖模式清空现有会话。
  * 期间停止生成并禁止修改会话；失败时清除暂存，保留原有记录。
  */
-export const replaceHistory = async (write: () => Promise<void>): Promise<number> => {
+export const replaceHistory = async <T>(
+  write: () => Promise<T>,
+  mode: db.CommitMode = 'replace'
+): Promise<{ written: T; imported: number; skipped: number }> => {
   if (get().importingHistory) {
     throw new Error('History replacement is already in progress')
   }
@@ -405,10 +409,14 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
     sessionLoads.clear()
     await waitForIdle()
     await db.clearStaging()
+    let written: T
     let summaries: SessionSummary[]
+    let skipped: number
     try {
-      await write()
-      summaries = await db.commitStaging()
+      written = await write()
+      const committed = await db.commitStaging(mode)
+      summaries = committed.summaries
+      skipped = committed.skipped
     } catch (error) {
       await db.clearStaging().catch(db.reportStorageError('clear unfinished history replacement'))
       throw error
@@ -416,17 +424,29 @@ export const replaceHistory = async (write: () => Promise<void>): Promise<number
     sessionAccess.clear()
     unsavedSessions.clear()
     pendingFiles.clear()
-    clearAllDrafts()
+    if (mode === 'replace') {
+      clearAllDrafts()
+    }
+    // 合并模式不动现有会话：列表要从存储重读，已加载的详情与当前会话继续有效。
+    const nextSessions =
+      mode === 'replace' ? summaries : await db.loadSessionSummaries().catch(() => summaries)
+    const activeId = get().activeId
     set({
       ready: true,
       initError: false,
-      sessions: sortSessions(summaries),
-      sessionCache: {},
-      sessionLoadErrors: {},
-      sessionSaveErrors: {},
-      activeId: null,
+      sessions: sortSessions(nextSessions),
+      ...(mode === 'replace'
+        ? {
+            sessionCache: {},
+            sessionLoadErrors: {},
+            sessionSaveErrors: {},
+            activeId: null,
+          }
+        : activeId !== null && !nextSessions.some((session) => session.id === activeId)
+          ? { activeId: null }
+          : {}),
     })
-    return summaries.length
+    return { written, imported: summaries.length, skipped }
   } finally {
     set({ importingHistory: false })
     retrySaveSessions()

@@ -39,15 +39,32 @@ export const exportHistory = (): Promise<{ name: string; blob: Blob }> =>
     return { name: backupFileName(now), blob }
   })
 
+/** 导入方式：合并保留现有对话，覆盖清空现有对话。 */
+export type ImportMode = db.CommitMode
+
+export type ImportHistoryResult = {
+  /** 本次写入的会话数 */
+  imported: number
+  /** 合并时因同一会话已存在而跳过的条数 */
+  skipped: number
+  /** 归档里存在但无法解析、被跳过的会话数 */
+  failed: number
+  mode: ImportMode
+}
+
 /**
- * 确认覆盖后调用：先检查 ZIP 格式与版本，校验失败时保留正在生成的回答；
- * 通过后从 ZIP 流式写入暂存，成功才替换原有会话与图片原件。返回导入的会话数。
+ * 确认导入后调用：先检查 ZIP 格式与版本，校验失败时保留正在生成的回答；
+ * 通过后从 ZIP 流式写入暂存，成功才写入正式数据。返回本次导入的统计。
  */
-export const importHistory = (file: File): Promise<number> =>
+export const importHistory = (
+  file: File,
+  mode: ImportMode = 'merge'
+): Promise<ImportHistoryResult> =>
   enqueueBackup(async () => {
     const { checkArchiveFormat, importArchive } = await import('./history/importArchive.js')
     await checkArchiveFormat(file)
-    return replaceHistory(() => importArchive(file))
+    const { written, imported, skipped } = await replaceHistory(() => importArchive(file), mode)
+    return { imported, skipped, failed: written.failed, mode }
   })
 
 /** 确认删除后调用：以空历史原子替换全部本地会话与附件，保留 API Key 和其他设置。 */

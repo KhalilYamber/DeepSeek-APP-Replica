@@ -10,6 +10,8 @@ declare const styles: {
   readonly "text": string;
   readonly "label": string;
   readonly "uploadButton": string;
+  readonly "uploadArea": string;
+  readonly "uploadInput": string;
   readonly "locationCell": string;
   readonly "locationSelectors": string;
   readonly "provinceSelect": string;
@@ -31,6 +33,7 @@ declare const styles: {
   readonly "mobileConfirm": string;
   readonly "importConfirm": string;
   readonly "importConfirmText": string;
+  readonly "importConfirmHint": string;
   readonly "deleteConfirm": string;
   readonly "deleteActions": string;
 };

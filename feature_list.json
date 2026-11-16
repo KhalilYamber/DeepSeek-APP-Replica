@@ -12,7 +12,7 @@
     "blocked": "因已记录的阻塞问题无法推进或无法验证。",
     "passing": "要求的验证已通过，证据已记录。"
   },
-  "note": "本清单当前只收录「开工基线」三条与环境债一条。业务功能面（多会话、附件上传、语音输入、历史导入导出、主题与语言、联网搜索渲染等）待按实际要做的事逐条补录——补录时以能跑的验证为准，不要凭印象标 passing。",
+  "note": "本清单当前收录「开工基线」四条、兼容性修复一条、环境债一条。业务功能面（多会话、附件上传、语音输入、历史导入导出、主题与语言、联网搜索渲染等）待按实际要做的事逐条补录——补录时以能跑的验证为准，不要凭印象标 passing。",
   "features": [
     {
       "id": "harness-001",
@@ -31,7 +31,7 @@
         "2026-11-16：`pnpm lint` — Found 0 warnings and 0 errors；120 文件 / 100 规则 / 12 线程。",
         "2026-11-16：`pnpm test` — tests 32 / pass 32 / fail 0（含 2 条框架探针，实为 30 条业务测试）。"
       ],
-      "notes": "这三条门是「完成定义」里的最低限度，任何一轮收尾都必须过。"
+      "notes": "这三条门是「完成定义」里的最低限度，任何一轮收尾都必须过。CI 每次 push 也会跑同一份脚本（见 harness-004）。"
     },
     {
       "id": "harness-002",
@@ -47,9 +47,10 @@
       ],
       "evidence": [
         "2026-11-16：搭骨架的会话里执行 `pnpm build`，卡在 scripts/build.mjs:17 的 rmSync(dist) — EPERM。该会话的运行环境禁止删除目录与子进程，属验证环境限制，不是脚本缺陷。",
-        "2026-11-16（本轮）：在本机重跑 `./init.ps1` 全流程，生产构建与产物两道门均 [OK]，退出码 0。此前的 blocked 来自环境限制，已解除。"
+        "2026-11-16：在本机重跑 `./init.ps1` 全流程，生产构建与产物两道门均 [OK]，退出码 0。此前的 blocked 来自环境限制，已解除。",
+        "2026-11-16：CI 首跑（run 43841705481）在 ubuntu-latest 上「生产构建」与「产物齐全」两步同样通过——构建门在两个平台都验证过了。"
       ],
-      "notes": "结掉这条只需要主人在本机跑一次 `./init.ps1`（或 `pnpm build`）并回报退出码。在此之前本条不得标 passing。"
+      "notes": "同一道门现在有两处证据：本机 Windows 与 GitHub 的 ubuntu-latest。后者尤其有价值，因为它证明了 lockfile 里的 Linux 平台二进制是可用的。"
     },
     {
       "id": "harness-003",
@@ -63,7 +64,7 @@
         "删掉任一被覆盖模块的关键分支后，至少一条测试变红（人工确认守得住）"
       ],
       "evidence": [
-        "2026-11-16：`)node --test --experimental-test-isolation=none \"test/*.test.ts\"` — 32 条全绿。",
+        "2026-11-16：`node --test --experimental-test-isolation=none \"test/*.test.ts\"` — 32 条全绿。",
         "2026-11-16：`test/format.test.ts` 7 条（补零、自定义分隔符、三种输入、无法解析返回 null）。",
         "2026-11-16：`test/sse.test.ts` 11 条（跨片拼回、CRLF 跨片、多行 data、注释行、id 跨事件保留、无 data 不派发、未以空行结尾则丢弃）。",
         "2026-11-16：`test/parse-event.test.ts` 9 条（非对象丢弃、未知类型丢弃、usage 降级、index 合法性、citations 过滤、stop_reason 白名单）。",
@@ -78,18 +79,18 @@
       "area": "harness",
       "title": "push 后自动跑门禁",
       "user_visible_behavior": "向 `main` 推送或开 PR 时，GitHub Actions 自动执行 install / type / lint / test / build / 产物检查，全绿才算可合并。",
-      "status": "in_progress",
+      "status": "passing",
       "verification": [
         "GitHub 的 Actions 页面能看到 workflow 被触发",
         "九步全绿",
-        "故意打断一处类型错误后 CI 变红（可选，确认拦得住）"
+        "故意打断一处类型错误后 CI 变红（未做，可选）"
       ],
       "evidence": [
         "2026-11-16：`.github/workflows/ci.yml` 建立；PyYAML 解析通过（triggers: push main / pull_request / workflow_dispatch；runs-on ubuntu-latest；permissions contents:read；9 步；无 BOM、UTF-8、1770 字节）。",
         "2026-11-16 前置核查（避免第一次就红在缺平台二进制）：pnpm-lock.yaml 含 `@rspack/binding-linux-x64-gnu`、`@oxlint/binding-linux-x64-gnu`、`@oxfmt/binding-linux-x64-gnu`；`pnpm install --frozen-lockfile --lockfile-only` 退出码 0，说明 lockfile 与 manifest 同步。",
-        "2026-11-16：本地已分别验证 type / lint / test 三道门通过（见 harness-001、harness-003）。build 未在本会话环境验证（见 harness-002）。"
+        "2026-11-16 首次真实运行：push 触发 run 43841705481，job「门禁（type / lint / test / build）」27 秒完成，9 个工作步骤全绿——检出代码 / 安装 pnpm / 安装 Node / 安装依赖 / 类型检查 / 静态检查 / 单元测试 / 生产构建 / 产物齐全；四个 Post 步骤与 Complete job 亦通过。"
       ],
-      "notes": "配置文件已就位，但**从未在 GitHub 上真实运行过**，因此不标 passing——本地环境无法模拟 ubuntu-latest runner。需一次 push 后看 Actions 结果再定状态。\n\n刻意不含两项：oxfmt 格式检查（格式不该阻断合并，留给人 `pnpm format`）、android APK 打包（需要 Android SDK，属发布流程不属代码门禁），理由见 ARCHITECTURE.md 决策 11。"
+      "notes": "已知注释（不影响结论）：GitHub 提示 `actions/checkout@v4`、`actions/setup-node@v4`、`pnpm/action-setup@v4` 仍以 Node 20 为目标运行时、被强制跑到 Node 24 上；另一条提示 `ubuntu-latest` 将于 2026-10-19 迁移到 Ubuntu 26。两条都是上游的事，等到期或动作发新版再跟进，不必现在动。\n\n刻意不含两项：oxfmt 格式检查（格式不该阻断合并，留给人 `pnpm format`）、android APK 打包（需要 Android SDK，属发布流程不属代码门禁），理由见 ARCHITECTURE.md 决策 11。"
     },
     {
       "id": "products-001",
@@ -97,14 +98,17 @@
       "area": "repo",
       "title": "APK 与验收截图撤出版本控制",
       "user_visible_behavior": "`git ls-files` 中不再出现 `release/` 与 `screenshots/`；工作区文件仍在磁盘上；`git status` 干净。",
-      "status": "not_started",
+      "status": "passing",
       "verification": [
         "git ls-files 不再列出 release/ 与 screenshots/ 下任何文件",
-        "bash: ls release screenshots 仍能看到本地文件",
+        "ls release screenshots 仍能看到本地文件",
         "git status --short 为空"
       ],
-      "evidence": [],
-      "notes": "当前 `release/DeepSeek-APP-Replica-debug.apk`（6.5MB）与 `screenshots/` 下 6 张 png 都被 git 跟踪。`.gitignore` 已补好（`git check-ignore --no-index` 验证规则命中），但已跟踪文件不会自动退出。\n\n**本机执行（一条命令）**：`git rm --cached -r release screenshots`\n可逆：`git reset` 即恢复索引；工作区文件不受影响，仍在磁盘上。\n\n为什么没代做：搭骨架的会话环境禁止写 `.git/index`（`fatal: Unable to create index.lock: Permission denied`），不是判断问题而是权限问题。\n\n撤出索引后，历史里的旧 blob 仍在；要真瘦身得另做 filter-repo，属独立决策。"
+      "evidence": [
+        "2026-11-16：commit 166fe23「chore: 把 release 与 screenshots 撤出版本控制」，一次撤出 6 个文件（APK 6530483 字节 + 5 张 png）。",
+        "2026-11-16 复核：`git ls-files release screenshots` 返回空；本地 `release/` 仍有 1 个 APK、`screenshots/` 有 9 张 png（工作区文件一个没丢）；`git status --short` 干净。"
+      ],
+      "notes": "撤出索引后，历史里的旧 blob 仍在仓库对象里；要真瘦身得另做 filter-repo，属独立决策，暂不做。\n\n另一件事：`.gitignore` 里的规则本身是对的，但对已跟踪文件不生效——这是 git 的设计，不是配置错误。以后新增产物目录时，记得「写 .gitignore」与「撤已有跟踪」是两步。"
     },
     {
       "id": "compat-001",
@@ -128,6 +132,27 @@
         "顺带修：`useNativeShell` 里重复 registerPlugin 触发的 “SystemBars already registered” 警告已消除，改为从桥按需取。"
       ],
       "notes": "**未在真实低版本 WebView 上验证**：本机与模拟器 WebView 都是 133，复现不出 93 的 dvh 缺失。结论依据是 CSS 层叠规范 + 产物顺序 + 兜底值撑起布局的实测，不等同真机确认。剩余风险：若白屏另由 JS 报错引起（.frame 根本未创建），本修复不覆盖那条路径，需 logcat 才能区分。"
+    },
+    {
+      "id": "import-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "历史导入：入口可靠、失败给原因、默认合并",
+      "user_visible_behavior": "点「上传」能打开系统文件选择器；选中 ZIP 后先确认再导入；默认合并保留现有对话，可显式选择覆盖；失败时显示具体原因（版本不符 / 文件不完整 / 不是 ZIP）；成功后显示导入与跳过数量。",
+      "status": "passing",
+      "verification": [
+        "输入框精确覆盖在按钮上（elementFromPoint 命中 input 本身）",
+        "真实浏览器里喂一份合法 v3 归档，能走到确认弹窗并合并成功",
+        "单条会话损坏只计入跳过，不中止整包",
+        "pnpm type / lint / test / build 全绿",
+        "APK 内包含新文案与新样式"
+      ],
+      "evidence": [
+        "2026-11-16：headless Chrome（390×844）实测，`elementFromPoint` 在「上传」按钮中心返回的就是 `input[aria-label=\"导入历史对话\"]`，rect 72×44、opacity 0、accept 为空。",
+        "2026-11-16：用 fflate 构造 manifest + chat_sessions/1001.json + index 的 v3 归档（830 字节），经 CDP `DOM.setFileInputFiles` 喂入，确认弹窗出现（取消 / 覆盖导入 / 合并导入），点「合并导入」后会话列表出现「探针测试对话」。截图 screenshots/probe-04-confirm.png、probe-06-list.png。",
+        "2026-11-16：`pnpm type` / `pnpm lint` / `pnpm test`（36 条）/ `pnpm build` 全绿；APK 6,531,413 字节，产物内可见 uploadInput、importConfirmHint、historyImportNoPicker、historyImportedWithSkipped、backupEmpty。"
+      ],
+      "notes": "改动分四层：① 入口——隐藏 input 加程序化 click 换成透明覆盖 input，accept 留空（系统把 zip 报成 octet-stream 时也能选到，格式交给 isZipFile 与 manifest 校验）；② 错误——catch 改用 errorStatus，文案加 {message} 占位符，6 个具体错误码不再被压成一句猜测；③ 语义——commitStaging 增加 merge 模式，同 ID 会话跳过而非覆盖，覆盖需单独点危险按钮；④ 反馈——等待选中、未选择文件、没弹出选择器、导入中、导入结果各有文案。\n\n**未在真机验证**：系统文件选择器是否真的弹出、Android 上 merge 后的列表刷新，只用桌面 Chrome 等价环境验证过。「重复导入全部已存在」时的跳过提示也没在探针里跑到（分支由 commitStaging 的 getKey 判断 + test/import-result.test.ts 覆盖）。"
     }
   ]
 }

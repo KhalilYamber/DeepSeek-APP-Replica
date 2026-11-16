@@ -1,7 +1,6 @@
 import * as db from '../db.js'
 import { BackupError, fail } from './errors.js'
-import type { SessionIndexEntry } from './format.js'
-import { INDEX_PATH, MANIFEST_PATH, USER_PATH, parseSessionPath, sessionFilesDir } from './paths.js'
+import { INDEX_PATH, MANIFEST_PATH, USER_PATH, parseSessionPath } from './paths.js'
 import { checkManifest, readSessionFile, readSessionIndex } from './schema.js'
 import { toLocalSession } from './toLocal.js'
 import {
@@ -50,9 +49,26 @@ const readJson = async (entry: ArchiveEntry): Promise<unknown> => {
   }
 }
 
+/** 宽容读取：整个条目读完再解析，失败返回 undefined，由调用方决定跳过。 */
+const tryReadJson = async (entry: ArchiveEntry): Promise<unknown> => {
+  const text = await (await readEntry(entry)).text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
+}
+
+/** 导入结果：真正写出的会话数与因格式损坏被跳过的会话数。 */
+export type ImportArchiveResult = {
+  sessions: number
+  failed: number
+}
+
 /**
- * 检查 ZIP 格式、首个 manifest 条目及格式版本。
- * 校验失败时保留正在生成的回答和现有暂存数据。
+ * 检查 ZIP 格式与格式版本。
+ * 只要求归档里存在合法 manifest；manifest 之前的杂项条目（目录、macOS 资源分叉等）直接跳过，
+ * 因为这些条目来自重新打包，不代表文件损坏。
  */
 export const checkArchiveFormat = async (file: File): Promise<void> => {
   if (!(await isZipFile(file))) {
@@ -61,7 +77,8 @@ export const checkArchiveFormat = async (file: File): Promise<void> => {
   try {
     for await (const entry of readArchive(file)) {
       if (entry.path !== MANIFEST_PATH) {
-        fail('backupUnrecognized')
+        await skipEntry(entry)
+        continue
       }
       checkManifest(await readJson(entry))
       return
@@ -77,8 +94,11 @@ export const checkArchiveFormat = async (file: File): Promise<void> => {
  * 也支持会话与图片交错排列、index 位于末尾的条目顺序。
  * 会话读完立即暂存，只保留图片路径映射；图片全部读完后逐会话回填 MIME，不改变图片身份。
  * 写入导入暂存存储；调用方负责先清空暂存，成功后替换正式数据，失败时清理暂存。
+ *
+ * 单条会话损坏只计入 `failed`，不中止整包：一个会话的消息树不合规，不该让其余几百条
+ * 对话一起进不来。结构性问题（不是 ZIP、manifest 缺失或版本不符）仍然整体失败。
  */
-export const importArchive = async (file: File): Promise<void> => {
+export const importArchive = async (file: File): Promise<ImportArchiveResult> => {
   if (!(await isZipFile(file))) {
     fail('backupUnrecognized')
   }
@@ -87,8 +107,7 @@ export const importArchive = async (file: File): Promise<void> => {
   /** 已保存的原件：文件 ID → MIME。同一图片出现在多个会话目录时只保存一次。 */
   const stored = new Map<string, string>()
   let manifest = false
-  let index: SessionIndexEntry[] | undefined
-  let currentSessionId: string | undefined
+  let failed = 0
 
   const saveImage = async (entry: ArchiveEntry, id: string) => {
     if (stored.has(id)) {
@@ -107,36 +126,58 @@ export const importArchive = async (file: File): Promise<void> => {
       const sessionId = parseSessionPath(path)
       if (!manifest) {
         if (path !== MANIFEST_PATH) {
-          fail('backupUnrecognized')
+          // manifest 之前的杂项（目录、macOS 资源分叉、重新打包时的占位文件）不代表文件损坏。
+          await skipEntry(entry)
+          continue
         }
         checkManifest(await readJson(entry))
         manifest = true
-      } else if (path === USER_PATH && !index && imported.size === 0) {
+        continue
+      }
+      if (path === USER_PATH) {
         // 账号信息（已脱敏）不导入；文件可能缺失。
         await skipEntry(entry)
-      } else if (sessionId !== null && !index) {
-        const local = toLocalSession(readSessionFile(await readJson(entry)))
-        if (local.session.id !== sessionId || imported.has(sessionId)) {
-          fail('backupIncomplete')
+      } else if (path === INDEX_PATH) {
+        // 索引只用于交叉核对，不再决定导入成败：会话与图片才是数据本身。
+        const data = await tryReadJson(entry)
+        if (data !== undefined) {
+          try {
+            readSessionIndex(data)
+          } catch {
+            // 索引损坏不影响会话导入。
+          }
+        }
+      } else if (sessionId !== null) {
+        if (imported.has(sessionId)) {
+          failed += 1
+          await skipEntry(entry)
+          continue
+        }
+        const data = await tryReadJson(entry)
+        if (data === undefined) {
+          failed += 1
+          continue
+        }
+        let local: ReturnType<typeof toLocalSession>
+        try {
+          local = toLocalSession(readSessionFile(data))
+        } catch {
+          failed += 1
+          continue
+        }
+        if (local.session.id !== sessionId) {
+          failed += 1
+          continue
         }
         imported.add(sessionId)
-        currentSessionId = sessionId
         for (const [imagePath, id] of local.images) {
           images.set(imagePath, id)
         }
         await db.addStagingSession(local.session)
-      } else if (path === INDEX_PATH && !index) {
-        index = readSessionIndex(await readJson(entry))
-      } else if (
-        index
-          ? imported.has(/^chat_sessions\/([^/]+)_files\//.exec(path)?.[1] ?? '')
-          : currentSessionId && path.startsWith(sessionFilesDir(currentSessionId))
-      ) {
-        // 没有被引用的条目不保存，引用了但缺失的图片只展示文件名。
-        const id = images.get(path)
-        await (id === undefined ? skipEntry(entry) : saveImage(entry, id))
       } else {
-        fail('backupIncomplete')
+        // 没有被引用的条目、以及无法识别的杂项，读完丢弃；引用了但缺失的图片只展示文件名。
+        const imageId = images.get(path)
+        await (imageId === undefined ? skipEntry(entry) : saveImage(entry, imageId))
       }
     }
   } catch (error) {
@@ -145,15 +186,9 @@ export const importArchive = async (file: File): Promise<void> => {
   if (!manifest) {
     fail('backupUnrecognized')
   }
-  // index 只列出成功写出的会话，与会话文件一一对应。
-  const listed = new Set(index?.map((entry) => entry.id))
-  if (
-    !index ||
-    listed.size !== index.length ||
-    listed.size !== imported.size ||
-    [...imported].some((id) => !listed.has(id))
-  ) {
-    fail('backupIncomplete')
+  if (imported.size === 0) {
+    fail('backupEmpty')
   }
   await db.updateStagingFileTypes(stored)
+  return { sessions: imported.size, failed }
 }

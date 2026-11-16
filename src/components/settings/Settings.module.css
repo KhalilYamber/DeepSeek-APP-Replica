@@ -108,6 +108,26 @@
   padding: 0 13px;
 }
 
+/* 文件选择器覆盖在按钮上：用户点到的是 input 本身，不依赖脚本触发 click */
+.uploadArea {
+  position: relative;
+  display: inline-flex;
+}
+
+.uploadInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0;
+}
+
+.uploadInput:disabled {
+  cursor: default;
+}
+
 .locationCell {
   flex-wrap: wrap;
 }
@@ -414,6 +434,13 @@
 
 .importConfirmText {
   color: var(--dsw-alias-label-primary);
+}
+
+.importConfirmHint {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  margin-top: 6px;
 }
 
 .deleteConfirm {

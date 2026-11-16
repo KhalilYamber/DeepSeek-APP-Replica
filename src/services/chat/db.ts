@@ -203,12 +203,27 @@ export const updateStagingFileTypes = async (types: ReadonlyMap<string, string>)
   ])
 }
 
+/** 暂存写入正式数据的方式：合并保留现有会话，替换清空现有会话。 */
+export type CommitMode = 'merge' | 'replace'
+
+export type CommitResult = {
+  /** 本次真正写入的会话摘要 */
+  summaries: SessionSummary[]
+  /** 合并模式下因会话 ID 已存在而跳过的条数 */
+  skipped: number
+}
+
 /**
- * 导入完成后用暂存替换正式数据：同一事务中替换会话、摘要和原件，并清空暂存。
+ * 导入完成后把暂存写入正式数据，并清空暂存。
  * 逐条游标复制，同一时间只读取一条记录；事务失败时整体回滚，正式数据不变。
+ *
+ * 合并模式下不再清空正式存储：会话 ID 已存在视为同一份对话，跳过而不是覆盖，
+ * 避免重复导入同一份归档时把本地版本改写成归档里的旧版本。附件仍按 ID 覆盖写入
+ * （内容相同，重复写入不产生副本）。
  */
-export const commitStaging = async (): Promise<SessionSummary[]> => {
+export const commitStaging = async (mode: CommitMode = 'replace'): Promise<CommitResult> => {
   const summaries: SessionSummary[] = []
+  let skipped = 0
   const tx = (await getDB()).transaction(
     ['sessions', 'sessionSummaries', 'files', 'sessionsStaging', 'filesStaging'],
     'readwrite'
@@ -216,18 +231,25 @@ export const commitStaging = async (): Promise<SessionSummary[]> => {
   const move = async (from: 'sessionsStaging' | 'filesStaging', to: 'sessions' | 'files') => {
     try {
       const target = tx.objectStore(to)
-      await target.clear()
-      if (to === 'sessions') {
-        await tx.objectStore('sessionSummaries').clear()
+      if (mode === 'replace') {
+        await target.clear()
+        if (to === 'sessions') {
+          await tx.objectStore('sessionSummaries').clear()
+        }
       }
       for (
         let cursor = await tx.objectStore(from).openCursor();
         cursor;
         cursor = await cursor.continue()
       ) {
-        await target.put(cursor.value)
+        const value = cursor.value
+        if (mode === 'merge' && to === 'sessions' && (await target.getKey(value.id)) !== undefined) {
+          skipped += 1
+          continue
+        }
+        await target.put(value)
         if (to === 'sessions') {
-          const summary = storedSummary(cursor.value as Session)
+          const summary = storedSummary(value as Session)
           await tx.objectStore('sessionSummaries').put(summary)
           summaries.push(toSessionSummary(summary))
         }
@@ -241,7 +263,7 @@ export const commitStaging = async (): Promise<SessionSummary[]> => {
   }
   await Promise.all([move('sessionsStaging', 'sessions'), move('filesStaging', 'files'), tx.done])
   // 直接返回本次提交的列表，调用方无需在替换成功后再发起可能失败的读取。
-  return summaries
+  return { summaries, skipped }
 }
 
 /** 本地存储失败不打断对话，只在控制台留痕 */

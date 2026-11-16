@@ -14,10 +14,13 @@ import {
   clearHistory,
   exportHistory,
   importHistory,
+  type ImportMode,
 } from '../../services/chat/backup.js'
+import { importMessage } from '../../services/chat/history/result.js'
 import { isNativeApp, saveBlobOnNative } from '../../services/native/platform.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useChatStore } from '../../services/chat/store.js'
+import { openMobileSider } from '../sider/mobileSiderState.js'
 import { regionCodes, getRegionName, provinces } from '../../services/location.js'
 import {
   isChineseBrowser,
@@ -315,7 +318,7 @@ const TtsVoiceSetting = () => {
   )
 }
 
-/** 覆盖导入的二次确认，叠在设置弹窗上 */
+/** 导入的二次确认：默认合并，覆盖单独一个危险按钮，避免误清空本地对话。 */
 const ImportConfirm = ({
   historyImport,
 }: {
@@ -329,16 +332,30 @@ const ImportConfirm = ({
       onClose={historyImport.cancel}
       footer={
         <>
-          <Button variant="outlined" size="m" autoFocus onClick={historyImport.cancel}>
+          <Button variant="outlined" size="m" onClick={historyImport.cancel}>
             {t('cancel')}
           </Button>
-          <Button variant="dangerOutlined" size="m" onClick={() => void historyImport.confirm()}>
-            {t('historyImportConfirm')}
+          <Button
+            variant="dangerOutlined"
+            size="m"
+            onClick={() => void historyImport.confirm('replace')}
+          >
+            {t('historyImportReplace')}
+          </Button>
+          <Button
+            variant="primary"
+            size="m"
+            autoFocus
+            onClick={() => void historyImport.confirm('merge')}
+          >
+            {t('historyImportMerge')}
           </Button>
         </>
       }
     >
       <div className={styles.importConfirmText}>{t('historyImportConfirmDescription')}</div>
+      <div className={styles.importConfirmHint}>{t('historyImportMergeHint')}</div>
+      <div className={styles.importConfirmHint}>{t('historyImportReplaceHint')}</div>
     </Modal>
   )
 }
@@ -437,36 +454,74 @@ const SettingCell = ({
   )
 }
 
-/** 选文件后先提示覆盖；确认后才检查文件并执行导入，任何错误都提示导入失败。 */
+/**
+ * 选文件 → 确认 → 导入，每一步都有可见状态：
+ * 点击上传后先显示等待选中，选择器返回空时明确提示，失败时显示具体原因。
+ */
 const useHistoryImport = () => {
+  const isMobile = useIsMobile()
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<Status>(null)
   const importing = useRef(false)
+  const waiting = useRef(0)
 
-  const confirm = async () => {
+  /** 点击上传按钮：先告诉用户正在等选择器，避免出现「点了没反应」。 */
+  const beginSelect = () => {
+    setStatus({ key: 'historyImportWaiting' })
+    window.clearTimeout(waiting.current)
+    waiting.current = window.setTimeout(() => {
+      setStatus((current) =>
+        current?.key === 'historyImportWaiting' ? { key: 'historyImportNoPicker' } : current
+      )
+    }, 8000)
+  }
+
+  const select = (picked: File | null) => {
+    window.clearTimeout(waiting.current)
+    if (!picked) {
+      setStatus({ key: 'historyImportNoFile', error: true })
+      return
+    }
+    setStatus(null)
+    setFile(picked)
+  }
+
+  const cancel = () => {
+    window.clearTimeout(waiting.current)
+    setFile(null)
+  }
+
+  const confirm = async (mode: ImportMode) => {
     if (!file || importing.current) {
       return
     }
     importing.current = true
+    const picked = file
     setFile(null)
     setBusy(true)
-    setStatus(null)
+    setStatus({ key: 'historyImporting' })
     try {
-      const count = await importHistory(file)
-      setStatus({ key: count === 1 ? 'historyImportedOne' : 'historyImported', params: { count } })
-    } catch {
-      setStatus({ key: 'historyImportFailed', error: true })
+      const result = await importHistory(picked, mode)
+      const message = importMessage(result)
+      setStatus(message)
+      showToast(message)
+      // 移动端会话列表在抽屉里：先打开，用户关掉设置就能看到刚导入的对话。
+      if (isMobile) {
+        openMobileSider()
+      }
+    } catch (error) {
+      setStatus(errorStatus('historyImportFailed', error))
     } finally {
       importing.current = false
       setBusy(false)
     }
   }
 
-  return { file, busy, status, select: setFile, cancel: () => setFile(null), confirm }
+  return { file, busy, status, beginSelect, select, cancel, confirm }
 }
 
-/** 导入 = 覆盖：用选中文件替换本地全部会话与附件。 */
+/** 导入 = 选文件后确认；默认合并，覆盖需要单独选择。 */
 const ImportHistory = ({
   historyImport,
   disabled,
@@ -475,7 +530,6 @@ const ImportHistory = ({
   disabled: boolean
 }) => {
   const t = useTranslate()
-  const inputRef = useRef<HTMLInputElement>(null)
 
   return (
     <SettingCell
@@ -483,31 +537,30 @@ const ImportHistory = ({
       description={t('historyImportDescription')}
       status={historyImport.status}
       action={
-        <>
-          <Button
-            variant="outlined"
-            size="m"
-            className={clsx(styles.cellButton, styles.uploadButton)}
-            disabled={disabled}
-            onClick={() => inputRef.current?.click()}
-          >
+        <div className={styles.uploadArea}>
+          <Button variant="outlined" size="m" className={styles.cellButton} disabled={disabled}>
             <IconUploadOutline14 />
             {t('upload')}
           </Button>
+          {/*
+            透明覆盖在按钮上，用户点到的就是 input 本身。
+            WebView 里对隐藏 input 调用 click() 并不可靠，这条路径要避开。
+            accept 留空：系统文件管理器把 zip 报成 octet-stream 时，收窄的 MIME
+            白名单会让文件变成不可选；格式由 isZipFile 与 manifest 校验兜底。
+          */}
           <input
-            ref={inputRef}
             type="file"
-            accept=".zip,application/zip,application/x-zip-compressed"
-            hidden
+            aria-label={t('historyImport')}
+            className={styles.uploadInput}
+            disabled={disabled}
+            onClick={historyImport.beginSelect}
             onChange={(event) => {
-              const file = event.target.files?.[0]
+              const picked = event.target.files?.[0] ?? null
               event.target.value = ''
-              if (file) {
-                historyImport.select(file)
-              }
+              historyImport.select(picked)
             }}
           />
-        </>
+        </div>
       }
     />
   )
