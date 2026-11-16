@@ -844,7 +844,8 @@ const prepareFiles = async (sessionId: string, request: Request, signal: AbortSi
   }
 
   const pending = new Map<string, FileAttachment>()
-  for (const [user] of getContextRounds(request.history).toReversed()) {
+  // toReversed() 要 Chrome 110+，旧安卓 WebView 上会抛 TypeError，改用复制后反转
+  for (const [user] of [...getContextRounds(request.history)].reverse()) {
     for (const file of user.files) {
       if (!file.serverId && !serverIds.has(file.id) && !pending.has(file.id)) {
         pending.set(file.id, file)

@@ -417,6 +417,8 @@
 }
 
 .deleteConfirm {
+  /* dvh 需 Chrome 108+，旧 WebView 上用 vh 兜底 */
+  max-height: calc(100vh - 32px);
   max-height: calc(100dvh - 32px);
   overflow-y: auto;
 }

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { App as NativeApp } from '@capacitor/app'
-import { Capacitor, registerPlugin } from '@capacitor/core'
+import { Capacitor } from '@capacitor/core'
 import { closeSearchPanel, useSearchPanel } from '../components/search/searchPanelState.js'
 import { closeSettings, useSettingsDialog } from '../components/settings/settingsDialogState.js'
 import { closeMobileSider, useMobileSider } from '../components/sider/mobileSiderState.js'
@@ -18,7 +18,20 @@ type SystemBarsPlugin = {
   }): Promise<void>
 }
 
-const SystemBars = registerPlugin<SystemBarsPlugin>('SystemBars')
+/**
+ * Capacitor 8 已内置注册 SystemBars，再调 registerPlugin 会报
+ * "already registered. Cannot register plugins twice"，因此直接从桥里取。
+ * 桥挂在 window 上，但 @capacitor/core 的 CapacitorGlobal 类型未声明 Plugins，
+ * 故按运行时形状断言。
+ */
+const getSystemBars = (): SystemBarsPlugin | undefined => {
+  const bridge = (
+    globalThis as {
+      Capacitor?: { Plugins?: Record<string, SystemBarsPlugin | undefined> }
+    }
+  ).Capacitor
+  return bridge?.Plugins?.SystemBars
+}
 
 /**
  * 安卓返回键：按「最上层先关」的顺序处理，只有什么都不开着时才退出应用。
@@ -63,6 +76,6 @@ export const useNativeShell = () => {
     if (!native) {
       return
     }
-    void SystemBars.setStyle({ style: theme === 'dark' ? 'DARK' : 'LIGHT' }).catch(() => {})
+    void getSystemBars()?.setStyle({ style: theme === 'dark' ? 'DARK' : 'LIGHT' }).catch(() => {})
   }, [native, theme])
 }

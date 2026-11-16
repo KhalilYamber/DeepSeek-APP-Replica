@@ -59,6 +59,8 @@
     position: fixed;
     top: var(--app-viewport-top, 0px);
     bottom: auto;
+    /* dvh 需 Chrome 108+；旧 WebView 不认 dvh 会让整条 height 失效、根容器塌成 0。先给 vh 兜底。 */
+    height: var(--app-viewport-height, 100vh);
     height: var(--app-viewport-height, 100dvh);
     padding-top: env(safe-area-inset-top);
   }
