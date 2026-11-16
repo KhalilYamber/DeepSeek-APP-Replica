@@ -10,7 +10,8 @@
     "build": "node scripts/build.mjs",
     "type": "tsc -p tsconfig.json",
     "lint": "oxlint src rspack.config.ts",
-    "format": "oxfmt --write ."
+    "format": "oxfmt --write .",
+    "test": "node --test --experimental-test-isolation=none \"test/*.test.ts\""
   },
   "dependencies": {
     "@capacitor/android": "^8.6.2",

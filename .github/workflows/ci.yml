@@ -1,0 +1,65 @@
+name: CI
+
+# 把 AGENTS.md 里的「门禁」从本地搬到每次 push。
+# 本地跑 ./init.ps1 是自觉，这里跑是强制执行——换机器、忘跑、别人提交，都拦得住。
+#
+# 刻意不含的两项：
+#   - oxfmt 格式检查：格式不该阻断合并，留给人自己 pnpm format
+#   - android/ 打包 APK：需要 Android SDK，属发布流程，不属代码门禁
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: 门禁（type / lint / test / build）
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm type
+
+      - name: 静态检查
+        run: pnpm lint
+
+      - name: 单元测试
+        run: pnpm test
+
+      - name: 生产构建
+        run: pnpm build
+
+      - name: 产物齐全
+        run: |
+          set -euo pipefail
+          test -f dist/index.html   || { echo "缺少 dist/index.html"; exit 1; }
+          test -f dist/LICENSE      || { echo "缺少 dist/LICENSE（上游 MIT 许可须随产物分发）"; exit 1; }
+          test -d dist/static/js    || { echo "缺少 dist/static/js"; exit 1; }
+          test -d dist/static/css   || { echo "缺少 dist/static/css"; exit 1; }
+          echo "产物齐全：$(find dist/static -type f | wc -l) 个静态文件"

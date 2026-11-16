@@ -9,3 +9,15 @@ build/
 .env.*
 !.env.example
 tmp/
+
+# 构建与打包产物：可从源码重建，不进版本控制
+release/
+screenshots/
+
+# 安卓构建中间物与生成工程（Capacitor sync 覆盖）
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
