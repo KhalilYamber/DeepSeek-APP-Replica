@@ -67,6 +67,19 @@ node tools/shot.mjs           无头截图，落到 screenshots/
 node tools/webview-eval.mjs   在已连真机的 WebView 里跑脚本取证
 ```
 
+## 发布
+
+一个 APK 对应一个版本，旧版随时可从 Releases 下载：
+
+1. 改 `package.json` 的 `version`——`versionCode` 由它折算（`major*10000 + minor*100 + patch`，见 ARCHITECTURE 决策 16），不要再手改 `build.gradle`
+2. 更新 `CHANGELOG.md`：把 `[未发布]` 换成新版本号与日期
+3. `pnpm build` → `pnpm exec cap sync android` → `cd android; .\gradlew.bat assembleDebug`
+4. 产物重命名为 `DeepSeek-APP-Replica-<version>-debug.apk`
+5. `git commit -m "chore(release): <version>"` → `git tag -a v<version> -m "<摘要>"` → 推分支与 tag
+6. `gh release create v<version> <apk> --title "<版本> — <摘要>" --notes-file <说明>`
+
+`gh` 要在 git 仓库根目录执行，否则会报 `not a git repository`。国内网络下 `git push` 与 `gh` 需要走本地代理（本机实测 `http://127.0.0.1:7897`，以实际端口为准），且 SSL 偶发断连——重试一次通常就好。
+
 ## 红线
 
 - **保留上游版权**：`src/` 主体来自 deepseek-ai/chat-demo（MIT）。`LICENSE` 必须随产物分发（构建会拷进 `dist/`），改动不删上游文件头。
