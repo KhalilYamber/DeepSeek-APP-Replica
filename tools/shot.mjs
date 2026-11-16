@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process'
 import { writeFile, rm } from 'node:fs/promises'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 const CHROME =
   process.env.CHROME_PATH ??
@@ -19,13 +20,15 @@ const width = Number(wArg ?? 390)
 const height = Number(hArg ?? 844)
 const dsf = Number(dsfArg ?? 2)
 const port = 9500 + Math.floor(Math.random() * 200)
-const prof = `${out}.profile`
+// Chrome 对 --user-data-dir 的相对路径处理不稳，统一转绝对路径
+const prof = resolve(`${out}.profile`)
 if (existsSync(prof)) await rm(prof, { recursive: true, force: true })
 
 const child = spawn(
   CHROME,
   [
-    '--headless=new',
+    // Chrome 157 上 `--headless=new` 起不来 DevTools，`--headless` 可以
+    '--headless',
     '--disable-gpu',
     '--no-sandbox',
     '--hide-scrollbars',
