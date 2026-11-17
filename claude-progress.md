@@ -13,7 +13,8 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 标准验证路径：`pnpm test`；完整跑 `./init.ps1`
 - 当前最高优先级未完成功能：无（12 条：7 条 passing、5 条 inferred，无 open）
 - 当前 blocker：无
-- 已发布：**v0.3.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.3.0-debug.apk`（6,344,320 字节），CI run 44029554535 全绿——**含「内核兼容」步的首个真实运行**（日志：`error 0 / hint 0 / info 9 / 豁免 0`）
+- 已发布：**v0.4.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.4.0-debug.apk`（6,376,387 字节，SHA256 `CAD2EC32…80424AF`），CI run 44068960454 全绿。版本号 0.3.0 → 0.4.0（versionCode 400）
+- 已发布：**v0.3.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.3.0-debug.apk`（6,344,320 字节），CI run 44029554535 全绿——含「内核兼容」步的首个真实运行（日志：`error 0 / hint 0 / info 9 / 豁免 0`）
 - CI：GitHub Actions 已生效，push 到 `main` 即跑，链路已含「内核兼容」一步（最近一次全绿 run 43841705481 早于本轮新增的 scan 步，下次 push 才是首个含它的 run）
 
 ## 会话记录
