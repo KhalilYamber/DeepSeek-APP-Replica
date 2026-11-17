@@ -1,7 +1,12 @@
 import { useEffect } from 'react'
 import { useTranslate } from '../i18n/index.js'
 import { useSettings } from '../services/settings.js'
-import { useIsMobile, useMobileViewport, usePreventPageScroll } from './viewport.js'
+import {
+  useIsMobile,
+  useMobileViewport,
+  usePreventPageScroll,
+  useViewportLayoutSync,
+} from './viewport.js'
 import { useNativeShell } from './useNativeShell.js'
 import {
   bindChatPersistence,
@@ -52,6 +57,7 @@ export const App = () => {
   const activeId = useChatStore((state) => state.activeId)
 
   usePreventPageScroll(isMobile)
+  useViewportLayoutSync()
   useNativeShell()
 
   useEffect(() => {

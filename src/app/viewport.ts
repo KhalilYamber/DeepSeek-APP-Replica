@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { resolveSafeSide } from './safeArea.js'
 
-/** 窄于 768px 按移动端布局 */
-const query = window.matchMedia('not all and (min-width: 768px)')
+/** 窄于 768px，或高不足 480px（手机横过来）按移动端布局。逗号＝或，与 CSS 里的媒体查询同一条件。 */
+const query = window.matchMedia('not all and (min-width: 768px), (max-height: 479px)')
 
 const subscribe = (onChange: () => void) => {
   query.addEventListener('change', onChange)
@@ -108,4 +109,71 @@ export const useMobileViewport = (enabled: boolean) => {
   }, [enabled])
 
   return frameRef
+}
+
+/** 布局突变（转屏、键盘、窗口缩放）期间临时关掉过渡，避免闪与晕 */
+const LAYOUT_CHANGE_CLASS = 'change-layout'
+const LAYOUT_CHANGE_HOLD_MS = 120
+/** env() 只由样式解析，借这个隐形探针把它读成像素值（样式见 global.css） */
+const SAFE_AREA_PROBE_CLASS = 'safe-area-probe'
+
+const readSideInsets = () => {
+  const probe = document.createElement('div')
+  probe.className = SAFE_AREA_PROBE_CLASS
+  document.body.appendChild(probe)
+  const style = getComputedStyle(probe)
+  const insets = {
+    left: parseFloat(style.paddingLeft) || 0,
+    right: parseFloat(style.paddingRight) || 0,
+  }
+  probe.remove()
+  return insets
+}
+
+/** 把横屏镜像安全边距写进 `--app-safe-side`，并在布局突变期间压住过渡 */
+export const useViewportLayoutSync = () => {
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    let insets = readSideInsets()
+    let landscape = window.innerWidth > window.innerHeight
+    let holdTimer = 0
+    const syncSafeSide = (refetchInsets: boolean) => {
+      const next = window.innerWidth > window.innerHeight
+      // 安全区只在转屏时变；orientationchange 可能早于新视口尺寸，缩到尺寸稳定再读一次
+      if (refetchInsets || next !== landscape) {
+        insets = readSideInsets()
+      }
+      landscape = next
+      root.style.setProperty(
+        '--app-safe-side',
+        `${resolveSafeSide(insets.left, insets.right, landscape)}px`
+      )
+    }
+    const holdTransitions = () => {
+      document.body.classList.add(LAYOUT_CHANGE_CLASS)
+      window.clearTimeout(holdTimer)
+      holdTimer = window.setTimeout(() => {
+        document.body.classList.remove(LAYOUT_CHANGE_CLASS)
+      }, LAYOUT_CHANGE_HOLD_MS)
+    }
+    const onResize = () => {
+      holdTransitions()
+      syncSafeSide(false)
+    }
+    const onOrientationChange = () => {
+      holdTransitions()
+      syncSafeSide(true)
+    }
+
+    syncSafeSide(true)
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onOrientationChange)
+    return () => {
+      window.clearTimeout(holdTimer)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onOrientationChange)
+      document.body.classList.remove(LAYOUT_CHANGE_CLASS)
+      root.style.removeProperty('--app-safe-side')
+    }
+  }, [])
 }

@@ -308,7 +308,7 @@
   }
 }
 
-@media not all and (min-width: 768px) {
+@media not all and (min-width: 768px), (max-height: 479px) {
   .dialog {
     align-self: flex-end;
     width: 100%;
@@ -458,7 +458,7 @@
   width: 100%;
 }
 
-@media not all and (min-width: 768px) {
+@media not all and (min-width: 768px), (max-height: 479px) {
   .deleteActions > button {
     min-height: 44px;
     height: auto;

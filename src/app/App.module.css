@@ -54,7 +54,8 @@
   text-align: center;
 }
 
-@media not all and (min-width: 768px) {
+/* 逗号＝或：手机横过来时宽度过了 768，但高度只剩 412，键盘一弹没有可用空间，同样按移动端处理 */
+@media not all and (min-width: 768px), (max-height: 479px) {
   .frame {
     position: fixed;
     top: var(--app-viewport-top, 0px);
@@ -63,5 +64,8 @@
     height: var(--app-viewport-height, 100vh);
     height: var(--app-viewport-height, 100dvh);
     padding-top: env(safe-area-inset-top);
+    /* 横屏刘海与导航条只报在一侧，两侧共用较大的一边，内容才在玻璃上居中；竖屏由 JS 写 0 */
+    padding-left: var(--app-safe-side, 0px);
+    padding-right: var(--app-safe-side, 0px);
   }
 }

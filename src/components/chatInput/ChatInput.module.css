@@ -219,7 +219,7 @@
   max-height: 336px;
 }
 
-@media not all and (min-width: 768px) {
+@media not all and (min-width: 768px), (max-height: 479px) {
   .wrapper {
     flex-shrink: 0;
     /* dvh 需 Chrome 108+，旧 WebView 上用 vh 兜底 */

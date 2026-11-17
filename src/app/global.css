@@ -37,13 +37,30 @@ body[data-ds-dark-theme] {
   --scroll-color-hover: rgba(255, 255, 255, 0.24);
 }
 
+/* 换主题与布局突变（转屏、键盘、窗口缩放）期间都不播过渡 */
 body.change-theme *,
 body.change-theme *::before,
-body.change-theme *::after {
+body.change-theme *::after,
+body.change-layout *,
+body.change-layout *::before,
+body.change-layout *::after {
   transition: none !important;
 }
 
-@media not all and (min-width: 768px) {
+/* viewport.ts 拿它把 env(safe-area-inset-left/right) 读成像素值，读一次就摘掉 */
+.safe-area-probe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+@media not all and (min-width: 768px), (max-height: 479px) {
   html,
   body,
   #root {
