@@ -5,6 +5,515 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
     <title>API 使用 demo</title>
+    <script>
+      /*
+       * 启动兜底：这段脚本跑在任何打包产物之前，自己是纯 ES5。
+       *
+       * 为什么不用新语法：它是「界面没起来」时唯一还能说话的代码。用 ES2015+ 写，等于在最需要它的
+       * 老内核上先自灭——解析期就整段丢掉，连错误页都画不出来。test/boot-guard.test.ts 守这条。
+       *
+       * 它做三件事：
+       *   1. UA 解出的 Chromium 版本低于 MIN_CHROMIUM（= 构建目标 chrome >= 70 的门槛）时给解释页，
+       *      但先确认界面确实没渲染出来，避免误伤「版本号偏低但碰巧能跑」的机器；
+       *   2. 把启动期的 error / unhandledrejection 记进诊断信息，供开发者定位；
+       *   3. 8 秒后看 #root：没有子节点、或高度 < 120px（根容器塌了）就判定「没渲染」，画错误页。
+       *
+       * 只在判定「没渲染」时才往 DOM 里放东西，正常启动一个像素都不出现；界面一旦自己渲染出来，
+       * 已经画出来的错误页也会自动撤下。
+       *
+       * 文案只有中文：app 的默认语言是中文，而这里没法走 i18n 词表（那要加载主包，而主包正是可能没跑起来的那个）。
+       */
+      (function () {
+        'use strict'
+
+        var MIN_CHROMIUM = 70
+        var TIMEOUT_MS = 8000
+        var EXTEND_MS = 4000
+        var MAX_EXTENDS = 3
+        var KERNEL_PAINT_DELAY_MS = 1500
+        var ROOT_MIN_HEIGHT = 120
+        var KEEP_ERRORS = 8
+        var RECHECK_MS = 2000
+        var RECHECK_LIMIT = 45
+        var OVERLAY_ID = 'boot-guard-fatal'
+        var UI_FONT =
+          '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif'
+        var MONO_FONT =
+          'ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace'
+        var ACCENT = '#3964fe'
+        var INK = '#1f2328'
+        var MUTED = '#6b7280'
+        var LINE = '#e5e7eb'
+
+        var ua = ''
+        try {
+          ua = navigator.userAgent || ''
+        } catch (e) {
+          ua = ''
+        }
+
+        // 安卓 WebView 的 UA 里一定有 Chrome/<version>（系统 WebView 也是这个形态）。
+        // 解不出来就返回 0：宁可不上门槛，也不要拿一个猜出来的版本号挡住能跑的机器。
+        var chromium = (function () {
+          var m = /(?:Chrome|Chromium|CriOS)\/([0-9]+)/.exec(ua)
+          return m ? parseInt(m[1], 10) : 0
+        })()
+
+        var startedAt = new Date().getTime()
+        var finished = false
+        var reported = false
+        var caseId = ''
+        var extensions = 0
+        var errors = []
+        var timer = null
+        var timerAt = 0
+        var recheckTimer = null
+        var rechecks = 0
+
+        var CASES = {
+          kernel: {
+            kicker: '启动失败',
+            title: '这个界面打不开：系统内核太旧',
+            lead: '你手机里跑网页的那个系统组件（Android System WebView）版本低于这个应用要求的最低版本。',
+            why: [
+              '这个应用的界面是用较新的网页技术写的。你手机里的 WebView 版本太旧，读不懂应用代码里的新语法——脚本还没开始执行就解析失败了，所以屏幕上什么都没有，也不会有任何报错弹窗。',
+              '这不是网络问题（换 Wi-Fi 或流量都没用），也不是你的账号或 API Key 的问题。'
+            ],
+            fix: [
+              '打开手机上的应用商店，搜索 Android System WebView（有的机型显示为「WebView」或「安卓系统 WebView」），点「更新」。',
+              '没有 Google Play 的机型，用自带应用商店或浏览器搜同一个名字；也可以顺手更新 Chrome——安卓的 WebView 通常跟着 Chrome 一起更新。',
+              '更新完请完全退出这个应用再打开：从最近任务列表里把它划掉，不是切到后台再切回来。',
+              '如果系统组件已经停更（很多老机型不再放更新），这台机器就装不上更高的内核了。换一台系统版本更高的手机，或者把下面的诊断信息发给开发者。'
+            ],
+            action: '先试试能不能打开'
+          },
+          timeout: {
+            kicker: '启动失败',
+            title: '这个界面打不开：8 秒内没有渲染出来',
+            lead: '应用该开始画界面了，但根容器 #root 里一直没有内容。',
+            why: [
+              '常见原因有三个：① 主程序脚本跑到一半崩了——内核版本偏低时最常见；② 安装包不完整，主脚本文件缺失或损坏；③ 这台机器启动特别慢，8 秒还没走完。',
+              '这三种从外面看起来一模一样，区别在下面的「错误记录」里。'
+            ],
+            fix: [
+              '先点「重新加载」试一次——第一次启动要解压资源、建缓存，慢一些是正常的。',
+              '还不行就更新 Android System WebView（应用商店搜这个名字），然后完全退出应用再打开。',
+              '确认手机剩余存储空间充足，必要时重新安装这个应用（安装包不完整也会这样）。',
+              '把下面的诊断信息发给开发者。'
+            ],
+            action: '继续等待'
+          },
+          resource: {
+            kicker: '启动失败',
+            title: '这个界面打不开：主程序文件没加载成功',
+            lead: '页面去取主程序脚本（static/js/ 下的文件）时失败了。',
+            why: [
+              '常见原因是安装包不完整、安装过程被中断，或者系统清理缓存时把应用里的文件弄坏了。',
+              '这种情况下界面永远不会出现，重新加载通常也无效。'
+            ],
+            fix: [
+              '重新安装这个应用：先卸载，再用完整的安装包装一次。',
+              '确认手机剩余存储空间充足。',
+              '把下面的诊断信息发给开发者。'
+            ],
+            action: '继续等待'
+          }
+        }
+
+        function now() {
+          return new Date().getTime()
+        }
+
+        function rootElement() {
+          return document.getElementById('root')
+        }
+
+        // 'missing'（容器都没了）| 'empty'（有容器没内容）| 'flat'（有内容但高度塌了）| 'ok'
+        function rootState() {
+          var root = rootElement()
+          if (!root) return 'missing'
+          if (!root.children || root.children.length === 0) return 'empty'
+          var height = 0
+          if (root.getBoundingClientRect) height = root.getBoundingClientRect().height
+          if (!height) height = root.offsetHeight || 0
+          return height < ROOT_MIN_HEIGHT ? 'flat' : 'ok'
+        }
+
+        function describeRoot() {
+          var root = rootElement()
+          if (!root) return '容器不存在'
+          var count = root.children ? root.children.length : 0
+          var height = 0
+          if (root.getBoundingClientRect) height = root.getBoundingClientRect().height
+          if (!height) height = root.offsetHeight || 0
+          return '子节点 ' + count + ' 个，高度 ' + Math.round(height) + 'px'
+        }
+
+        function remember(kind, text) {
+          errors.push({ at: now(), kind: kind, text: String(text).slice(0, 240) })
+          if (errors.length > KEEP_ERRORS) errors.shift()
+        }
+
+        function appVersion() {
+          var meta = document.querySelector && document.querySelector('meta[name="application-version"]')
+          return (meta && meta.getAttribute('content')) || '（读不到）'
+        }
+
+        function pad2(value) {
+          return (value < 10 ? '0' : '') + value
+        }
+
+        function stamp(ms) {
+          var d = new Date(ms)
+          return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds())
+        }
+
+        function diagnostics() {
+          var lines = []
+          lines.push('时间 ' + stamp(startedAt))
+          lines.push('应用版本 ' + appVersion())
+          lines.push('页面 ' + (location.href || ''))
+          lines.push('内核 Chrome ' + (chromium || '无法识别') + '（最低要求 ' + MIN_CHROMIUM + '）')
+          lines.push('#root ' + describeRoot() + '（' + rootState() + '）')
+          lines.push('判定 ' + caseId)
+          lines.push('UA ' + (ua || '（读不到）'))
+          if (errors.length === 0) {
+            lines.push('错误记录 （无）')
+          } else {
+            lines.push('错误记录')
+            for (var i = 0; i < errors.length; i++) {
+              lines.push('  [' + stamp(errors[i].at) + '] ' + errors[i].kind + ' ' + errors[i].text)
+            }
+          }
+          return lines.join('\n')
+        }
+
+        function block(css, text) {
+          var node = document.createElement('div')
+          if (css) node.style.cssText = css
+          if (text !== undefined && text !== null) node.textContent = text
+          return node
+        }
+
+        function heading(level, css, text) {
+          var node = document.createElement('h' + level)
+          node.style.cssText = css
+          node.textContent = text
+          return node
+        }
+
+        function button(label, primary, onClick) {
+          var node = document.createElement('button')
+          node.type = 'button'
+          node.textContent = label
+          if (primary) {
+            node.style.cssText =
+              'display:block;width:100%;padding:13px 16px;margin:0 0 10px;border:0;border-radius:10px;background:' +
+              ACCENT +
+              ';color:#ffffff;font-size:16px;font-weight:600;font-family:inherit'
+          } else {
+            node.style.cssText =
+              'display:block;width:100%;padding:12px 16px;margin:0 0 10px;border:1px solid ' +
+              LINE +
+              ';border-radius:10px;background:#ffffff;color:' +
+              INK +
+              ';font-size:15px;font-family:inherit'
+          }
+          node.onclick = onClick
+          return node
+        }
+
+        function copyText(value, node, idle) {
+          var copied = false
+          try {
+            var area = document.createElement('textarea')
+            area.value = value
+            area.setAttribute('readonly', 'readonly')
+            area.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0'
+            document.body.appendChild(area)
+            area.select()
+            area.setSelectionRange(0, value.length)
+            copied = document.execCommand && document.execCommand('copy')
+            document.body.removeChild(area)
+          } catch (e) {
+            copied = false
+          }
+          node.textContent = copied ? '已复制' : '复制失败：长按下面文字手动选'
+          if (copied) {
+            setTimeout(function () {
+              node.textContent = idle
+            }, 2500)
+          }
+        }
+
+        function removeOverlay() {
+          var node = document.getElementById(OVERLAY_ID)
+          if (node && node.parentNode) node.parentNode.removeChild(node)
+        }
+
+        function render() {
+          if (!document.body) return
+          if (document.getElementById(OVERLAY_ID)) return
+          var info = CASES[caseId] || CASES.timeout
+
+          var shell = document.createElement('div')
+          shell.id = OVERLAY_ID
+          shell.setAttribute('role', 'alertdialog')
+          shell.style.cssText =
+            'position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483647;' +
+            'background:#ffffff;color:' +
+            INK +
+            ';font:15px/1.65 ' +
+            UI_FONT +
+            ';overflow:auto;-webkit-overflow-scrolling:touch;padding:28px 20px 44px;box-sizing:border-box'
+
+          var page = block('max-width:560px;margin:0 auto')
+          page.appendChild(
+            block(
+              'font-size:12px;letter-spacing:.12em;color:' + MUTED + ';margin-bottom:10px',
+              info.kicker
+            )
+          )
+          page.appendChild(
+            heading(
+              1,
+              'margin:0 0 14px;font-size:22px;line-height:1.35;font-weight:700;color:' + INK,
+              info.title
+            )
+          )
+          page.appendChild(block('margin:0 0 18px;color:' + MUTED, info.lead))
+
+          var rows = [
+            ['当前内核', chromium ? 'Chrome ' + chromium : '无法从 UA 识别'],
+            ['最低要求', 'Chrome ' + MIN_CHROMIUM],
+            ['根容器', describeRoot()]
+          ]
+          var table = block('margin:0 0 22px;border-top:1px solid ' + LINE)
+          for (var r = 0; r < rows.length; r++) {
+            var row = block('display:flex;padding:9px 0;border-bottom:1px solid ' + LINE)
+            row.appendChild(block('width:84px;flex:none;color:' + MUTED, rows[r][0]))
+            row.appendChild(
+              block(
+                'flex:1;font-family:' + MONO_FONT + ';font-size:13px;word-break:break-all',
+                rows[r][1]
+              )
+            )
+            table.appendChild(row)
+          }
+          page.appendChild(table)
+
+          // 按钮放在解释之前：白屏的人在手机上未必会往下滚，先给他能点的东西。
+          page.appendChild(
+            button('重新加载', true, function () {
+              location.reload()
+            })
+          )
+          page.appendChild(
+            button('打开自检（逐项能力检测）', false, function () {
+              location.href = 'check.html'
+            })
+          )
+          page.appendChild(
+            button(info.action, false, function () {
+              dismiss()
+            })
+          )
+
+          page.appendChild(heading(2, 'margin:20px 0 8px;font-size:16px;font-weight:600', '怎么解决'))
+          var ol = document.createElement('ol')
+          ol.style.cssText = 'margin:0 0 14px;padding-left:22px'
+          for (var f = 0; f < info.fix.length; f++) {
+            var li = document.createElement('li')
+            li.style.cssText = 'margin:0 0 8px'
+            li.textContent = info.fix[f]
+            ol.appendChild(li)
+          }
+          page.appendChild(ol)
+
+          var tip = block(
+            'margin:0 0 22px;padding:12px 14px;border-left:3px solid rgb(245,158,11);' +
+              'background:rgb(254,245,231);border-radius:0 8px 8px 0;font-size:15px'
+          )
+          tip.appendChild(
+            block('font-weight:600', '更新完请完全退出应用再打开——不是切到后台，要从最近任务里划掉。')
+          )
+          page.appendChild(tip)
+
+          page.appendChild(heading(2, 'margin:0 0 8px;font-size:16px;font-weight:600', '为什么打不开'))
+          for (var w = 0; w < info.why.length; w++) {
+            page.appendChild(block('margin:0 0 10px;color:' + INK, info.why[w]))
+          }
+
+          page.appendChild(heading(2, 'margin:26px 0 8px;font-size:16px;font-weight:600', '诊断信息'))
+          page.appendChild(
+            block('margin:0 0 10px;color:' + MUTED, '下面这段发给开发者，能直接定位问题。')
+          )
+          var pre = document.createElement('pre')
+          pre.style.cssText =
+            'margin:0 0 10px;padding:12px;border:1px solid ' +
+            LINE +
+            ';border-radius:8px;background:#f7f8fa;font:12px/1.6 ' +
+            MONO_FONT +
+            ';white-space:pre-wrap;word-break:break-all'
+          pre.textContent = diagnostics()
+          page.appendChild(pre)
+          var copy = button('复制诊断信息', false, function () {
+            copyText(diagnostics(), copy, '复制诊断信息')
+          })
+          page.appendChild(copy)
+
+          page.appendChild(
+            block(
+              'margin:22px 0 0;padding-top:14px;border-top:1px solid ' +
+                LINE +
+                ';color:' + MUTED + ';font-size:12px',
+              '自检页：check.html（「打开自检」按钮就是它，逐项列出这台机器的能力检测结果）'
+            )
+          )
+
+          shell.appendChild(page)
+          document.body.appendChild(shell)
+        }
+
+        function whenBody(fn) {
+          if (document.body) {
+            fn()
+            return
+          }
+          if (document.addEventListener) {
+            document.addEventListener('DOMContentLoaded', fn, false)
+          } else if (window.attachEvent) {
+            window.attachEvent('onload', fn)
+          }
+        }
+
+        function stopRecheck() {
+          if (recheckTimer !== null) {
+            clearInterval(recheckTimer)
+            recheckTimer = null
+          }
+        }
+
+        function dismiss() {
+          removeOverlay()
+          stopRecheck()
+          reported = false
+          caseId = ''
+          // 用户选择继续：再给一轮完整的等待。真没渲染会重新报（这次按超时算）。
+          schedule(TIMEOUT_MS)
+        }
+
+        // 错误页已经画出来之后，仍然盯着 #root：慢设备上界面可能晚一步才出来，
+        // 那就不该让兜底页挡着一个能用的界面。
+        function startRecheck() {
+          stopRecheck()
+          rechecks = 0
+          recheckTimer = setInterval(function () {
+            rechecks += 1
+            if (rechecks > RECHECK_LIMIT) {
+              stopRecheck()
+              return
+            }
+            if (rootState() === 'ok') {
+              finished = true
+              reported = false
+              caseId = ''
+              removeOverlay()
+              stopRecheck()
+            }
+          }, RECHECK_MS)
+        }
+
+        function show(id) {
+          if (reported) return
+          reported = true
+          caseId = id
+          whenBody(render)
+          startRecheck()
+        }
+
+        function schedule(ms) {
+          if (finished) return
+          var at = now() + ms
+          if (timer !== null) {
+            if (timerAt <= at) return
+            clearTimeout(timer)
+          }
+          timerAt = at
+          timer = setTimeout(check, ms)
+        }
+
+        function check() {
+          timer = null
+          if (finished || reported) return
+          if (rootState() === 'ok') {
+            finished = true
+            return
+          }
+          // 文档还没加载完（资源还在路上）就先不下结论：慢设备第一次启动可能还没走完。
+          // 但不能无限等——有资源一直挂住时 readyState 永远不到 complete，所以设上限。
+          if (document.readyState !== 'complete' && extensions < MAX_EXTENDS) {
+            extensions += 1
+            schedule(EXTEND_MS)
+            return
+          }
+          show('timeout')
+        }
+
+        function onError(event) {
+          var target = event && event.target
+          if (target && target !== window && target.nodeType === 1) {
+            var tag = String(target.tagName || '').toLowerCase()
+            var url = target.src || target.href || ''
+            remember('resource', tag + ' 加载失败 ' + url)
+            // 主脚本没取到，界面不可能自己出现，不用等满 8 秒。
+            if (tag === 'script' && !finished && !reported && rootState() !== 'ok') {
+              schedule(1500)
+            }
+            return
+          }
+          var message = (event && event.message) || '未知错误'
+          var where = event && event.filename ? '（' + event.filename + ':' + (event.lineno || 0) + '）' : ''
+          remember('error', message + where)
+        }
+
+        function onRejection(event) {
+          var reason = event && event.reason
+          var text = reason && reason.message ? reason.message : String(reason)
+          remember('rejection', text)
+        }
+
+        // 内核门槛：先解版本，但只在「界面确实没渲染」时才算数。
+        // UA 里的版本号不等于真实能力（有的套壳浏览器乱报），所以宁可晚 1.5 秒确认一次，
+        // 也不要在能跑的机器上糊一个错误页。
+        function checkKernel() {
+          if (finished) return
+          if (rootState() === 'ok') {
+            finished = true
+            if (window.console && console.warn) {
+              console.warn(
+                '[boot-guard] 内核 Chrome ' + chromium + ' 低于保证的 ' + MIN_CHROMIUM + '，但界面已渲染，不上错误页'
+              )
+            }
+            return
+          }
+          show('kernel')
+        }
+
+        if (window.addEventListener) {
+          window.addEventListener('error', onError, true)
+          window.addEventListener('unhandledrejection', onRejection, false)
+        }
+
+        schedule(TIMEOUT_MS)
+
+        if (chromium && chromium < MIN_CHROMIUM) {
+          whenBody(function () {
+            setTimeout(checkKernel, KERNEL_PAINT_DELAY_MS)
+          })
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

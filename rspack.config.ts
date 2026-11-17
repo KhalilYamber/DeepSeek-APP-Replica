@@ -89,7 +89,17 @@ export const createConfig = ({
     }),
     new rspack.DefinePlugin({ __API_ORIGIN__: JSON.stringify(apiOrigin) }),
     new rspack.CopyRspackPlugin({
-      patterns: [{ from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' }],
+      patterns: [
+        { from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' },
+        // 兼容性自检页：白屏时用户唯一的自助出口，必须随产物一起装进 APK。
+        // transform 把它自己的版本号写进去——自检页不经过 HtmlRspackPlugin，读不到 package.json。
+        {
+          from: path.resolve(root, 'src/check.html'),
+          to: 'check.html',
+          toType: 'file',
+          transform: (input: Buffer) => input.toString('utf8').replace(/__APP_VERSION__/g, version),
+        },
+      ],
     }),
   ],
   performance: { hints: false },

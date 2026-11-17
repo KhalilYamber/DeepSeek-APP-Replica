@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="application-version" content="__APP_VERSION__" />
+    <title>兼容性自检</title>
+    <style>
+      /* 自检页要能在最老的 WebView 上打开，所以样式也只用老特性：
+         不用 dvh、不用 :has()、不用 flex gap、不用 @container。 */
+      html,
+      body {
+        margin: 0;
+        background: #f7f8fa;
+      }
+      body {
+        color: #1f2328;
+        font:
+          15px/1.6 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          'PingFang SC',
+          'Microsoft YaHei',
+          sans-serif;
+        padding: 20px 16px 56px;
+        -webkit-text-size-adjust: 100%;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 20px;
+        line-height: 1.35;
+        margin: 0 0 6px;
+      }
+      h2 {
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        color: #6b7280;
+        margin: 26px 0 8px;
+        font-weight: 600;
+      }
+      p {
+        margin: 0 0 12px;
+      }
+      .muted {
+        color: #6b7280;
+        font-size: 13px;
+      }
+      .card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin: 0 0 16px;
+      }
+      .verdict {
+        font-size: 17px;
+        font-weight: 700;
+        margin: 0 0 8px;
+      }
+      .verdict-bad {
+        color: #b42318;
+      }
+      .verdict-warn {
+        color: #92400e;
+      }
+      .verdict-ok {
+        color: #166534;
+      }
+      .kv {
+        font-size: 13px;
+        color: #4b5563;
+        margin: 0 0 4px;
+        word-break: break-all;
+      }
+      .kv b {
+        color: #1f2328;
+        font-weight: 600;
+      }
+      .item {
+        padding: 10px 0 9px;
+        border-top: 1px solid #eef0f3;
+      }
+      .item:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+      .item-name {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .item-why {
+        color: #4b5563;
+        font-size: 13px;
+        margin-top: 3px;
+      }
+      .badge {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 6px;
+        vertical-align: 1px;
+      }
+      .badge-pass {
+        background: #e8f5ec;
+        color: #166534;
+      }
+      .badge-fail {
+        background: #fde8e8;
+        color: #b42318;
+      }
+      .badge-degraded {
+        background: #fff4e5;
+        color: #92400e;
+      }
+      .badge-fallback {
+        background: #eef2ff;
+        color: #3730a3;
+      }
+      .badge-unused,
+      .badge-unknown {
+        background: #f2f3f5;
+        color: #6b7280;
+      }
+      button {
+        display: block;
+        width: 100%;
+        margin: 0 0 10px;
+        padding: 12px 16px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #1f2328;
+        font-size: 15px;
+        font-family: inherit;
+      }
+      button.primary {
+        border: 0;
+        background: #3964fe;
+        color: #ffffff;
+        font-weight: 600;
+      }
+      pre {
+        margin: 0 0 10px;
+        padding: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #f7f8fa;
+        font:
+          12px/1.6 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          'Liberation Mono',
+          'Courier New',
+          monospace;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app">
+      <h1>兼容性自检</h1>
+      <p class="muted">正在逐项检测这台机器的内核能力……</p>
+    </main>
+    <script>
+      /*
+       * 自检页：白屏时用户能打开的唯一诊断入口（由启动兜底页的「打开自检」按钮进入，
+       * 也可以直接访问 check.html）。
+       *
+       * 它必须跑在比应用更老的机器上，所以整页是纯 ES5；检测项分三档：
+       *   跑不了（fatal）  —— 缺了主界面直接白屏/崩
+       *   能跑但有毛病     —— 主界面能开，某类功能退化
+       *   未使用 / 有兜底  —— 本版本没用到，或主包里有 polyfill
+       *
+       * 关键技巧：语法检测必须用 new Function(code) 编译试探。直接把 ?. 写在这段脚本里，
+       * 老引擎解析本文件时就整段失败了——检测代码自己先死，什么也不会显示出来。
+       */
+      (function () {
+        'use strict'
+
+        var MIN_CHROMIUM = 70
+        var ACCENT = '#3964fe'
+
+        var UA = ''
+        try {
+          UA = navigator.userAgent || ''
+        } catch (e) {
+          UA = ''
+        }
+
+        var CHROMIUM = (function () {
+          var m = /(?:Chrome|Chromium|CriOS)\/([0-9]+)/.exec(UA)
+          return m ? parseInt(m[1], 10) : 0
+        })()
+
+        // new Function 只在「能编译」这一层试探，不执行；被 CSP 的 unsafe-eval 挡住时返回 'blocked'
+        function syntax(code) {
+          try {
+            new Function(code)
+            return true
+          } catch (e) {
+            return e && String(e.message || e).indexOf('unsafe-eval') >= 0 ? 'blocked' : false
+          }
+        }
+
+        function resolvePath(dotted) {
+          var parts = dotted.split('.')
+          var node = window
+          for (var i = 0; i < parts.length; i++) {
+            if (node === null || node === undefined) return undefined
+            try {
+              node = node[parts[i]]
+            } catch (e) {
+              return undefined
+            }
+          }
+          return node
+        }
+
+        function has(dotted) {
+          return typeof resolvePath(dotted) === 'function'
+        }
+
+        function cssSupports(prop, value) {
+          try {
+            return !!(window.CSS && window.CSS.supports && window.CSS.supports(prop, value))
+          } catch (e) {
+            return false
+          }
+        }
+
+        // 老引擎会整条丢掉不认识的规则，新引擎会留下它：数一下 cssRules 就知道认不认。
+        function cssRuleKept(rule) {
+          var style = document.createElement('style')
+          style.appendChild(document.createTextNode(rule))
+          var head = document.getElementsByTagName('head')[0] || document.documentElement
+          head.appendChild(style)
+          var kept = 0
+          try {
+            if (style.sheet && style.sheet.cssRules) kept = style.sheet.cssRules.length
+          } catch (e) {
+            kept = 0
+          }
+          if (style.parentNode) style.parentNode.removeChild(style)
+          return kept > 0
+        }
+
+        function appVersion() {
+          var meta = document.querySelector && document.querySelector('meta[name="application-version"]')
+          return (meta && meta.getAttribute('content')) || '（读不到）'
+        }
+
+        /*
+         * tier: fatal = 缺了主界面白屏/崩；soft = 能开但有功能坏掉；info = 本版本用不到。
+         * fallback: 主包里有 polyfill 时写清在哪，这项就只算「已兜底」，不进 fatal。
+         * 说明里的「用在哪」都是照 src/ 与构建产物核过的，不是按 API 常见程度猜的。
+         */
+        var ITEMS = [
+          {
+            tier: 'fatal',
+            name: '解析：可选 catch 绑定 try{}catch{}',
+            need: 'Chrome 66+',
+            why: '主 chunk 里保留了这种写法（构建目标 chrome >= 70 之后仍在）。引擎解析不了就是 SyntaxError，主程序整段不执行——白屏，而且没有任何报错弹窗。',
+            run: function () {
+              return syntax('try{throw 1}catch{}return 1')
+            }
+          },
+          {
+            tier: 'fatal',
+            name: '解析：对象展开 {...obj}',
+            need: 'Chrome 60+',
+            why: '打包后的代码大量使用它拼参数。解析失败同上：整段主程序都不会跑。',
+            run: function () {
+              return syntax('var a={b:1};var c={x:2,...a};return c')
+            }
+          },
+          {
+            tier: 'fatal',
+            name: '解析：async / await',
+            need: 'Chrome 55+',
+            why: '绝大多数业务代码是 async 函数。解析不了同样是白屏。',
+            run: function () {
+              return syntax('async function f(){await 1}return f')
+            }
+          },
+          {
+            tier: 'fatal',
+            name: 'ResizeObserver',
+            need: 'Chrome 64+',
+            why: '消息列表、输入框、频谱图三处用它量布局。缺了这几处组件会直接抛 TypeError——界面要么空白，要么整块不出现。',
+            run: function () {
+              return has('ResizeObserver')
+            }
+          },
+          {
+            tier: 'soft',
+            name: 'Object.fromEntries',
+            need: 'Chrome 73+',
+            why: '清空/移除会话、重建附件表时用。缺了这些操作会抛错，但界面本身能打开（不在启动路径上）。',
+            fallback: '主包 src/app/polyfills.ts 有垫片：缺失时用 for...of 自己组装对象',
+            run: function () {
+              return has('Object.fromEntries')
+            }
+          },
+          {
+            tier: 'soft',
+            name: 'Promise.allSettled',
+            need: 'Chrome 76+',
+            why: '发送带附件的消息时用它等上传结果。缺了带附件发送会失败。',
+            fallback: '主包 src/app/polyfills.ts 有垫片：缺失时用 Promise.all 包一层',
+            run: function () {
+              return has('Promise.allSettled')
+            }
+          },
+          {
+            tier: 'soft',
+            name: '语法：可选链 ?. / 空值合并 ??（图表 chunk 的风险点）',
+            need: 'Chrome 80+',
+            why: '主界面用不到：主 chunk 已按 chrome >= 70 转译掉。它挂在 mermaid 那条异步 chunk 上（渲染图表时才加载）——本次产物里用正则核过没有真实运算符残留，但只要依赖升级、或漏转译一个 .mjs，它就会重新混进来。缺了只影响「显示图表」，不影响主界面。',
+            run: function () {
+              return syntax('var a={};return a?.b??1')
+            }
+          },
+          {
+            tier: 'soft',
+            name: 'IndexedDB',
+            need: 'Chrome 24+',
+            why: '会话历史存在 IndexedDB 里。缺了（或被禁用）聊天记录存不下、读不出。',
+            run: function () {
+              return !!(window.indexedDB || window.webkitIndexedDB)
+            }
+          },
+          {
+            tier: 'soft',
+            name: 'localStorage',
+            need: 'Chrome 4+',
+            why: 'API Key、模型、主题这些设置存在 localStorage。缺了或被隐私模式禁用时设置存不住。',
+            run: function () {
+              try {
+                window.localStorage.setItem('__probe__', '1')
+                window.localStorage.removeItem('__probe__')
+                return true
+              } catch (e) {
+                return false
+              }
+            }
+          },
+          {
+            tier: 'soft',
+            name: 'visualViewport',
+            need: 'Chrome 61+',
+            why: '软键盘弹出时按可视视口重算高度。缺了键盘挡住输入框时布局会错位，但不至于崩。',
+            run: function () {
+              return !!window.visualViewport
+            }
+          },
+          {
+            tier: 'info',
+            name: 'CSS dvh 单位',
+            need: 'Chrome 108+',
+            why: '主样式用 100dvh 定高度，但同一处前面写了 100vh 兜底，所以老内核吃 vh 那一行、不会塌成 0。这里只是记录：dvh 这一行在老机器上被丢掉。',
+            fallback: 'src/app/App.module.css 的 height:100vh 兜底行',
+            run: function () {
+              return cssSupports('height', '100dvh')
+            }
+          },
+          {
+            tier: 'info',
+            name: 'Object.hasOwn',
+            need: 'Chrome 93+',
+            why: '它出现在启动路径上（会话、i18n 都在用），但主包启动时会补：polyfills.ts 用 hasOwnProperty 兜住。自检页没加载主包，所以这里显示的是内核原始能力。',
+            fallback: 'src/app/polyfills.ts',
+            run: function () {
+              return has('Object.hasOwn')
+            }
+          },
+          {
+            tier: 'info',
+            name: 'Array.prototype.at / String.prototype.at',
+            need: 'Chrome 92+',
+            why: '主包启动时 polyfill 补齐，源码里可以照常用。',
+            fallback: 'src/app/polyfills.ts',
+            run: function () {
+              return has('Array.prototype.at') && has('String.prototype.at')
+            }
+          },
+          {
+            tier: 'info',
+            name: 'structuredClone',
+            need: 'Chrome 98+',
+            why: 'mermaid 渲染图表时要用。主包里用 JSON 深拷贝兜底（只对纯配置对象安全，够用）。',
+            fallback: 'src/app/polyfills.ts',
+            run: function () {
+              return has('structuredClone')
+            }
+          },
+          {
+            tier: 'info',
+            name: 'Service Worker',
+            need: 'Chrome 40+',
+            why: '本版本没有用：Capacitor 直接从 APK 里读资源，不需要离线缓存层。',
+            unused: true,
+            run: function () {
+              return !!navigator.serviceWorker
+            }
+          },
+          {
+            tier: 'info',
+            name: 'CSS :has()',
+            need: 'Chrome 105+',
+            why: '本版本没有用（兼容扫描禁止裸用）。',
+            unused: true,
+            run: function () {
+              return cssRuleKept('a:has(b){color:red}')
+            }
+          },
+          {
+            tier: 'info',
+            name: 'CSS @container 容器查询',
+            need: 'Chrome 105+',
+            why: '本版本没有用（兼容扫描禁止裸用）。',
+            unused: true,
+            run: function () {
+              return cssRuleKept('@container (min-width:1px){a{color:red}}')
+            }
+          },
+          {
+            tier: 'info',
+            name: 'CSS color-mix()',
+            need: 'Chrome 111+',
+            why: '本版本没有用，颜色都是静态值。',
+            unused: true,
+            run: function () {
+              return cssSupports('color', 'color-mix(in srgb,red,blue)')
+            }
+          },
+          {
+            tier: 'info',
+            name: 'Array.prototype.toSorted',
+            need: 'Chrome 110+',
+            why: '本版本刻意没用：源码里改成「先复制再 sort」（见 history/toLocal.ts 的注释），老内核不会 TypeError。',
+            unused: true,
+            run: function () {
+              return has('Array.prototype.toSorted')
+            }
+          },
+          {
+            tier: 'info',
+            name: 'Object.groupBy / Promise.withResolvers / Array.fromAsync',
+            need: 'Chrome 117+ / 119+ / 121+',
+            why: '本版本没有用。',
+            unused: true,
+            run: function () {
+              return has('Object.groupBy') && has('Promise.withResolvers') && has('Array.fromAsync')
+            }
+          }
+        ]
+
+        var VERDICT = {
+          pass: { label: '通过', cls: 'badge-pass' },
+          fail: { label: '缺失', cls: 'badge-fail' },
+          degraded: { label: '缺失，功能退化', cls: 'badge-degraded' },
+          fallback: { label: '缺失，已兜底', cls: 'badge-fallback' },
+          unused: { label: '本版本未使用', cls: 'badge-unused' },
+          unknown: { label: '测不了', cls: 'badge-unknown' }
+        }
+
+        function evaluate(item) {
+          if (item.unused) return 'unused'
+          var result = false
+          try {
+            result = item.run()
+          } catch (e) {
+            result = false
+          }
+          if (result === true) return 'pass'
+          if (result === 'blocked') return 'unknown'
+          if (item.fallback) return 'fallback'
+          return item.tier === 'fatal' ? 'fail' : 'degraded'
+        }
+
+        var results = []
+        var counts = { pass: 0, fail: 0, degraded: 0, fallback: 0, unused: 0, unknown: 0 }
+        for (var i = 0; i < ITEMS.length; i++) {
+          var verdict = evaluate(ITEMS[i])
+          counts[verdict] += 1
+          results.push({ item: ITEMS[i], verdict: verdict })
+        }
+
+        function block(tag, css, text) {
+          var node = document.createElement(tag)
+          if (css) node.style.cssText = css
+          if (text !== undefined && text !== null) node.textContent = text
+          return node
+        }
+
+        // 标题卡：先给结论，再给逐项细节
+        function headline() {
+          if (counts.fail > 0) return ['这台机器大概率打不开主界面', 'verdict-bad']
+          if (counts.degraded > 0) return ['主界面能打开，但有功能会退化', 'verdict-warn']
+          return ['这台机器逐项都过，主界面应该能正常用', 'verdict-ok']
+        }
+
+        function render() {
+          var app = document.getElementById('app')
+          app.innerHTML = ''
+          app.appendChild(block('h1', 'font-size:20px;line-height:1.35;margin:0 0 6px', '兼容性自检'))
+          app.appendChild(
+            block(
+              'p',
+              'margin:0 0 16px;color:#6b7280;font-size:13px',
+              '这一页不加载应用主程序，所以主程序坏掉时它照样能打开。逐项检测结果如下。'
+            )
+          )
+
+          var card = block('div', '')
+          card.className = 'card'
+          var head = headline()
+          card.appendChild(block('p', 'font-size:17px;font-weight:700;margin:0 0 10px;color:' + (head[1] === 'verdict-ok' ? '#166534' : head[1] === 'verdict-warn' ? '#92400e' : '#b42318'), head[0]))
+          card.appendChild(block('div', 'font-size:13px;color:#4b5563;margin:0 0 4px;word-break:break-all', '应用版本：' + appVersion()))
+          card.appendChild(
+            block(
+              'div',
+              'font-size:13px;color:#4b5563;margin:0 0 4px;word-break:break-all',
+              '本机内核：' + (CHROMIUM ? 'Chrome ' + CHROMIUM : '无法从 UA 识别') + '（构建门槛 Chrome ' + MIN_CHROMIUM + '）'
+            )
+          )
+          card.appendChild(
+            block(
+              'div',
+              'font-size:13px;color:#4b5563;margin:0 0 12px',
+              '跑不了 ' + counts.fail + ' 项 · 能跑但有毛病 ' + counts.degraded + ' 项 · 有兜底 ' + counts.fallback + ' 项 · 通过 ' + counts.pass + ' 项 · 未使用 ' + counts.unused + ' 项'
+            )
+          )
+          card.appendChild(
+            block(
+              'div',
+              'font-size:13px;color:#6b7280;margin:0 0 4px;word-break:break-all',
+              'UA：' + (UA || '（读不到）')
+            )
+          )
+          app.appendChild(card)
+
+          var groups = [
+            ['跑不了（缺了主界面白屏 / 崩）', 'fatal'],
+            ['能跑但有毛病（功能退化）', 'soft'],
+            ['未使用 / 有兜底（仅供参考）', 'info']
+          ]
+          for (var g = 0; g < groups.length; g++) {
+            var rows = []
+            for (var r = 0; r < results.length; r++) {
+              if (results[r].item.tier === groups[g][1]) rows.push(results[r])
+            }
+            app.appendChild(block('h2', 'font-size:13px;letter-spacing:.08em;color:#6b7280;margin:26px 0 8px;font-weight:600', groups[g][0]))
+            var list = block('div', '')
+            list.className = 'card'
+            for (var k = 0; k < rows.length; k++) list.appendChild(row(rows[k]))
+            app.appendChild(list)
+          }
+
+          var actions = block('div', 'margin:24px 0 0')
+          actions.appendChild(
+            button('复制检测结果给开发者', true, function () {
+              copy(text(), this)
+            })
+          )
+          actions.appendChild(
+            button('重新检测', false, function () {
+              location.reload()
+            })
+          )
+          app.appendChild(actions)
+
+          app.appendChild(block('h2', 'font-size:13px;letter-spacing:.08em;color:#6b7280;margin:26px 0 8px;font-weight:600', '发给开发者的一段话'))
+          var pre = block('pre', '', text())
+          app.appendChild(pre)
+
+          app.appendChild(
+            block(
+              'p',
+              'margin:14px 0 0;color:#6b7280;font-size:12px',
+              '说明：以上是在「这个页面的引擎」上测出来的能力，不等于真机运行结论；但只要有「缺失」的跑不了项，主界面基本一定白屏。语法三项用 new Function 编译试探，页面被 CSP 禁掉 unsafe-eval 时会显示「测不了」。'
+            )
+          )
+        }
+
+        function row(entry) {
+          var item = entry.item
+          var verdict = VERDICT[entry.verdict]
+          var wrap = block('div', '')
+          wrap.className = 'item'
+          var head = block('div', '')
+          head.className = 'item-name'
+          head.appendChild(document.createTextNode(item.name))
+          var badge = block('span', '', verdict.label)
+          badge.className = 'badge ' + verdict.cls
+          head.appendChild(badge)
+          wrap.appendChild(head)
+          wrap.appendChild(block('div', 'font-size:13px;color:#6b7280;margin-top:2px', '需要 ' + item.need))
+          wrap.appendChild(block('div', 'color:#4b5563;font-size:13px;margin-top:3px', item.why))
+          if (item.fallback) {
+            wrap.appendChild(block('div', 'color:#3730a3;font-size:12px;margin-top:3px', '兜底：' + item.fallback))
+          }
+          return wrap
+        }
+
+        function button(label, primary, onClick) {
+          var node = document.createElement('button')
+          node.type = 'button'
+          node.textContent = label
+          if (primary) node.className = 'primary'
+          node.onclick = onClick
+          return node
+        }
+
+        function copy(value, node) {
+          var copied = false
+          try {
+            var area = document.createElement('textarea')
+            area.value = value
+            area.setAttribute('readonly', 'readonly')
+            area.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0'
+            document.body.appendChild(area)
+            area.select()
+            area.setSelectionRange(0, value.length)
+            copied = document.execCommand && document.execCommand('copy')
+            document.body.removeChild(area)
+          } catch (e) {
+            copied = false
+          }
+          node.textContent = copied ? '已复制' : '复制失败：长按下面那段手动选'
+          if (copied) {
+            setTimeout(function () {
+              node.textContent = '复制检测结果给开发者'
+            }, 2500)
+          }
+        }
+
+        function text() {
+          var lines = []
+          lines.push('[兼容性自检]')
+          lines.push('应用版本 ' + appVersion())
+          lines.push('页面 ' + (location.href || ''))
+          lines.push('UA ' + (UA || '（读不到）'))
+          lines.push('内核 ' + (CHROMIUM ? 'Chrome ' + CHROMIUM : '无法识别') + '（构建门槛 Chrome ' + MIN_CHROMIUM + '）')
+          lines.push(
+            '结论 跑不了 ' + counts.fail + ' 项 / 能跑但有毛病 ' + counts.degraded + ' 项 / 有兜底 ' + counts.fallback + ' 项 / 通过 ' + counts.pass + ' 项 / 未使用 ' + counts.unused + ' 项'
+          )
+          for (var i = 0; i < results.length; i++) {
+            var entry = results[i]
+            if (entry.verdict === 'pass' || entry.verdict === 'unused') continue
+            lines.push('- [' + VERDICT[entry.verdict].label + '] ' + entry.item.name + '（需要 ' + entry.item.need + '）')
+          }
+          return lines.join('\n')
+        }
+
+        try {
+          render()
+        } catch (e) {
+          // 自检页自己崩了也得说一声，否则用户看到的是空白页——和要诊断的问题一模一样。
+          var app = document.getElementById('app')
+          if (app) {
+            app.innerHTML = ''
+            app.appendChild(block('h1', 'font-size:20px;margin:0 0 8px', '自检页自己也出错了'))
+            app.appendChild(block('p', '', '错误：' + (e && e.message ? e.message : String(e))))
+            app.appendChild(block('p', 'color:#6b7280;font-size:13px', '这一页是纯 ES5 写的，能打开说明文法没问题；请把这个错误一起发给开发者。'))
+          }
+        }
+      })()
+    </script>
+  </body>
+</html>
