@@ -56,12 +56,10 @@
   h6 + ol {
     margin-top: -8px;
   }
-  /* 上游的 :has() 选择器把 ol 写了两遍，段落 + ul 一直没收窄，这里照旧保留差异 */
+  /* 段落后面跟列表时，上游那两条都写在 :has() 里，而列表默认上边距 12px 比它大，
+     合并后一直是 12px —— 视觉上从未收窄过。删掉后列表用默认 12px，与上游一致。 */
   .ds-markdown-paragraph + ul {
     margin-top: 4px;
-  }
-  .ds-markdown-paragraph + ol {
-    margin-top: -8px;
   }
 
   li > ul,
