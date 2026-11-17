@@ -258,6 +258,119 @@
         "2026-11-17：init.ps1 新增第六道门「内核兼容 (scan-compat)」，失败时打印「兜底 / 写豁免 / 提交信息写理由」三条修法；.github/workflows/ci.yml 在「产物齐全」后加同名一步。"
       ],
       "notes": "本条不涉及设备行为，工具自身的正确性在本机验过，故标 passing（不是 inferred）。\n\n基线文件 tools/layout-baseline.json 绑 Chrome/157.0.8103.79：Chrome 大版本变化后需要重新生成，并在提交信息里写原因。\n\n未验：aspect-ratio 与 color-mix 两条规则当前产物 0 命中，没有真实样本跑过反例。JS 掩码是启发式（按前一个 token 判字符串/注释），理论上只可能漏报，不会误报成 error 挡路。"
+    },
+    {
+      "id": "compat-003",
+      "priority": 1,
+      "area": "compat",
+      "title": "构建目标降到 chrome 70，并补齐运行时 API 垫片",
+      "user_visible_behavior": "老安卓设备（WebView 内核 70 及以上）打开应用不再整篇白屏。",
+      "status": "inferred",
+      "verification": [
+        "产物里真实 ?? 语法为 0 处",
+        "含 ?? 的文件从 24 个降到 2 个（剩下是正则字面量）",
+        "9 个垫片的行为验证 21/21 通过",
+        "主 bundle 体积涨幅 < 2%"
+      ],
+      "evidence": [
+        "2026-11-17：targets 从 chrome >= 105 降到 chrome >= 70（rspack.config.ts:8）。swc 与 lightningcss 共用这一份。",
+        "2026-11-17：**根因不止 CSS**——老内核解析到 ?? 就整包失败，CSS 修得再好也没用。",
+        "2026-11-17：loader 规则从 /\\.(j|t)sx?$/ 改成 /\\.(m?[jt])sx?$/。原规则不匹配 .mjs，而 mermaid 入口是 mermaid.core.mjs，导致整个 chunk 保留源码里的 ??。改后含 ?? 的文件从 24 个降到 2 个。",
+        "2026-11-17：swc 只降语法不降 API。补了 globalThis(71) / Object.fromEntries(73) / Promise.allSettled(76) / String.replaceAll(85) / String.matchAll(73)，加上已有的 structuredClone(98) / Object.hasOwn(93) / Array·String.at(92)。",
+        "2026-11-17：其中 globalThis 在 polyfills.ts 第一行——Chrome 70 上会让垫片自身崩，等于白屏照样发生。",
+        "2026-11-17：垫片行为验证 21/21 通过（在 Node 里 delete 掉原生实现后加载垫片，覆盖 replaceAll 的 $& 与 liveness、matchAll 的 g 标志、at 的负数与越界、allSettled 的混合结果）。",
+        "2026-11-17：主 bundle 477.5 -> 483.8 KB（+1.3%），dist 4.22 -> 4.27 MB。"
+      ],
+      "notes": "**inferred：没有 Chromium 70 的真机或模拟器**。所有结论来自产物语法扫描 + 语义等价验证 + 本机 Chrome 157 实测。\n\n剩余风险：产物里 i18n 有一处 Object.hasOwn 的函数定义在垫片之前（位置 176432，垫片 185574），因为只是定义不是调用，实际执行到它时垫片已装好。但这是靠执行顺序运气，不是结构保证。"
+    },
+    {
+      "id": "compat-004",
+      "priority": 1,
+      "area": "compat",
+      "title": "启动兜底页与兼容性自检页",
+      "user_visible_behavior": "打不开时不再是白屏，而是一页说明：当前内核版本、最低要求、根容器状态、怎么更新 WebView、一个「打开自检」按钮和可复制的诊断信息。",
+      "status": "inferred",
+      "verification": [
+        "正常启动时兜底页一个像素都不出现",
+        "8 秒未渲染时兜底页出现且文案正确",
+        "按钮可用（重新加载 / 打开自检 / 继续等待 / 复制诊断）",
+        "自检页 20 项检测能渲染",
+        "27/27 断言通过"
+      ],
+      "evidence": [
+        "2026-11-17：src/index.html 内联一段纯 ES5 脚本（8-516 行），跑在任何打包产物之前。内核门槛 < 70、全局 error/unhandledrejection、8 秒后检查 #root 子节点与高度（阈值 120px）。",
+        "2026-11-17：慢启动不误判——到点时若 document.readyState 不是 complete，改为每 4 秒再看、最多 3 次。界面晚到会把已画出的兜底页自动撤下。",
+        "2026-11-17：src/check.html 自检页，20 项分三档（跑不了 / 有毛病 / 有兜底），样式也是老写法（不用 dvh / :has() / @container）。",
+        "2026-11-17：tools/verify-boot-guard.mjs 真开 Chrome 跑 7 个场景：正常不误伤、无渲染接住、UA=Chrome60 且无渲染、UA=Chrome60 但能渲染（不上页）、按钮、自检页、能力缺失模拟。27/27 通过。",
+        "2026-11-17：截图 screenshots/boot-ok.png、boot-norender.png、boot-oldua-norender.png、check-page.png。"
+      ],
+      "notes": "**inferred：真机与真老内核未验**。CDP 的 UA override 只换字符串不换引擎，所以「Chrome 60 真机上是不是这个样子」没有证据。\n\n自检页入口选了「兜底页上的按钮 + 相对路径 check.html」，因为它不依赖应用启动、也不需要改 android/。"
+    },
+    {
+      "id": "compat-005",
+      "priority": 1,
+      "area": "feature",
+      "title": "图片格式在选择阶段就拦住，发送失败给中文提示",
+      "user_visible_behavior": "选 BMP/TIFF/SVG 等格式的图片时会立刻被拦下并说明原因；长会话里已有坏附件时，发送失败显示「有附件格式不受支持（第 47 个内容块），请转成 JPG 或 PNG 后重发」，不是英文原文。",
+      "status": "inferred",
+      "verification": [
+        "32 条 imageFormat 测试通过",
+        "17 个构造文件走生产校验，结果全部符合预期",
+        "构造的图片文件能被 GDI+ 真正解码（不是空壳）",
+        "89 总测试全过，原有 41 条一条没少"
+      ],
+      "evidence": [
+        "2026-11-17：故障现场是服务端返回 messages.560.content.47: You have uploaded an unsupported image ——第 560 条消息的第 47 个内容块。",
+        "2026-11-17：根因是白名单允许了服务端不认的格式（bmp / tif / tiff / svg / ico / raw / avif 等）。上传能成功（Files API 不校验内容），到发送阶段才被拒。",
+        "2026-11-17：收窄到 jpeg / jpg / jpe / jfif / png / apng / webp / gif；移除了 13 个。非图片扩展名（py/ts/js/txt/md/json/pdf/docx/pptx/xlsx/epub）一个没动。",
+        "2026-11-17：新增 src/services/imageFormat.ts（纯函数，读 magic number），32 条测试。用 PNG 签名 + zlib 算 CRC、手写 BMP/TIFF 头、系统真实照片 img100.jpg（1 MB / 3840x2160）构造 17 个文件验证。",
+        "2026-11-17：**方案里有一处矛盾被纠正**——「在 validateFiles 里调用真实格式校验」与「validateFiles 是同步的」不能同时成立。改成新增异步入口 validateFileContents，调用链只动了 addDraftFiles 与 ChatInput 两处。",
+        "2026-11-17：发送阶段改用 describeParseFailed 给中文提示，能提取内容块序号。"
+      ],
+      "notes": "**inferred：没有真机验证**。真机相册导出的 HEIC、Capacitor 原生壳里 File 的扩展名与 MIME 保留情况、以及「选文件看到 toast」的真实交互都没验。\n\n取舍：.raw 被移除，副作用是 .raw 数据文件也不能附加了（它在白名单里原本与代码/数据文件混排）。要恢复就把它加回 uploadExts.ts。\n\n已知未收敛：src/services/chat/history/importArchive.ts:16 有一份重复的 magic number 嗅探，建议后续单独提交收敛到 imageFormat。"
+    },
+    {
+      "id": "adapt-004",
+      "priority": 2,
+      "area": "compat",
+      "title": "横屏不再常驻侧栏挡住内容",
+      "user_visible_behavior": "手机横过来（含 800×480、1024×600）时用抽屉而不是常驻侧栏；从竖屏转回桌面布局时侧栏保持折叠，点 ≡ 才展开。",
+      "status": "inferred",
+      "verification": [
+        "measure-layout 10 档全过（新增 800×480、1024×600 都走 mobile-drawer）",
+        "转屏实测：桌面→竖屏→桌面后是 desktop-collapsed",
+        "点 ≡ 后展开且持久化"
+      ],
+      "evidence": [
+        "2026-11-17：isMobile 判据改为 not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px)。11 处 CSS 媒体查询逐字同步。",
+        "2026-11-17：App.tsx 加 useLayoutEffect，isMobile 由 true→false 时 setSiderCollapsed(true)。",
+        "2026-11-17：实测 915×412 / 800×480 / 1024×600 三档都是 mobile-drawer，左右各 36px 镜像安全区；768×980 以上仍是 desktop-persistent。",
+        "2026-11-17：**改出了一次回归并修掉**——新规则会写 localStorage，导致 measure-layout 在档间切换时被误判，后几档全部错。修法：模式判定改看 DOM、每档导航前清 localStorage。"
+      ],
+      "notes": "**inferred：真机横屏与刘海未验**。safe-area 是 CDP 模拟的 36px。"
+    },
+    {
+      "id": "net-001",
+      "priority": 2,
+      "area": "feature",
+      "title": "三类超时与有限自动重试",
+      "user_visible_behavior": "网络卡住时 5 秒内给出中文提示，不再无限转圈；偶发 5xx 会自动重试一次并提示。",
+      "status": "inferred",
+      "verification": [
+        "连接超时 5 秒真实触发（elapsed=5019）",
+        "首字节 30 秒真实触发（elapsed=30020）",
+        "流空闲 60 秒真实触发（elapsed=60016）",
+        "500→200 重试一次成功，服务端命中 2 次",
+        "用户主动停止不被误报成超时"
+      ],
+      "evidence": [
+        "2026-11-17：连接 5s / 首字节 30s / 流空闲 60s / 上传 120s（大文件要先写完请求体，5 秒会把正常上传误判成超时）。",
+        "2026-11-17：**方案里 AbortSignal.any 不可用**——它要 Chrome 116、AbortSignal.timeout 要 103，而目标是 70。改成手动串 signal 并在每次尝试后解绑。",
+        "2026-11-17：重试只针对还没拿到响应的连接失败、429、5xx，最多 1 次、间隔 1 秒；超时与流式中途断开不重试（会重复内容）。",
+        "2026-11-17：真实起假服务验证——hang（永不回包）/ retry（500→200）/ sse-silent / sse-stall，全部按预期触发，报错文案是中文字句。",
+        "2026-11-17：11 条 timeout 测试。"
+      ],
+      "notes": "**inferred：真机弱网、后台标签页定时器节流未验**。非流式请求读完响应头后读 body 没有单独超时，是已知空洞。"
     }
   ]
 }

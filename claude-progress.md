@@ -145,3 +145,40 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - 工作区仍有 3 个未提交文件（`src/services/api/types.ts`、`chat/store.ts`、`settings.ts`，模型切换功能），不属本轮，未碰也未提交
 - 下一步最佳动作：拿一台 Android 12 出厂的机器装 debug 包，按 `docs/known-devices.md` 的四步走一遍，把 `compat-001`、`compat-002`、`adapt-001`、`adapt-002` 从 `inferred` 推到 `verified`
 
+### Session 005
+
+- 日期：2026-11-17
+- 本轮目标：用户反馈「有的用户打开 APK 还是白屏」+ 给出三个具体缺陷（图片发送失败、横屏侧栏挡内容、网络无限转圈）。一句话概括：**把「跑不起来」变成「能跑」**，跑不了也要说清为什么
+- 已完成（五个阶段）：
+  - **构建目标降级**：`chrome >= 105` → `chrome >= 70`。**白屏的真正原因是语法不是 CSS**——老内核解析到 `??` 整包失败
+  - **`.mjs` 漏转译**：loader 规则 `\.(j|t)sx?$` 不匹配 `.mjs`，mermaid 入口是 `mermaid.core.mjs`。改成 `\.(m?[jt])sx?$`
+  - **9 个 API 垫片**：`swc` 只降语法不降 API。补 `globalThis`/`fromEntries`/`allSettled`/`replaceAll`/`matchAll`，加上已有的 `structuredClone`/`hasOwn`/`at`
+  - **启动兜底**：`src/index.html` 内联纯 ES5 脚本（内核门槛、全局错误、8 秒看 `#root`），慢启动会延长不误判，界面晚到自动撤页
+  - **自检页**：`src/check.html`，20 项分三档 + 一键复制
+  - **图片格式**：白名单收窄到 8 个格式；`imageFormat.ts` 读 magic number；发送失败给中文提示
+  - **横屏布局**：`isMobile` 加宽高比判据，11 处 CSS 同步；转回桌面不自动展开侧栏
+  - **网络超时重试**：连接 5s / 首字节 30s / 流空闲 60s / 上传 120s；自动重试 1 次
+- 运行过的验证：
+  - 六道门全绿；`pnpm test` **89 条**（原 41 + image-format 32 + timeout 11 + boot-guard 5）
+  - `measure-layout` **10/10**（新增 800×480、1024×600 都走 mobile-drawer）
+  - `scan-compat`：error 0 / hint 0 / info 9 / 豁免 0
+  - 产物语法扫描：真实 `??` **0 处**；含 `??` 的文件从 24 个降到 2 个（剩下是 prismjs 正则字面量）
+  - 垫片行为验证 21/21（在 Node 里删掉原生实现后加载垫片）
+  - 超时/重试真实起假服务验证：5019ms / 30020ms / 60016ms 精确触发，500→200 重试命中 2 次
+  - 启动兜底 27/27 断言（真开 Chrome 跑 7 个场景）
+  - 截图：`screenshots/final-390x844.png`、`final-915x412.png`、`boot-*.png`、`check-page.png`
+- **未验证（必须记清，不算通过）**：
+  - **Chromium 70 真机或模拟器一次都没跑过**——这是本轮最重要的未验项。所有「老内核能跑」的结论都是产物扫描 + 语义等价 + 本机 Chrome 157 实测
+  - 真机刘海、真机相册导出的 HEIC、Capacitor 原生壳里 File 的扩展名保留
+  - CDP 的 UA override 只换字符串不换引擎，所以「Chrome 60 真机上的样子」没有证据
+  - 真实弱网抖动、后台标签页定时器节流
+  - 非流式请求读完响应头后读 body 没有单独超时（已知空洞）
+- 已记录证据：`feature_list.json` 的 `compat-003`、`compat-004`、`compat-005`、`adapt-004`、`net-001`
+- 更新过的文件或工件：34 个文件（见 `git status`）
+- 已知风险或未解决问题：
+  - i18n 有一处 `Object.hasOwn` 的**函数定义**在垫片之前（位置 176432 vs 185574），只是定义不是调用，当前安全但靠执行顺序
+  - `.raw` 从白名单移除，副作用是 `.raw` 数据文件也不能附加
+  - `importArchive.ts:16` 有一份重复的 magic number 嗅探，建议单独提交收敛
+  - `check.html` 一度把 `fromEntries`/`allSettled` 标成「功能退化」，本轮已补 `fallback` 字段（主包有垫片）
+- 下一步最佳动作：**拿那台白屏手机装 `DeepSeek-APP-Replica-0.3.0-full-20261117.apk`**。能开 → 降到 70 够了，把 `compat-003`/`compat-004` 推到 `verified`；还是白 → 说明内核 < 70，兜底页会说明原因，届时考虑继续降到 60 或接受兜底页方案
+

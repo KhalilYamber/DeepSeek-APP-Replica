@@ -2,6 +2,43 @@
 
 本项目的显著变更记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [未发布]
+
+### 修复 — 老设备白屏的真正原因
+
+- **构建目标从 `chrome >= 105` 降到 `chrome >= 70`**。原来允许安装的设备（minSdk 24 / WebView 60+）比代码愿意支持的设备老得多，老内核解析到 `??` 就整包失败，表现是白屏——CSS 修得再好也没用
+- **`.mjs` 后缀漏转译**：loader 规则是 `\.(j|t)sx?$`，不匹配 `.mjs`，而 mermaid 的入口是 `mermaid.core.mjs`。补上后，含 `??` 的产物文件从 24 个降到 2 个（剩下 2 处是 prismjs 正则字面量，不是语法）
+- **补齐 API 垫片**：`swc` 只降语法不降 API。补了 `globalThis`（Chrome 71）、`Object.fromEntries`（73）、`Promise.allSettled`（76）、`String.replaceAll`（85）、`String.matchAll`（73），加上原有的 `structuredClone`（98）、`Object.hasOwn`（93）、`Array/String.at`（92）
+- 其中 `globalThis` 最要命：它就在垫片文件第一行，在 Chrome 70 上会让兜底代码自己先崩
+
+### 新增 — 启动兜底与兼容性自检
+
+- `src/index.html` 内联一段纯 ES5 脚本，在任何打包代码之前执行：内核版本门槛（< 70）、全局错误捕获、8 秒后检查 `#root` 是否渲染。慢启动会延长等待而不是误判，界面晚到会把兜底页自动撤下
+- `src/check.html`：逐项能力检测（跑不了 / 有毛病 / 有兜底三档）+ 环境信息 + 一键复制。样式也是老的，因为它要跑在比应用更老的机器上
+- 兜底页上有「打开自检」按钮，不依赖应用启动
+
+### 新增 — 图片格式校验
+
+- 图片扩展名收窄到服务端支持的 `jpeg / jpg / jpe / jfif / png / apng / webp / gif`；移除 `bmp / tif / tiff / svg / ico / raw / avif / heic / svgz / dib / cur / avifs / xbm`
+- `src/services/imageFormat.ts`：读文件头 magic number 判断真实格式（纯函数，32 条测试），并用它做内容校验——扩展名与内容不一致、或格式服务端不支持，在**选择阶段**就拦下
+- 发送阶段服务端拒绝附件时给中文提示（「有附件格式不受支持（第 47 个内容块），请转成 JPG 或 PNG 后重发」），不再展示英文原文
+
+### 新增 — 网络超时与有限重试
+
+- 三类超时：连接 5s、首字节 30s、流空闲 60s；上传单独给 120s（大文件要先写完请求体，5 秒会把正常上传误判成超时）
+- 自动重试 1 次，只针对「还没拿到响应」的连接失败、429、5xx；超时与流式中途断开不重试（会重复内容）
+- 用户主动停止不会被误报成超时；重试时弹 toast，不静默
+
+### 变更 — 横屏布局
+
+- `isMobile` 判据加上宽高比：高 < 520 或（宽 > 高 且 高 < 700）都按手机处理，11 处 CSS 媒体查询逐字同步
+- 从移动端切回桌面布局时**不自动展开侧栏**，只有用户点 ≡ 才展开并持久化
+
+### 变更 — 门禁
+
+- `tools/measure-layout.mjs` 从 8 档扩到 10 档（新增 800×480、1024×600），模式判定改为看 DOM 而不是 localStorage，每档导航前清 localStorage 消除顺序依赖
+- `tools/verify-boot-guard.mjs`：真开 Chrome 跑 7 个场景 27 条断言（兜底页出现、不误伤、按钮可用、自检页可达）
+
 ## [0.3.0] - 2026-11-17
 
 ### 新增 — 兼容门禁与几何量测

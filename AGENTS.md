@@ -26,7 +26,8 @@ tools/serve.mjs      本地静态服务（预览 dist/）
 tools/shot.mjs       无头截图（视觉验收的机械门）
 tools/webview-eval.mjs  在真机 WebView 里执行脚本（真机取证）
 tools/scan-compat.mjs   兼容扫描：产物里有没有「用了新特性但没兜底」的地方（门禁第 6 道）
-tools/measure-layout.mjs 固定 8 档尺寸量布局并断言，给适配留机器口
+tools/measure-layout.mjs 固定 10 档尺寸量布局并断言，给适配留机器口
+tools/verify-boot-guard.mjs 真开 Chrome 验启动兜底（白屏时那页说明能不能出来）
 test/                单元测试，node:test 直跑 TS 源码
 .github/workflows/ci.yml  CI：push / PR 时跑 type / lint / test / build / 产物 / 兼容
 docs/                使用说明、上游说明、已知设备坑（known-devices.md）
@@ -68,7 +69,8 @@ node tools/serve.mjs          起静态服务看 dist/
 node tools/shot.mjs           无头截图，落到 screenshots/
 node tools/webview-eval.mjs   在已连真机的 WebView 里跑脚本取证
 node tools/scan-compat.mjs    兼容扫描（构建后跑；有发现则退出码 1）
-node tools/measure-layout.mjs 量 8 档尺寸的布局并断言（--baseline 存基线、--check 比对）
+node tools/measure-layout.mjs 量 10 档尺寸的布局并断言（--baseline 存基线、--check 比对）
+node tools/verify-boot-guard.mjs 真开 Chrome 验启动兜底页（7 个场景、27 条断言）
 ```
 
 ## 发布
