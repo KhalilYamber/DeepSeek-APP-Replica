@@ -3,9 +3,9 @@
 # 开工基线：依赖同步 + 全部门禁。退出码 0 才算能开工。
 #
 # 用法：
-#   ./init.ps1                 依赖同步 + 五道门（type / lint / test / build / artifacts）
+#   ./init.ps1                 依赖同步 + 六道门（type / lint / test / build / artifacts / compat）
 #   ./init.ps1 -SkipInstall    跳过依赖同步
-#   ./init.ps1 -SkipBuild      只做静态门，跳过构建与产物检查
+#   ./init.ps1 -SkipBuild      只做静态门，跳过构建、产物检查与内核兼容扫描（后两者都要读 dist）
 #
 # 基线红了先修基线，不要在坏起点上叠新功能。
 
@@ -77,6 +77,7 @@ if ($SkipBuild) {
   if ($built) {
     Write-Gate '产物齐全 (dist)'
     $missing = @()
+    $artifactsOk = $false
     if (-not (Test-Path 'dist/index.html' -PathType Leaf)) { $missing += 'dist/index.html' }
     if (-not (Test-Path 'dist/LICENSE' -PathType Leaf)) { $missing += 'dist/LICENSE（上游许可须随产物分发）' }
     if (-not (Get-ChildItem 'dist/static/js' -Filter '*.js' -File -ErrorAction SilentlyContinue)) {
@@ -90,9 +91,21 @@ if ($SkipBuild) {
       $failures.Add('产物齐全')
     } else {
       Write-Host "    [OK]" -ForegroundColor Green
+      $artifactsOk = $true
+    }
+
+    # 产物齐了才有得扫：scan 读的是 dist 里的 CSS/JS，扫的是「有内核门槛但没兜底」的写法
+    if ($artifactsOk) {
+      Write-Gate '内核兼容 (scan-compat)'
+      node tools/scan-compat.mjs
+      if (-not (Test-Gate '内核兼容')) {
+        Write-Host '    目标内核 Chromium 93。上面每条都写了「哪个文件、什么问题、怎么修」：' -ForegroundColor Yellow
+        Write-Host '    能兜底就兜底（dvh 前加一行 vh，JS 新 API 加特性探测）；确实要放行的' -ForegroundColor Yellow
+        Write-Host '    写进 tools/scan-compat.mjs 的 EXEMPTIONS，并在提交信息里写理由。' -ForegroundColor Yellow
+      }
     }
   } else {
-    Write-Host "    [跳过] 构建失败，产物检查无意义" -ForegroundColor Yellow
+    Write-Host "    [跳过] 构建失败，产物检查与内核兼容扫描无意义" -ForegroundColor Yellow
   }
 }
 

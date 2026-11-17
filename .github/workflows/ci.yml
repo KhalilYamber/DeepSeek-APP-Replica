@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   gates:
-    name: 门禁（type / lint / test / build）
+    name: 门禁（type / lint / test / build / 兼容）
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -63,3 +63,7 @@ jobs:
           test -d dist/static/js    || { echo "缺少 dist/static/js"; exit 1; }
           test -d dist/static/css   || { echo "缺少 dist/static/css"; exit 1; }
           echo "产物齐全：$(find dist/static -type f | wc -l) 个静态文件"
+
+      # 有内核门槛但没兜底的写法：老 WebView 上静默失效（2026-11 的 100dvh 白屏就是这类）
+      - name: 内核兼容
+        run: node tools/scan-compat.mjs

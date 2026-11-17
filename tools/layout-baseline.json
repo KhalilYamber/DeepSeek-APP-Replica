@@ -1,0 +1,104 @@
+{
+  "tool": "measure-layout",
+  "browser": "Chrome/157.0.8103.79",
+  "capturedAt": "2026-11-17T03:55:33.863Z",
+  "tolerance": 1,
+  "presets": [
+    {
+      "id": "390x844",
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "frameH": 844,
+      "mode": "mobile-drawer(closed)",
+      "leftMargin": 0,
+      "rightMargin": 0,
+      "topPad": 24
+    },
+    {
+      "id": "412x915",
+      "viewport": {
+        "w": 412,
+        "h": 915
+      },
+      "frameH": 915,
+      "mode": "mobile-drawer(closed)",
+      "leftMargin": 0,
+      "rightMargin": 0,
+      "topPad": 24
+    },
+    {
+      "id": "915x412",
+      "viewport": {
+        "w": 915,
+        "h": 412
+      },
+      "frameH": 412,
+      "mode": "mobile-drawer(closed)",
+      "leftMargin": 36,
+      "rightMargin": 36,
+      "topPad": 0
+    },
+    {
+      "id": "412x915R",
+      "viewport": {
+        "w": 412,
+        "h": 915
+      },
+      "frameH": 915,
+      "mode": "mobile-drawer(closed)",
+      "leftMargin": 0,
+      "rightMargin": 0,
+      "topPad": 24
+    },
+    {
+      "id": "768x980",
+      "viewport": {
+        "w": 768,
+        "h": 980
+      },
+      "frameH": 980,
+      "mode": "desktop-persistent",
+      "leftMargin": 0,
+      "rightMargin": 0,
+      "topPad": 0
+    },
+    {
+      "id": "1024x768",
+      "viewport": {
+        "w": 1024,
+        "h": 768
+      },
+      "frameH": 768,
+      "mode": "desktop-persistent",
+      "leftMargin": 0,
+      "rightMargin": 0,
+      "topPad": 0
+    },
+    {
+      "id": "1280x800",
+      "viewport": {
+        "w": 1280,
+        "h": 800
+      },
+      "frameH": 800,
+      "mode": "desktop-persistent",
+      "leftMargin": 0,
+      "rightMargin": 0,
+      "topPad": 0
+    },
+    {
+      "id": "915x412R",
+      "viewport": {
+        "w": 915,
+        "h": 412
+      },
+      "frameH": 412,
+      "mode": "mobile-drawer(closed)",
+      "leftMargin": 36,
+      "rightMargin": 36,
+      "topPad": 0
+    }
+  ]
+}
