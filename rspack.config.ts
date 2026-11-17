@@ -5,7 +5,11 @@ import { defineConfig } from '@rspack/cli'
 import { rspack, type Configuration } from '@rspack/core'
 
 const dev = process.env.NODE_ENV !== 'production'
-const targets = ['chrome >= 105', 'edge >= 105', 'safari >= 16', 'firefox >= 110']
+// 目标内核按 Android WebView 的实际分布定，不按浏览器市场份额定：
+// Capacitor 只要求 WebView 60+，minSdk 24（Android 7）也能装，所以必须照顾到老内核。
+// chrome >= 70 覆盖 Android 8~10 出厂的 WebView（很多国产机不更新系统 WebView）。
+// 语法由 swc 转译，CSS 由 lightningcss 降级；两者都用这一份 targets。
+const targets = ['chrome >= 70', 'edge >= 79', 'safari >= 12', 'firefox >= 78']
 const root = path.dirname(fileURLToPath(import.meta.url))
 const { version } = JSON.parse(
   readFileSync(new URL('./package.json', import.meta.url), 'utf8')
@@ -57,8 +61,11 @@ export const createConfig = ({
       { test: /\.module\.css$/, type: 'css/module', use: [cssLoader] },
       { test: /\.css$/, exclude: /\.module\.css$/, type: 'css', use: [cssLoader] },
       {
-        test: /\.(j|t)sx?$/,
-        exclude: /[\\/]node_modules[\\/]/,
+        // 必须包含 .mjs：mermaid 的入口是 mermaid.core.mjs，只写 (j|t)sx? 会漏掉它，
+        // 于是整个 chunk 保持源码里的 ?? （要 Chrome 80+），老内核解析即失败。
+        test: /\.(m?[jt])sx?$/,
+        // 不排除 node_modules：依赖里同样有需要降级的语法，
+        // 而它们多是异步 chunk（mermaid、代码高亮），老内核上解析失败就是功能整块挂掉。
         loader: 'builtin:swc-loader',
         options: {
           jsc: {
