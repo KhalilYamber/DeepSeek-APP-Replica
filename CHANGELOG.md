@@ -2,6 +2,29 @@
 
 本项目的显著变更记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [未发布]
+
+### 新增 — 兼容门禁与几何量测
+
+- `tools/scan-compat.mjs`：构建后扫产物，找出「用了有内核门槛的特性但没兜底」的地方，有发现即非零退出。规则覆盖视口单位双声明、`:has()` / `@container` / `color-mix()` / `aspect-ratio`、JS 新 API 的运行时调用、源码里的 UA 版本嗅探
+- `tools/measure-layout.mjs`：8 档固定尺寸量布局并断言（`--baseline` 存基线、`--check` 比对），基线 `tools/layout-baseline.json` 入库
+- `init.ps1` 新增第六道门「内核兼容」；`.github/workflows/ci.yml` 同步加一步
+- `docs/known-devices.md`：已知设备坑、尚未验证的风险、真机验证操作步骤
+
+### 变更 — 适配健壮性
+
+- **矮屏按手机处理**：11 条窄屏媒体查询追加 `, (max-height: 479px)`（逗号＝或），手机横过来（915×412）不再被当成桌面布局
+- **横屏安全边距镜像**：刘海或导航条只报在一侧时两侧共用较大的一边。逻辑抽成 `resolveSafeSide` 纯函数，`env()` 经 `.safe-area-probe` 读成像素写入 `--app-safe-side`
+- **布局突变不播过渡**：转屏、窗口缩放、键盘改变视口时挂 `change-layout`，120ms 后自动摘掉
+- **`structuredClone` 兜底**：新增 `src/app/polyfills.ts`，修掉旧内核上渲染 Mermaid 图抛 TypeError
+- **`:has()` 与 `@container` 降级**：`:has()` 改为外合并等价写法（32 个组合实测间距 0 差异）；`@container` 改为类名（`MessageFile` 新增可选 `compact` 属性）
+
+### 变更 — 验收规矩
+
+- `feature_list.json` 新增 `verified`（目标设备验过）与 `inferred`（推理未验）两级；`passing` 只用于不涉及设备行为的条目
+- `compat-001` 与 `import-001` 由 `passing` 降为 `inferred`，**证据一条未删**
+- `AGENTS.md` 完成定义新增三条：证据必须分级、每条证据要带机器口、判定口径（拿不准按涉及设备行为处理）
+
 ## [0.2.0] - 2026-11-16
 
 ### 变更 — 历史导入重做

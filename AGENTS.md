@@ -25,9 +25,11 @@ scripts/build.mjs    跨平台构建入口（官方 package.json 用 rm -rf，Wi
 tools/serve.mjs      本地静态服务（预览 dist/）
 tools/shot.mjs       无头截图（视觉验收的机械门）
 tools/webview-eval.mjs  在真机 WebView 里执行脚本（真机取证）
+tools/scan-compat.mjs   兼容扫描：产物里有没有「用了新特性但没兜底」的地方（门禁第 6 道）
+tools/measure-layout.mjs 固定 8 档尺寸量布局并断言，给适配留机器口
 test/                单元测试，node:test 直跑 TS 源码
-.github/workflows/ci.yml  CI：push / PR 时跑 type / lint / test / build
-docs/                使用说明、上游说明
+.github/workflows/ci.yml  CI：push / PR 时跑 type / lint / test / build / 产物 / 兼容
+docs/                使用说明、上游说明、已知设备坑（known-devices.md）
 dist/                构建产物        （gitignore，不进版本控制）
 release/             打包好的 APK    （gitignore）
 screenshots/         验收截图        （gitignore）
@@ -55,9 +57,9 @@ pnpm test                    单元测试
 pwsh -ExecutionPolicy Bypass -File ./init.ps1
 ```
 
-只做静态门（跳过构建）用 `./init.ps1 -SkipBuild`。
+只做静态门（跳过构建）用 `./init.ps1 -SkipBuild`——产物齐全与内核兼容这两道都要读 `dist/`，会一起跳过。
 
-CI 在 push 到 `main` 与开 PR 时自动跑同一条链路（`.github/workflows/ci.yml`）：install → type → lint → test → build → 产物检查。**本地 `./init.ps1` 是自觉，CI 是强制执行；两边红都算基线红。**
+CI 在 push 到 `main` 与开 PR 时自动跑同一条链路（`.github/workflows/ci.yml`）：install → type → lint → test → build → 产物检查 → 内核兼容。**本地 `./init.ps1` 是自觉，CI 是强制执行；两边红都算基线红。**
 
 视觉与真机验收（进不了自动化门，靠人眼与真机）：
 
@@ -65,6 +67,8 @@ CI 在 push 到 `main` 与开 PR 时自动跑同一条链路（`.github/workflow
 node tools/serve.mjs          起静态服务看 dist/
 node tools/shot.mjs           无头截图，落到 screenshots/
 node tools/webview-eval.mjs   在已连真机的 WebView 里跑脚本取证
+node tools/scan-compat.mjs    兼容扫描（构建后跑；有发现则退出码 1）
+node tools/measure-layout.mjs 量 8 档尺寸的布局并断言（--baseline 存基线、--check 比对）
 ```
 
 ## 发布
@@ -125,6 +129,10 @@ node tools/webview-eval.mjs   在已连真机的 WebView 里跑脚本取证
 - 目标行为已实现。
 - `./init.ps1` 全绿（最低限度：`pnpm type`、`pnpm lint`、`pnpm test` 三项必须过）。
 - 涉及界面的改动，附一张截图或一段真机取证；只有代码没有画面的 UI 改动不算完成。
+- **证据必须分级**：涉及设备行为的改动，「在本机能跑」不算完成。要么在目标设备/目标内核上验过（`feature_list.json` 里标 `verified`），要么明写「未验证」并标 `inferred`。**不许把推理写成通过**——规范推演、等价环境实测、产物检查都只算 `inferred`，永远不算 `passing`。
+- **每条证据要带机器口**：写清是在哪台设备、什么环境下验的，例如「本机 Chrome 157 / 模拟器 WebView 133 / 真机 OPPO A58x / Android 12 出厂 Chromium 93」。没写环境的证据，当作没验。
+- **判定口径**：凡「本机装了、模拟器跑过，但结果可能因设备而异」的行为，一律按涉及设备行为处理。拿不准时按涉及设备行为处理——宁可标 `inferred` 等真机，不要标 `passing` 等翻车。
+- 新发现的设备兼容坑（「某类设备上有某症状」这一类）记进 `docs/known-devices.md`，并写明有没有真机确认。
 - 证据记录在 `feature_list.json` 或 `claude-progress.md`。
 
 ### 收尾

@@ -9,11 +9,11 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 ## 当前已验证状态
 
 - 仓库根：`D:\GitHub_place\projects\DeepSeek 复刻APP\chat-demo`（git 仓库，remote 指向 GitHub `KhalilYamber/DeepSeek-APP-Replica`）
-- 标准启动路径：`./init.ps1`（依赖同步 + 全部门禁）
+- 标准启动路径：`./init.ps1`（依赖同步 + 六道门：type / lint / test / build / 产物齐全 / 内核兼容）
 - 标准验证路径：`pnpm test`；完整跑 `./init.ps1`
-- 当前最高优先级未完成功能：无（6 条清单全部 passing）
+- 当前最高优先级未完成功能：无（12 条：7 条 passing、5 条 inferred，无 open）
 - 当前 blocker：无
-- CI：GitHub Actions 已生效，push 到 `main` 即跑（最近一次 run 43841705481，27 秒全绿）
+- CI：GitHub Actions 已生效，push 到 `main` 即跑，链路已含「内核兼容」一步（最近一次全绿 run 43841705481 早于本轮新增的 scan 步，下次 push 才是首个含它的 run）
 
 ## 会话记录
 
@@ -107,4 +107,40 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 环境坑（重要）：本会话 pwsh 沙箱对 `chat-demo` 目录的写权限被拒（新建文件即失败），`build` / `cap sync` / `gradlew` 与探针全程用 `danger-full-access` 执行
 - 已记录证据：`feature_list.json` 的 `import-001`；截图 `screenshots/probe-04-confirm.png`、`probe-06-list.png`
 - 下一步最佳动作：拿一台真机装新 APK，走一遍「上传 → 合并导入 → 看列表」，这是唯一还没被验证的环节
+
+### Session 004
+
+- 日期：2026-11-17
+- 本轮目标：把「适配」从「出问题再修」改成「先归类、再验」——建机器口、补兜底、立证据分级规矩
+- 已完成：
+  - **机器口**：`tools/scan-compat.mjs`（698 行，零依赖）扫产物里裸用的新特性，有发现即非零退出；`tools/measure-layout.mjs`（671 行）8 档固定尺寸量布局并断言；`tools/layout-baseline.json` 入库
+  - **门禁**：`init.ps1` 第六道门「内核兼容」；`.github/workflows/ci.yml` 同步加一步
+  - **矮屏按手机处理**：11 条窄屏媒体查询追加 `, (max-height: 479px)`（逗号＝或），JS 侧 `viewport.ts:5` 同步
+  - **横屏安全边距镜像**：`safeArea.ts` 的 `resolveSafeSide` 纯函数 + `.safe-area-probe` 读 `env()` + `--app-safe-side`
+  - **布局突变不播过渡**：挂 `change-layout`，120ms 后自动摘，不永久关动画
+  - **`structuredClone` 兜底**：`src/app/polyfills.ts`，修旧内核上渲染 Mermaid 图抛 TypeError
+  - **`:has()` / `@container` 降级**：`:has()` 改外合并等价写法；`@container` 改类名（动了组件契约，`MessageFile` 新增可选 `compact`）
+  - **验收规矩**：`feature_list.json` 新增 `verified` / `inferred`；`compat-001`、`import-001` 降为 `inferred`（证据未删）；`AGENTS.md` 完成定义加三条；新建 `docs/known-devices.md`
+- 运行过的验证：
+  - `./init.ps1` 六道门全绿，退出码 0
+  - `scan-compat`：error 0 / hint 0 / info 9 / 豁免 0
+  - `pnpm test` 41 条全过（新增 5 条：safe-area 3、polyfills 2）
+  - scan-compat 反例：注入 `100dvh` 违规 → 退出码 1、报出 `L1:89116 offset=89115`（与期望相等）→ 还原后 sha256 与注入前字节一致 → 再跑回到 0
+  - 门会红：临时造违规 → `./init.ps1` 输出 `[FAIL] exit 1` 并给三条修法 → 删掉后回到「基线全绿」
+  - `measure-layout` 8 档全过；`--check` 改基线 3 个值后精确报出 3 处差异
+  - 截图 6 张：`screenshots/adapt-20261117/`（390×844 / 412×915 / 915×412 / 768×1024 / 1280×800 / 1280×450）
+- **未验证（必须记清，不算通过）**：
+  - **Chromium 93 上一次都没跑过**——本机只有 Chrome 157，所有「旧内核能跑」的结论都是 `inferred`
+  - **真机刘海未验**：`env(safe-area-inset-*)` 是 CDP 模拟出来的
+  - **软键盘是否真把布局视口压到 480 以下**：未知。若会，平板横屏打字时可能中途切一次布局。已记入 `known-devices.md` 的「尚未验证的风险」
+  - **带附件消息在窄容器下的实际画面**：`@container` 改类名后只做了构造等价，没发真实消息截图
+  - iOS / 鸿蒙的 `orientationchange` 时序
+  - `aspect-ratio` / `color-mix()` 两条扫描规则当前产物 0 命中，没跑过反例
+- 已记录证据：`feature_list.json` 的 `compat-002`、`adapt-001`、`adapt-002`、`adapt-003`、`harness-005`
+- 更新过的文件或工件：21 个 `src/` 文件、`tools/scan-compat.mjs`、`tools/measure-layout.mjs`、`tools/layout-baseline.json`、`init.ps1`、`ci.yml`、`AGENTS.md`、`feature_list.json`、`CHANGELOG.md`、`docs/known-devices.md`、`test/safe-area.test.ts`、`test/polyfills.test.ts`
+- 已知风险或未解决问题：
+  - `@container` 那条动了 React 组件契约（`MessageFile.tsx` 新增可选 `compact`、`UserMessage.tsx` 传入），因为跨 CSS 模块拿不到父级类名；若想回到容器查询，这一小段可单独回退
+  - `tools/layout-baseline.json` 绑 Chrome/157.0.8103.79，大版本变化后需重新生成并在提交信息里写原因
+  - 工作区仍有 3 个未提交文件（`src/services/api/types.ts`、`chat/store.ts`、`settings.ts`，模型切换功能），不属本轮，未碰也未提交
+- 下一步最佳动作：拿一台 Android 12 出厂的机器装 debug 包，按 `docs/known-devices.md` 的四步走一遍，把 `compat-001`、`compat-002`、`adapt-001`、`adapt-002` 从 `inferred` 推到 `verified`
 

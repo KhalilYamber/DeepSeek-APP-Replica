@@ -1,18 +1,21 @@
 {
   "project": "DeepSeek APP Replica（官方 chat-demo 前端 + Capacitor 8 安卓壳）",
-  "last_updated": "2026-11-16",
+  "last_updated": "2026-11-17",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
-    "do_not_skip_verification": true
+    "do_not_skip_verification": true,
+    "passing_requires_device_evidence": true
   },
   "status_legend": {
     "not_started": "还没开始做。",
     "in_progress": "当前唯一正在进行的任务。",
     "blocked": "因已记录的阻塞问题无法推进或无法验证。",
-    "passing": "要求的验证已通过，证据已记录。"
+    "verified": "要求的行为已在实际目标设备/目标内核上被观察确认——有在该环境里跑出来的证据（截图、logcat、真机取证脚本输出），不是推理。",
+    "inferred": "有充分依据（规范推演、等价环境实测、产物检查）但未在目标设备上确认。可以认为大概率是对的，不可以当成已验过。",
+    "passing": "要求的验证已通过，证据已记录。只用于不涉及设备行为的条目（静态门、纯逻辑、产物检查）；涉及设备行为的一律用 verified 或 inferred 表示证据等级，不许标 passing。"
   },
-  "note": "本清单当前收录「开工基线」四条、兼容性修复一条、环境债一条。业务功能面（多会话、附件上传、语音输入、历史导入导出、主题与语言、联网搜索渲染等）待按实际要做的事逐条补录——补录时以能跑的验证为准，不要凭印象标 passing。",
+  "note": "本清单当前收录「开工基线」四条、兼容性修复一条、环境债一条、历史导入一条。业务功能面（多会话、附件上传、语音输入、历史导入导出、主题与语言、联网搜索渲染等）待按实际要做的事逐条补录——补录时以能跑的验证为准，不要凭印象标 passing。",
   "features": [
     {
       "id": "harness-001",
@@ -116,7 +119,7 @@
       "area": "compat",
       "title": "旧版 Android WebView 不再白屏",
       "user_visible_behavior": "在 WebView 内核低于 Chrome 108 的设备（如 Android 12 出厂的 OPPO A58x）上打开应用，能看到界面而不是空白页。",
-      "status": "passing",
+      "status": "inferred",
       "verification": [
         "编译产物中每处 dvh 声明前都有一条等价的 vh 兜底声明",
         "把 height 强制为 vh 兜底值时，根容器与内容区高度仍等于视口高度，画面与 dvh 生效时一致",
@@ -131,7 +134,7 @@
         "布局验证：强制 100vh 兜底时 frameH=844 / contentH=844，与正常态逐像素一致（screenshots/06-compat-fix.png 与 07-vh-fallback.png 同图）。",
         "顺带修：`useNativeShell` 里重复 registerPlugin 触发的 “SystemBars already registered” 警告已消除，改为从桥按需取。"
       ],
-      "notes": "**未在真实低版本 WebView 上验证**：本机与模拟器 WebView 都是 133，复现不出 93 的 dvh 缺失。结论依据是 CSS 层叠规范 + 产物顺序 + 兜底值撑起布局的实测，不等同真机确认。剩余风险：若白屏另由 JS 报错引起（.frame 根本未创建），本修复不覆盖那条路径，需 logcat 才能区分。"
+      "notes": "**本条状态为 inferred：这是推理结论，不是真机确认。**（2026-11-17 依 rules.passing_requires_device_evidence 由 passing 改标；证据一条未删）\n\n**未在真实低版本 WebView 上验证**：本机与模拟器 WebView 都是 133，复现不出 93 的 dvh 缺失。结论依据是 CSS 层叠规范 + 产物顺序 + 兜底值撑起布局的实测，不等同真机确认。剩余风险：若白屏另由 JS 报错引起（.frame 根本未创建），本修复不覆盖那条路径，需 logcat 才能区分。"
     },
     {
       "id": "import-001",
@@ -139,7 +142,7 @@
       "area": "feature",
       "title": "历史导入：入口可靠、失败给原因、默认合并",
       "user_visible_behavior": "点「上传」能打开系统文件选择器；选中 ZIP 后先确认再导入；默认合并保留现有对话，可显式选择覆盖；失败时显示具体原因（版本不符 / 文件不完整 / 不是 ZIP）；成功后显示导入与跳过数量。",
-      "status": "passing",
+      "status": "inferred",
       "verification": [
         "输入框精确覆盖在按钮上（elementFromPoint 命中 input 本身）",
         "真实浏览器里喂一份合法 v3 归档，能走到确认弹窗并合并成功",
@@ -152,7 +155,109 @@
         "2026-11-16：用 fflate 构造 manifest + chat_sessions/1001.json + index 的 v3 归档（830 字节），经 CDP `DOM.setFileInputFiles` 喂入，确认弹窗出现（取消 / 覆盖导入 / 合并导入），点「合并导入」后会话列表出现「探针测试对话」。截图 screenshots/probe-04-confirm.png、probe-06-list.png。",
         "2026-11-16：`pnpm type` / `pnpm lint` / `pnpm test`（36 条）/ `pnpm build` 全绿；APK 6,531,413 字节，产物内可见 uploadInput、importConfirmHint、historyImportNoPicker、historyImportedWithSkipped、backupEmpty。"
       ],
-      "notes": "改动分四层：① 入口——隐藏 input 加程序化 click 换成透明覆盖 input，accept 留空（系统把 zip 报成 octet-stream 时也能选到，格式交给 isZipFile 与 manifest 校验）；② 错误——catch 改用 errorStatus，文案加 {message} 占位符，6 个具体错误码不再被压成一句猜测；③ 语义——commitStaging 增加 merge 模式，同 ID 会话跳过而非覆盖，覆盖需单独点危险按钮；④ 反馈——等待选中、未选择文件、没弹出选择器、导入中、导入结果各有文案。\n\n**未在真机验证**：系统文件选择器是否真的弹出、Android 上 merge 后的列表刷新，只用桌面 Chrome 等价环境验证过。「重复导入全部已存在」时的跳过提示也没在探针里跑到（分支由 commitStaging 的 getKey 判断 + test/import-result.test.ts 覆盖）。"
+      "notes": "**本条状态为 inferred：这是推理结论，不是真机确认。**（2026-11-17 依 rules.passing_requires_device_evidence 由 passing 改标；证据一条未删）\n\n改动分四层：① 入口——隐藏 input 加程序化 click 换成透明覆盖 input，accept 留空（系统把 zip 报成 octet-stream 时也能选到，格式交给 isZipFile 与 manifest 校验）；② 错误——catch 改用 errorStatus，文案加 {message} 占位符，6 个具体错误码不再被压成一句猜测；③ 语义——commitStaging 增加 merge 模式，同 ID 会话跳过而非覆盖，覆盖需单独点危险按钮；④ 反馈——等待选中、未选择文件、没弹出选择器、导入中、导入结果各有文案。\n\n**未在真机验证**：系统文件选择器是否真的弹出、Android 上 merge 后的列表刷新，只用桌面 Chrome 等价环境验证过。「重复导入全部已存在」时的跳过提示也没在探针里跑到（分支由 commitStaging 的 getKey 判断 + test/import-result.test.ts 覆盖）。"
+    },
+    {
+      "id": "compat-002",
+      "priority": 1,
+      "area": "compat",
+      "title": "产物里裸用新特性的地方全部降级，不再依赖内核版本",
+      "user_visible_behavior": "在 Chromium 93 级别内核上：Markdown 标题与其后列表的间距正确、带附件消息的缩略图按预期收窄、打开 Mermaid 图不再抛 TypeError。",
+      "status": "inferred",
+      "verification": [
+        "scan-compat 在产物上报 error 0",
+        "产物 CSS 里 :has( 与 @container 均为 0",
+        "structuredClone 的兜底痕迹出现在入口 chunk main.*.js",
+        "pnpm type / lint / test / build 全绿"
+      ],
+      "evidence": [
+        "2026-11-17：scan-compat 首次跑报 26 条 error——:has() 16 条（markdown.css 与 thinking.markdown.css）、@container 1 条（MessageFile.module.css）、structuredClone 9 条。后者全在 mermaid 的 5 个异步 chunk（3909×1、4138×3、4471×1、5172×2、8821×2），来自 node_modules 被 bundle，源码层零命中。三次构建对应 26 → 1 → 0 条（main css hash 258da67b → ffda0eee → 93fb918e）。",
+        "2026-11-17：:has() 改成外合并等价写法。量了 h1–h6/p × ul/ol 共 32 个组合的间距，改写前后 0 差异。上游 thinking.markdown.css 里 .ds-markdown-paragraph:has(+ ol) 写了两遍（疑似笔误，导致「段落 + ul」一直没收窄），照原样保留差异，没有顺手改视觉。",
+        "2026-11-17：@container 换成类名——MessageFile.module.css 去掉 container-type，@container (max-width:63px) 换成 .reasonCompact，触发条件改为 UserMessage.tsx 的 withDocuments（与 --message-file-image-size: 64px 是同一表达式）。",
+        "2026-11-17：structuredClone 兜底新增 src/app/polyfills.ts（JSON 深拷贝，注释写明 Date 变字符串 / undefined 属性丢失 / Map·Set·循环引用不支持，以及 mermaid 只克隆纯配置对象故够用），src/main.tsx:1 最早 import。产物主 chunk 内可见 \"function\"!=typeof globalThis.structuredClone&&(globalThis.structuredClone=e=>JSON.parse(JSON.stringify(e))) 。",
+        "2026-11-17 复核：产物 CSS 里 :has(=0、@container=0、container-type=0；init.ps1 第六道门 scan-compat 退出码 0（error 0 / hint 0 / info 9 / 豁免 0）。"
+      ],
+      "notes": "**本条状态为 inferred：目标的 Chromium 93 内核上没有跑过**，全部结论来自产物形态 + 同引擎（本机 Chrome 157）实测 + 规范推演。\n\n@container 那条动了 React 组件契约（MessageFile.tsx 新增可选 compact、UserMessage.tsx 传入），因为跨 CSS 模块拿不到父级类名。若日后想回到容器查询，这一小段可单独回退，不影响其余两项。\n\n未验证：带附件消息在窄容器下的实际画面只做了构造等价，没有真发一条消息截图。\n\nscan-compat 把 structuredClone 降级为 info 而非 error，判据是「兜底痕迹出现在入口 chunk main.*.js（先于异步 chunk 执行）」；痕迹一旦不在主 chunk，立刻回到 error 级。"
+    },
+    {
+      "id": "adapt-001",
+      "priority": 1,
+      "area": "compat",
+      "title": "矮屏按手机处理：横过来的手机不再被当成桌面",
+      "user_visible_behavior": "手机横过来（如 915×412）时按移动端布局渲染——单列、侧栏为抽屉、没有 261px 常驻侧栏；宽度大于 768 但高度不足 480 的窗口同样如此。",
+      "status": "inferred",
+      "verification": [
+        "915×412 下判定为移动端（narrowByWidthOnly=false、compactHeightOnly=true、mobileByAppRule=true）",
+        "所有窄屏媒体查询都带上 (max-height: 479px)",
+        "measure-layout 8 档全部通过"
+      ],
+      "evidence": [
+        "2026-11-17：11 条 @media not all and (min-width: 768px) 改为 @media not all and (min-width: 768px), (max-height: 479px)（逗号＝或），每条只改这一行：App.module.css:58、global.css:63、ChatInput.module.css:222、VoiceButton.module.css:13、MessageList.module.css:15、SearchPanel.module.css:57、SessionView.module.css:62、Welcome.module.css:39、Settings.module.css:311 与 :461、SessionItem.module.css:68。JS 侧同步改 viewport.ts:5。",
+        "2026-11-17：**踩过并修正的坑**——第一版照建议给 matchMedia 第一条加外层括号，按 MQ4 规则会被解析成 not all（永不匹配），实测 390×844 下 isMobile=false，出现「移动端 CSS + 桌面常驻侧栏 261px」的混合状态。去掉外层括号后正常。",
+        "2026-11-17 实测（本机 Chrome 157 headless，截图在 screenshots/adapt-20261117/）：390×844 → 移动、frame 高 844；915×412 → **移动（按高度）**、frame 高 412、无常驻侧栏；412×915 → 移动（按宽度）；768×1024 → 桌面常驻 261px；1280×800 → 桌面常驻 261px；1280×450（视口被压矮）→ 移动（按高度）。",
+        "2026-11-17：产物复核——768 媒体查询 11 处，11 处都带 (max-height: 479px)。"
+      ],
+      "notes": "**本条状态为 inferred：没有 Android WebView / Chromium 93 设备，全部实测在本机 Chrome 157 上。**\n\n风险未验：软键盘弹出时，Android WebView 在 adjustResize 下是否会把**布局视口**压到 480 以下、导致平板横屏打字时中途切一次布局。本机无软键盘，复现不了。若真机上出现跳动，把阈值调小（如 420px）或改用 min-height 反向写法。已记入 docs/known-devices.md 的「尚未验证的风险」。"
+    },
+    {
+      "id": "adapt-002",
+      "priority": 1,
+      "area": "compat",
+      "title": "横屏时左右安全边距镜像，内容在玻璃上居中",
+      "user_visible_behavior": "手机横过来时，刘海或导航条只报在一侧的情况下，两侧共用较大的一边，内容视觉居中；竖屏不做镜像。",
+      "status": "inferred",
+      "verification": [
+        "resolveSafeSide 纯函数的 3 条测试通过",
+        "915×412（env 左 36 / 右 0）量到左右各 36",
+        "竖屏时镜像值为 0"
+      ],
+      "evidence": [
+        "2026-11-17：纯逻辑抽到 src/app/safeArea.ts:5 的 resolveSafeSide(left, right, landscape) = landscape ? max(left,right) : 0；test/safe-area.test.ts 3 条（横屏取较大、两侧相等与都为 0、竖屏恒 0）。",
+        "2026-11-17：viewport.ts:114-182 新增 readSideInsets()（借 global.css:51 的 .safe-area-probe 把 env() 读成像素）与 useViewportLayoutSync()（写 --app-safe-side，w>h 才算横屏）；App.tsx:8,60 挂 hook；App.module.css:68-69 两条 padding-left/right: var(--app-safe-side, 0px)，在移动端分支内。",
+        "2026-11-17 实测（CDP Emulation.setSafeAreaInsetsOverride 真改 env）：915×412（env 左36/右0）→ 左右距 36/36、--app-safe-side=36px；915×412R（env 左0/右36）→ 36/36；390×844（env 上24）→ padding-top 24、左右 0、镜像值 0px。"
+      ],
+      "notes": "**本条状态为 inferred：真机刘海没有验过。** env(safe-area-inset-*) 是用 CDP 覆盖模拟出来的，走通了「读 env → 取 max → 写变量 → 两侧生效」整条链，但没在任何带挖孔的实体机上跑过。\n\n环境限制：Emulation.setSafeAreaInsetsOverride 是 CDP 的 experimental 命令，旧版 Chrome / CI runner 可能没有。measure-layout 拿不到时会把对称断言标 SKIP，不会当成通过。"
+    },
+    {
+      "id": "adapt-003",
+      "priority": 2,
+      "area": "compat",
+      "title": "布局突变时不播过渡动画",
+      "user_visible_behavior": "转屏、窗口缩放、软键盘改变视口时布局直接落位，不播 transition；用户手动操作界面时动画照常。",
+      "status": "inferred",
+      "verification": [
+        "压制期间被测元素的 transition-duration 为 0s，解除后恢复 0.2s",
+        "120ms 后自动摘掉 change-layout，没有永久关闭动画"
+      ],
+      "evidence": [
+        "2026-11-17：global.css:43-48 把 body.change-theme * 那条扩成同时包含 body.change-layout *（含 ::before / ::after）。",
+        "2026-11-17：viewport.ts:115-116,145-151 在 resize / orientationchange 时给 body 挂 change-layout，120ms 后自动摘掉，卸载时也摘。",
+        "2026-11-17 实测日志：{has:true,t:2139,probeDuration:\"0s\"} → {has:false,t:2270,probeDuration:\"0.2s\"}，即压制期间过渡为 0s、解除后恢复原值。"
+      ],
+      "notes": "**本条状态为 inferred：只在 Chrome 157 上量过。** iOS / 鸿蒙 WebView 的 orientationchange 触发时序与 Android 不同，未验证。"
+    },
+    {
+      "id": "harness-005",
+      "priority": 2,
+      "area": "harness",
+      "title": "兼容扫描与几何量测两道机器口",
+      "user_visible_behavior": "./init.ps1 第六道门扫产物里裸用的新特性，有发现即非零退出；node tools/measure-layout.mjs 在 8 档固定尺寸下量布局并断言，支持 --baseline 存基线与 --check 比对。",
+      "status": "passing",
+      "verification": [
+        "scan-compat 对干净产物退出 0",
+        "注入违规后退出 1 且报对偏移量",
+        "还原后字节一致并回到 0",
+        "measure-layout 8 档通过",
+        "init.ps1 六道门全绿"
+      ],
+      "evidence": [
+        "2026-11-17：tools/scan-compat.mjs 698 行，零依赖，支持 --json / --help / 豁免表（当前为空）。规则覆盖：视口单位双声明、:has( / @container / color-mix / aspect-ratio、JS 新 API 运行时调用、源码里的 UA 版本嗅探。",
+        "2026-11-17 反例验证：往 main.b5b85e2d.css（89094 字符）追加 .compat-probe{height:100dvh} 与 .compat-probe2{height:100vh;height:100dvh}，跑 scan 报出 L1:89116 offset=89115，与算出的期望偏移完全相等；带 vh 兜底的那条不报；JS 侧只报真实调用 arr.toSorted()，字符串与注释里的两次不报；还原后 sha256 与注入前字节一致，再跑退出码 0。",
+        "2026-11-17 门会红：临时在产物里造违规，./init.ps1 输出 [FAIL] exit 1 并给三条修法；删掉后回到「基线全绿」退出码 0。",
+        "2026-11-17：tools/measure-layout.mjs 671 行，8 档固定尺寸，--baseline / --check 双向验过（把基线里 frameH、leftMargin、mode 各改一处，--check 精确报出 3 处差异并退出 1）。tools/layout-baseline.json 已生成并入库。",
+        "2026-11-17：init.ps1 新增第六道门「内核兼容 (scan-compat)」，失败时打印「兜底 / 写豁免 / 提交信息写理由」三条修法；.github/workflows/ci.yml 在「产物齐全」后加同名一步。"
+      ],
+      "notes": "本条不涉及设备行为，工具自身的正确性在本机验过，故标 passing（不是 inferred）。\n\n基线文件 tools/layout-baseline.json 绑 Chrome/157.0.8103.79：Chrome 大版本变化后需要重新生成，并在提交信息里写原因。\n\n未验：aspect-ratio 与 color-mix 两条规则当前产物 0 命中，没有真实样本跑过反例。JS 掩码是启发式（按前一个 token 判字符串/注释），理论上只可能漏报，不会误报成 error 挡路。"
     }
   ]
 }
