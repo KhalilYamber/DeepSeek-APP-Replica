@@ -6,6 +6,15 @@
 
 export type ChatModel = 'deepseek-flash' | 'deepseek-v4-pro'
 
+/** 界面上可选的模型。label 只用于显示，id 是请求里实际发送的模型名。 */
+export const CHAT_MODELS: { id: ChatModel; label: string }[] = [
+  { id: 'deepseek-flash', label: 'DeepSeek Flash' },
+  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
+]
+
+/** 没有选择过模型时使用的默认值 */
+export const DEFAULT_MODEL: ChatModel = 'deepseek-flash'
+
 // ---------- 响应：内容块 ----------
 
 /** 正文引用：服务端把模型的引用标记还原为来源，挂在对应文本块上 */

@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useTranslate } from '../i18n/index.js'
-import { useSettings } from '../services/settings.js'
+import { setSiderCollapsed, useSettings } from '../services/settings.js'
 import {
   useIsMobile,
   useMobileViewport,
@@ -25,6 +25,7 @@ import { SettingsDialog } from '../components/settings/SettingsDialog.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
+import { onRequestRetry } from '../services/api/timeout.js'
 import { Button } from '../components/base/Button.js'
 import { stopReadAloud } from '../services/speech/readAloud.js'
 import { CollapsedSider } from '../components/sider/CollapsedSider.js'
@@ -37,7 +38,8 @@ export const App = () => {
   const isMobile = useIsMobile()
   const locale = useSettings((state) => state.locale)
   // 移动端侧边栏以独立抽屉管理开合状态
-  const siderCollapsed = useSettings((state) => state.siderCollapsed) && !isMobile
+  const storedSiderCollapsed = useSettings((state) => state.siderCollapsed)
+  const siderCollapsed = storedSiderCollapsed && !isMobile
   const ready = useChatStore((state) => state.ready)
   const initError = useChatStore((state) => state.initError)
   const saveError = useChatStore((state) => Object.values(state.sessionSaveErrors).some(Boolean))
@@ -60,12 +62,24 @@ export const App = () => {
   useViewportLayoutSync()
   useNativeShell()
 
+  // 从移动端布局切回桌面布局时保持折叠：转屏、拉宽窗口不该凭空冒出一条常驻侧栏。
+  // 展开只由用户点 ≡ 触发，选择照旧写进设置持久化（setSiderCollapsed 是那条唯一的写入口）。
+  const wasMobile = useRef(isMobile)
+  useLayoutEffect(() => {
+    if (wasMobile.current && !isMobile) {
+      setSiderCollapsed(true)
+    }
+    wasMobile.current = isMobile
+  }, [isMobile])
+
   useEffect(() => {
     document.documentElement.lang = locale
   }, [locale])
 
   // 文件数、存储空间达到上限时，附件上只显示「上传失败」，原因用 toast 说明
   useEffect(() => onUploadNotice(showToast), [])
+  // 自动重试不静默：弹一条轻提示，用户知道是网络抖了一下，不是界面卡住了
+  useEffect(() => onRequestRetry(() => showToast({ key: 'requestRetrying' })), [])
   useEffect(bindChatPersistence, [])
 
   // 搜索结果面板只属于当前会话

@@ -29,7 +29,9 @@ export const describeReply = (reply: AssistantMessage): Notice | null => {
       return { text: message || translate('uploadFileStatusFailed') }
     }
     if (kind === 'network') {
-      return { text: translate('commonNetworkErrorToast') }
+      // 超时这类失败自带中文文案；浏览器给的原始英文（Failed to fetch）不直接摊到用户面前
+      const localized = localMessage && isTranslationKey(localMessage.key)
+      return { text: localized ? message : translate('commonNetworkErrorToast') }
     }
     switch (classifyStatus(status)) {
       case 'unauthorized':

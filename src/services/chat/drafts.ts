@@ -6,6 +6,7 @@ import {
   isImage,
   resolveMimeType,
   uploadAttachment,
+  validateFileContents,
   validateFiles,
   type UploadTask,
 } from '../attachments.js'
@@ -57,18 +58,22 @@ const upload = (attachment: DraftAttachment, apiKey: string) => {
   ).catch(() => {})
 }
 
-/** 整批校验通过后才创建预览和开始上传。 */
-export const addDraftFiles = (
+/** 整批校验通过后才创建预览和开始上传；图片还要读文件头确认真实格式，所以入口是异步的。 */
+export const addDraftFiles = async (
   sessionId: string | null,
   files: File[],
   apiKey: string
-): TranslationMessage | null => {
+): Promise<TranslationMessage | null> => {
   if (files.length === 0) {
     return null
   }
   const error = validateFiles(files, getDraft(sessionId).attachments.length)
   if (error) {
     return error
+  }
+  const contentError = await validateFileContents(files)
+  if (contentError) {
+    return contentError
   }
   const added = files.map((file): DraftAttachment => {
     const image = isImage(resolveMimeType(file))

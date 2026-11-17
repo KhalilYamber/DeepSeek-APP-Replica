@@ -57,6 +57,26 @@ const PRESETS = [
     symmetric: true,
   },
   {
+    id: '800x480',
+    note: '手机横屏，高度过了 480 但仍是手机：必须走抽屉，不能放 261px 的常驻侧栏',
+    w: 800,
+    h: 480,
+    mobile: true,
+    insets: { top: 0, left: 36, right: 0, bottom: 0 },
+    requireMobile: true,
+    symmetric: true,
+  },
+  {
+    id: '1024x600',
+    note: '小横屏（折叠屏/小平板横过来：宽>高且高<700）：同样走抽屉',
+    w: 1024,
+    h: 600,
+    mobile: true,
+    insets: { top: 0, left: 36, right: 0, bottom: 0 },
+    requireMobile: true,
+    symmetric: true,
+  },
+  {
     id: '412x915R',
     note: '反向横屏替身（竖尺寸 + 右 36）。注意：竖屏判据是 w>h，这一档验不到镜像，只验「竖屏别被横向安全区带跑偏」',
     w: 412,
@@ -118,15 +138,15 @@ const HELP = `measure-layout —— 固定尺寸下量布局并断言（无头 C
 
 每个尺寸量什么
   frame 高          根容器（CSS Modules 里 .frame-xxxxxx）的 border-box 高度
-  布局模式          常驻侧栏 / 抽屉（读 DOM 里 sider- / drawer- 元素，并用
-                    localStorage 的 chat-demo:sider-collapsed 区分「桌面收起」与「抽屉关着」）
+  布局模式          常驻侧栏 / 桌面收起 / 抽屉（读 DOM 里 sider- / collapsed- / drawer- 元素；
+                    收起后那组按钮只在桌面布局渲染，所以它能区分「桌面收起」与「抽屉关着」）
   上安全区          根容器实际 padding-top 的像素值
   左/右距           视口边缘到内容盒的水平距离 = 容器左边 + 左 padding，
                     右侧同理。安全区镜像生效时两侧应相等。
 
 断言（写死，命令行改不了）
   1 frame 高 > 0 且等于视口高（容差 ${TOLERANCE}px）——塌成 0 就是白屏征兆
-  2 requireMobile 的尺寸（390/412 竖、915 之类矮屏）必须走移动端布局
+  2 requireMobile 的尺寸（390/412 竖、800×480 / 915×412 / 1024×600 这类横屏）必须走移动端布局（侧栏为抽屉）
   3 symmetric 的尺寸左右距相等（容差 ${TOLERANCE}px）。光判相等会被 0/0 蒙过去——两侧一起
     忽略安全区时也相等——所以横屏还要求两侧都等于「较大那次安全区」，竖屏则要求是 0。
 
@@ -169,11 +189,14 @@ const MEASURE_SCRIPT = `(() => {
   } catch {}
   const sider = find('sider-')
   const drawer = find('drawer-')
+  // 「桌面收起」靠收起后那组按钮（CollapsedSider）在不在，而不是 localStorage——
+  // 从移动端转回桌面时会自动折叠，localStorage 里的值不再能代表当前布局。
+  const collapsedGroup = find('collapsed-')
   const mode = visible(drawer)
     ? 'mobile-drawer(open)'
     : visible(sider)
       ? 'desktop-persistent'
-      : collapsed === 'true'
+      : visible(collapsedGroup)
         ? 'desktop-collapsed'
         : 'mobile-drawer(closed)'
   return {
@@ -441,6 +464,14 @@ const measurePreset = async ({ browser, preset, url, safeAreaSupported }) => {
   })
   if (safeAreaSupported) {
     await send('Emulation.setSafeAreaInsetsOverride', { insets: preset.insets })
+  }
+  // 上一档的尺寸变更会让还开着的页面转一次屏，而「从移动端转回桌面时保持折叠」会顺手把
+  // 侧栏收起写进设置。不清掉的话，后面几档量到的模式就取决于跑的顺序——所以每档都从空设置重开。
+  await sleep(250)
+  try {
+    await evaluate('localStorage.clear()')
+  } catch {
+    // 第一档还停在 about:blank，没有同源 localStorage 可清
   }
 
   const navigation = send('Page.navigate', { url })

@@ -1,8 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { resolveSafeSide } from './safeArea.js'
 
-/** 窄于 768px，或高不足 480px（手机横过来）按移动端布局。逗号＝或，与 CSS 里的媒体查询同一条件。 */
-const query = window.matchMedia('not all and (min-width: 768px), (max-height: 479px)')
+/**
+ * 按移动端布局的三种情况，逗号＝或：
+ * 1. 宽不足 768px（手机竖屏、窄窗口）；
+ * 2. 高不足 520px（手机横过来，键盘一弹就没有可用空间）；
+ * 3. 宽 > 高 且 高不足 700px（小平板、折叠屏横过来）——放不下 261px 的常驻侧栏，
+ *    判成桌面布局就会把会话区挤掉一块，所以也走抽屉。
+ *
+ * 与 CSS 里全仓 11 处 @media 是同一条件，改这里必须一起改（tools/measure-layout.mjs 守着两边的数字）。
+ */
+const query = window.matchMedia(
+  'not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px)'
+)
 
 const subscribe = (onChange: () => void) => {
   query.addEventListener('change', onChange)

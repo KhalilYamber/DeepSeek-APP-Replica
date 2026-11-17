@@ -12,7 +12,7 @@
   display: contents;
 }
 
-@media not all and (min-width: 768px), (max-height: 479px) {
+@media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
   .container {
     overflow: hidden;
     scrollbar-gutter: auto;

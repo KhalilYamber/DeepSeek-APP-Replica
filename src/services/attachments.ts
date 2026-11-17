@@ -3,6 +3,7 @@ import type { LinkedMessage, TranslationMessage } from '../i18n/index.js'
 import { uploadFile } from './api/client.js'
 import { classifyApiError, getUploadErrorInfo, isRetryableApiError } from './api/errors.js'
 import type { FilePurpose } from './api/types.js'
+import { checkImageContent, describeImageContent, imageFormatByExt } from './imageFormat.js'
 import { ACCEPT_FILE_EXTS } from './uploadExts.js'
 
 /** 允许上传的扩展名，按扩展名白名单过滤，清单见 uploadExts.ts */
@@ -53,6 +54,53 @@ export const validateFiles = (files: File[], currentCount: number): TranslationM
   }
   if (currentCount + files.length > MAX_COUNT) {
     return { key: 'uploadMaxFiles', params: { count: MAX_COUNT } }
+  }
+  return null
+}
+
+/**
+ * 读多少字节做真实格式判定：位图的签名都在前 16 字节内，
+ * 但 SVG 前面可能有几十字节的 XML 声明，读 512 才认得出，代价可以忽略。
+ */
+const SNIFF_BYTES = 512
+
+/** 读文件头；读不出来（如原件已失效）按「认不出内容」处理，交给内容校验统一提示 */
+const readHead = async (file: File): Promise<Uint8Array> => {
+  try {
+    return new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer())
+  } catch {
+    return new Uint8Array()
+  }
+}
+
+/**
+ * 只有「可能是图片」的文件才读内容：扩展名声明的图片，加上浏览器 MIME 说是图片的
+ * （粘贴、截图这类常常没有扩展名）。代码、文本、文档、音频一律不读，行为与改动前一致。
+ */
+const looksLikeImage = (file: File) =>
+  imageFormatByExt(getFileExt(file.name)) !== null || isImage(resolveMimeType(file))
+
+/**
+ * 添加前的内容校验：读图片文件的头部字节，真实格式不属于 JPEG / PNG / WebP / GIF 的拦下。
+ *
+ * 为什么必须单独一道：validateFiles 只看扩展名，而 Files API 上传时不校验内容，
+ * 于是「`.jpg` 里装着 BMP」「`.png` 其实是 HEIC」这类文件会一路走到发送阶段，
+ * 由服务端拒绝整条消息，用户只知道「有东西不对」却不知道是哪一个。
+ *
+ * 为什么不是 validateFiles 的一部分：读文件头必须异步（File.arrayBuffer），
+ * 而 validateFiles 是同步的纯校验，调用方按同步语义使用。这里单独开一个异步入口，
+ * 调用点只有 addDraftFiles 一处，同步链路保持不变。
+ */
+export const validateFileContents = async (files: File[]): Promise<TranslationMessage | null> => {
+  for (const file of files) {
+    if (!looksLikeImage(file)) {
+      continue
+    }
+    const declared = imageFormatByExt(getFileExt(file.name))
+    const issue = describeImageContent(file.name, checkImageContent(declared, await readHead(file)))
+    if (issue) {
+      return issue
+    }
   }
   return null
 }

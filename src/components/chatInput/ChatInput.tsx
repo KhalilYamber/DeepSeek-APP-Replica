@@ -78,10 +78,12 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     if (files.length === 0 || useChatStore.getState().importingHistory || !ensureApiKey()) {
       return
     }
-    const error = addDraftFiles(sessionId, files, useSettings.getState().apiKey ?? '')
-    if (error) {
-      showToast(error)
-    }
+    // 校验要读图片的文件头，整条入口是异步的；提示仍在拿到结果后弹
+    void addDraftFiles(sessionId, files, useSettings.getState().apiKey ?? '').then((error) => {
+      if (error) {
+        showToast(error)
+      }
+    })
   }
   const retryFile = useCallback(
     (id: string) => {

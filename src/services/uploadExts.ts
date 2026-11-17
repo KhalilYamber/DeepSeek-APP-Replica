@@ -1,5 +1,36 @@
 /**
- * 允许上传的文件扩展名清单；不含 heic / heif。
+ * 服务端能解析的图片扩展名：DeepSeek 只接受 JPEG / PNG / WebP / GIF。
+ *
+ * 其余图片格式（BMP、TIFF、SVG、ICO、AVIF 等）从白名单里去掉——Files API 上传时不校验内容，
+ * 它们能上传成功，等到发送阶段才被服务端拒，报错是
+ * 「messages.560.content.47: You have uploaded an unsupported image...」，整条消息一起失败。
+ * 这里收窄后，这类文件在「选择文件」那一步就进不来。
+ * pjpeg / pjp / jpe 是 JPEG 的别名，apng 是 PNG 的动画扩展，字节头与主格式相同，保留。
+ */
+export const SENDABLE_IMAGE_EXTS: readonly string[] = [
+  'png',
+  'apng',
+  'jpg',
+  'jpeg',
+  'jpe',
+  'jfif',
+  'pjpeg',
+  'pjp',
+  'webp',
+  'gif',
+]
+
+/**
+ * 允许上传的文件扩展名清单（非图片 + 服务端能解析的图片）；不含 heic / heif。
+ *
+ * 这份清单是扁平的：代码、文本、文档、图片混在同一个数组里，没有任何「文本分支」会复用
+ * 图片扩展名（`src` 里也没有第二份图片扩展名表），所以「收窄图片」只能是把这几个图片扩展名
+ * 从这里删掉，不会波及其它类别。删掉的唯一后果：这类文件在「选择文件」时就进不来，
+ * 不再出现「上传成功、发送时整条消息失败」。其余扩展名一个没动。
+ *
+ * 末尾那一串（blp / dds / jp2 / psd / tga …）本身是图片格式表，但本应用不会把它们当图片发出去
+ * （浏览器通常给不出 image/ MIME，按文档走），改了会误伤同名的数据文件，所以留着不动；
+ * 万一某个系统真把它们报成 image/*，由 imageFormat.ts 的内容校验兜住。
  */
 export const ACCEPT_FILE_EXTS: string[] = [
   'wxml',
@@ -17,21 +48,12 @@ export const ACCEPT_FILE_EXTS: string[] = [
   'png',
   'jpg',
   'jpeg',
-  'svg',
-  'svgz',
-  'bmp',
   'gif',
   'webp',
-  'ico',
-  'xbm',
-  'dib',
-  'pjp',
-  'tif',
-  'pjpeg',
-  'avif',
   'apng',
-  'tiff',
   'jfif',
+  'pjp',
+  'pjpeg',
   'txt',
   'md',
   'csv',
@@ -650,7 +672,6 @@ export const ACCEPT_FILE_EXTS: string[] = [
   'rktl',
   'scrbl',
   'rl',
-  'raw',
   'reb',
   'r2',
   'r3',
@@ -929,11 +950,9 @@ export const ACCEPT_FILE_EXTS: string[] = [
   'gitkeep',
   'gitmodules',
   'example',
-  'avifs',
   'blp',
   'bufr',
   'bw',
-  'cur',
   'dcx',
   'dds',
   'emf',

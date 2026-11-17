@@ -1,6 +1,19 @@
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { readMessageEvent } from './parseEvent.js'
 import { readServerSentEvents } from './sse.js'
+import {
+  CONNECT_TIMEOUT_MS,
+  RETRY_DELAY_MS,
+  UPLOAD_TIMEOUT_MS,
+  linkAbort,
+  noteStreamEvent,
+  notifyRequestRetry,
+  shouldRetry,
+  startStreamWatch,
+  timeoutMessage,
+  timeoutMs,
+  type TimeoutScope,
+} from './timeout.js'
 import type {
   ApiErrorBody,
   CreateMessageRequest,
@@ -66,20 +79,70 @@ const readErrorResponse = async (
   return new ApiError(kind, message, response.status)
 }
 
-export const request = async (url: string, init: RequestInit): Promise<Response> => {
-  let response: Response
-  try {
-    response = await fetch(url, init)
-  } catch (error) {
-    if (init.signal?.aborted) {
-      throw error
+export type RequestOptions = {
+  /** 等响应头的最长时间；默认按「连接」算，上传按体积给更大的边界 */
+  timeoutMs?: number
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/**
+ * 发请求并等响应头：超时、断网都会抛 ApiError，不会一直挂着。
+ * 只对「还没拿到任何响应内容」的失败自动重试一次（连接失败、429、5xx），重试前弹一条 toast。
+ * 超时与调用方主动停止不重试；调用方停止时原样抛出它自己的中止错误。
+ */
+export const request = async (
+  url: string,
+  init: RequestInit,
+  options: RequestOptions = {}
+): Promise<Response> => {
+  const scope: TimeoutScope = 'connect'
+  const budget = options.timeoutMs ?? CONNECT_TIMEOUT_MS
+  for (let attempt = 0; ; attempt += 1) {
+    const controller = new AbortController()
+    const unlink = linkAbort(init.signal ?? undefined, controller)
+    let timedOut = false
+    const timer = window.setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, budget)
+    try {
+      let response: Response
+      try {
+        response = await fetch(url, { ...init, signal: controller.signal })
+      } catch (cause) {
+        // 调用方主动停止：原样抛出，别误报成超时
+        if (init.signal?.aborted) {
+          throw cause
+        }
+        if (timedOut) {
+          throw new ApiError('network', timeoutMessage(scope, budget))
+        }
+        const error = new ApiError(
+          'network',
+          cause instanceof Error ? cause.message : String(cause)
+        )
+        if (!shouldRetry({ attempt, failure: 'network' })) {
+          throw error
+        }
+        notifyRequestRetry()
+        await wait(RETRY_DELAY_MS)
+        continue
+      }
+      if (response.ok) {
+        return response
+      }
+      const error = await readErrorResponse(response)
+      if (!shouldRetry({ attempt, failure: 'http', status: error.status })) {
+        throw error
+      }
+      notifyRequestRetry()
+      await wait(RETRY_DELAY_MS)
+    } finally {
+      window.clearTimeout(timer)
+      unlink()
     }
-    throw new ApiError('network', error instanceof Error ? error.message : String(error))
   }
-  if (!response.ok) {
-    throw await readErrorResponse(response)
-  }
-  return response
 }
 
 const anthropicHeaders = (apiKey: string, beta: boolean): Record<string, string> => ({
@@ -113,12 +176,16 @@ export const uploadFile = async (
     form.append('purpose', purpose)
   }
   form.append('file', file)
-  const response = await request(`${ANTHROPIC_BASE_URL}/files`, {
-    method: 'POST',
-    headers: anthropicHeaders(apiKey, true),
-    body: form,
-    signal,
-  })
+  const response = await request(
+    `${ANTHROPIC_BASE_URL}/files`,
+    {
+      method: 'POST',
+      headers: anthropicHeaders(apiKey, true),
+      body: form,
+      signal,
+    },
+    { timeoutMs: UPLOAD_TIMEOUT_MS }
+  )
   return (await response.json()) as FileObject
 }
 
@@ -160,29 +227,63 @@ export async function* streamMessage(
   if (!response.body || !contentType.includes('text/event-stream')) {
     throw await readErrorResponse(response, 'protocol', '')
   }
-  for await (const { event: eventName, data } of readServerSentEvents(response.body, signal)) {
-    let payload: unknown
-    try {
-      payload = JSON.parse(data)
-    } catch {
-      if (eventName !== 'error') {
+
+  // 看门狗：连上后先等首字节（思考型回答起步慢，30 秒），之后每收到一个事件就把截止时间
+  // 推到流空闲阈值（60 秒）。超时就中止读取并抛 interrupted——调用方据此提示「没有新内容」，
+  // 而不是让转圈永远转下去。
+  const stream = new AbortController()
+  const unlink = linkAbort(signal, stream)
+  let watch = startStreamWatch()
+  const stalled: { scope: TimeoutScope | null } = { scope: null }
+  let timer = 0
+  const arm = () => {
+    const scope = watch.deadline
+    window.clearTimeout(timer)
+    timer = window.setTimeout(() => {
+      stalled.scope = scope
+      stream.abort()
+    }, timeoutMs(scope))
+  }
+
+  try {
+    arm()
+    for await (const { event: eventName, data } of readServerSentEvents(
+      response.body,
+      stream.signal
+    )) {
+      watch = noteStreamEvent(watch)
+      arm()
+      let payload: unknown
+      try {
+        payload = JSON.parse(data)
+      } catch {
+        if (eventName !== 'error') {
+          continue
+        }
+      }
+      if (isErrorBody(payload)) {
+        throw new ApiError('stream', payload.error.message)
+      }
+      if (eventName === 'error') {
+        throw new ApiError('stream', data)
+      }
+      const event = readMessageEvent(payload)
+      if (!event) {
         continue
       }
+      yield event
+      if (event.type === 'message_stop') {
+        return
+      }
     }
-    if (isErrorBody(payload)) {
-      throw new ApiError('stream', payload.error.message)
-    }
-    if (eventName === 'error') {
-      throw new ApiError('stream', data)
-    }
-    const event = readMessageEvent(payload)
-    if (!event) {
-      continue
-    }
-    yield event
-    if (event.type === 'message_stop') {
-      return
-    }
+  } finally {
+    window.clearTimeout(timer)
+    unlink()
+  }
+  const stalledScope = stalled.scope
+  // 用户主动停止不报超时：那是我们自己中止的，调用方按「已停止」处理。
+  if (stalledScope && !signal.aborted) {
+    throw new ApiError('interrupted', timeoutMessage(stalledScope))
   }
   // 服务端没有提供错误内容时保持为空，不推测断流原因。
   throw new ApiError('interrupted', '')

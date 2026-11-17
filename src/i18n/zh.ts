@@ -65,9 +65,18 @@ export const zh = {
   toolFindFailTooltip: '未查找到相关内容',
   readingLink: '正在阅读',
   commonNetworkErrorToast: '网络异常，请检查你的网络状况',
+  requestTimeout: '连接服务器超时（超过 {seconds} 秒没有响应），请检查网络后重试',
+  firstByteTimeout: '服务器已连接，但 {seconds} 秒没有开始回答，请重试',
+  streamIdleTimeout: '连接中断：超过 {seconds} 秒没有收到新内容',
+  requestRetrying: '网络不稳定，正在自动重试…',
   replyInvalidApiKey: 'API Key 无效或已被删除，请更换后重试',
   replyInsufficientBalance: '账户余额不足，请充值后重试',
   replyRateLimited: '请求过于频繁，请稍后再试',
+  replyImageUnsupported: '有附件格式不受支持，请转成 JPG 或 PNG 后重发',
+  replyImageUnsupportedAt: '有附件格式不受支持（第 {position} 个内容块），请转成 JPG 或 PNG 后重发',
+  replyAttachmentUnreadable: '有附件无法解析，请检查文件是否损坏、加密，或改存为常见格式后重发',
+  replyAttachmentUnreadableAt:
+    '有附件无法解析（第 {position} 个内容块），请检查文件是否损坏、加密，或改存为常见格式后重发',
   completionServerBusyToast: '服务器繁忙，请稍后再试',
   unknownError: '未知错误',
   replyRefused: '你好，这个问题我暂时无法回答，让我们换个话题再聊聊吧。',
@@ -111,8 +120,7 @@ export const zh = {
   historyImportConfirmTitle: '确认导入历史对话？',
   historyImportConfirmDescription:
     '文件里的对话会加入本地。合并保留现有对话，覆盖会先清空现有全部对话。',
-  historyImportDescription:
-    '支持 DeepSeek 导出的 ZIP 文件。默认合并导入，不会清空现有对话。',
+  historyImportDescription: '支持 DeepSeek 导出的 ZIP 文件。默认合并导入，不会清空现有对话。',
   historyImportMerge: '合并导入',
   historyImportReplace: '覆盖导入',
   historyImportMergeHint: '合并：保留现有对话，只补充新的',
@@ -154,6 +162,11 @@ export const zh = {
   uploadFileStatusUploading: '上传中...',
   uploadServerBusy: '服务器繁忙',
   uploadParseFailed: '解析失败',
+  uploadImageInvalid: '「{name}」不是有效的图片文件，请转成 JPG 或 PNG 后重发',
+  uploadImageFormatMismatch:
+    '「{name}」的扩展名与实际内容不一致：实际是 {format}，应使用 .{ext}；也可以转成 JPG 或 PNG 后重发',
+  uploadImageFormatUnsupported:
+    '「{name}」是 {format} 格式，服务端不支持，请转成 JPG 或 PNG 后重发',
   uploadFileCountLimit: '已上传文件数达到上限（{limit} 个），可 ',
   uploadStorageLimit: '已上传文件占用空间达到上限（{limit}GB），可 ',
   uploadDeleteFiles: '删除文件',

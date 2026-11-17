@@ -69,10 +69,23 @@ export const en = {
   toolFindFailTooltip: 'No related content found',
   readingLink: 'Reading',
   commonNetworkErrorToast: 'Network Error. Please check your network status.',
+  requestTimeout:
+    'Timed out reaching the server ({seconds}s without a response). Check your network and try again.',
+  firstByteTimeout: 'Connected, but no answer started within {seconds}s. Please try again.',
+  streamIdleTimeout: 'Connection lost: no new content for over {seconds}s.',
+  requestRetrying: 'Unstable network, retrying automatically…',
   replyInvalidApiKey:
     'The API Key is invalid or has been deleted. Please replace it and try again.',
   replyInsufficientBalance: 'Insufficient account balance. Please top up and try again.',
   replyRateLimited: 'Too many requests. Please try again later.',
+  replyImageUnsupported:
+    'An attachment has an unsupported format. Please convert it to JPG or PNG and resend.',
+  replyImageUnsupportedAt:
+    'An attachment has an unsupported format (content block {position}). Please convert it to JPG or PNG and resend.',
+  replyAttachmentUnreadable:
+    'An attachment could not be parsed. Please check whether it is corrupted or password-protected, or save it in a common format and resend.',
+  replyAttachmentUnreadableAt:
+    'An attachment could not be parsed (content block {position}). Please check whether it is corrupted or password-protected, or save it in a common format and resend.',
   completionServerBusyToast: 'Server busy, please try again later.',
   unknownError: 'Unknown error',
   replyRefused: "Sorry, that's beyond my current scope. Let's talk about something else.",
@@ -160,6 +173,11 @@ export const en = {
   uploadFileStatusUploading: 'Uploading...',
   uploadServerBusy: 'Server busy',
   uploadParseFailed: 'Parsing failed',
+  uploadImageInvalid: '"{name}" is not a valid image. Please convert it to JPG or PNG and resend.',
+  uploadImageFormatMismatch:
+    'The extension of "{name}" does not match its content: it is actually {format}, so use .{ext} instead, or convert it to JPG or PNG and resend.',
+  uploadImageFormatUnsupported:
+    '"{name}" is in {format} format, which is not supported. Please convert it to JPG or PNG and resend.',
   uploadFileCountLimit: 'Uploaded file limit reached ({limit} files). ',
   uploadStorageLimit: 'Uploaded file storage limit reached ({limit} GB). ',
   uploadDeleteFiles: 'Delete files',

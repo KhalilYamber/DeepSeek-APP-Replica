@@ -54,8 +54,8 @@
   text-align: center;
 }
 
-/* 逗号＝或：手机横过来时宽度过了 768，但高度只剩 412，键盘一弹没有可用空间，同样按移动端处理 */
-@media not all and (min-width: 768px), (max-height: 479px) {
+/* 逗号＝或，与 viewport.ts 的判据逐字对应：窄于 768 / 高不足 520 / 宽>高且高不足 700 都按移动端处理 */
+@media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
   .frame {
     position: fixed;
     top: var(--app-viewport-top, 0px);

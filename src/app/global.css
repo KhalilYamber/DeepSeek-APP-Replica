@@ -60,7 +60,7 @@ body.change-layout *::after {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
-@media not all and (min-width: 768px), (max-height: 479px) {
+@media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
   html,
   body,
   #root {
