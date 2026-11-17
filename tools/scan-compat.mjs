@@ -138,7 +138,7 @@ const CSS_SCAN_RULES = [
   { rule: 'css-aspect-ratio', re: /(?<=[;{}\s])aspect-ratio\s*:/g },
 ]
 
-const VIEWPORT_UNIT = /(?<![\w.-])\d*\.?\d+(dvh|svh|lvh|dvw|svw|lvw)(?![\w-])/g
+const VIEWPORT_UNIT = /(?<![\w.-])\d*\.?\d+(dvh|svh|lvh|dvw|svw|lvw)(?![\w-])/gi
 
 const HELP = `scan-compat —— 构建后扫「有内核门槛但没兜底」的写法（目标内核 ${TARGET_KERNEL}）
 
@@ -424,7 +424,8 @@ const scanCss = (file, text, push) => {
 
   for (const match of masked.matchAll(VIEWPORT_UNIT)) {
     const offset = match.index
-    const unit = match[1]
+    // CSS 单位不区分大小写：100DVH 在旧内核上同样整条作废
+    const unit = match[1].toLowerCase()
     const block = innermostBlock(blocks, offset)
     if (!block) {
       report('viewport-unit-fallback', offset, { detail: `${match[0]} 不在任何声明块里，无从判断兜底` })
@@ -443,7 +444,7 @@ const scanCss = (file, text, push) => {
     const declRe = /(?:^|[;{])\s*(--?[A-Za-z][\w-]*|[A-Za-z][\w-]*)\s*:\s*([^;{}]*)/g
     let hasFallback = false
     for (const decl of region.matchAll(declRe)) {
-      if (decl[1] === prop && new RegExp(`\\d(?:\\.\\d+)?${fallback}(?![\\w-])`).test(decl[2])) {
+      if (decl[1] === prop && new RegExp(`\\d(?:\\.\\d+)?${fallback}(?![\\w-])`, 'i').test(decl[2])) {
         hasFallback = true
         break
       }
