@@ -55,6 +55,8 @@
   }
 }
 
+/* 标题紧跟列表时间距收窄到 8px：列表 -8px 与标题 16px 外合并成 8px。
+   不用 :has() 是因为 Chromium 105 以下会把整条规则丢掉，间距就退回 16px。 */
 .ds-markdown {
   h4 + ul,
   h5 + ul,
@@ -62,15 +64,7 @@
   h4 + ol,
   h5 + ol,
   h6 + ol {
-    margin-top: 8px;
-  }
-  h4:has(+ ul),
-  h5:has(+ ul),
-  h6:has(+ ul),
-  h4:has(+ ol),
-  h5:has(+ ol),
-  h6:has(+ ol) {
-    margin-bottom: 8px;
+    margin-top: -8px;
   }
 }
 

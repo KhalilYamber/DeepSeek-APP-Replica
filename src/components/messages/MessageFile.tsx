@@ -50,10 +50,13 @@ const useUploadState = (file: FileAttachment) =>
 export const MessageFile = ({
   file,
   onRetry,
+  compact,
 }: {
   file: FileAttachment
   /** 本条消息补传失败且可重试时提供 */
   onRetry: (() => void) | null
+  /** 与文档混排时缩略图只有 64px，放不下失败原因 */
+  compact?: boolean
 }) => {
   const t = useTranslate()
   const url = useFileUrl(file.id)
@@ -92,7 +95,7 @@ export const MessageFile = ({
     // 「上传失败」只显示状态，其余原因写在图片底部的渐变上
     const reason =
       errorText && errorText !== t('uploadFileStatusFailed') ? (
-        <span className={styles.reason}>{errorText}</span>
+        <span className={clsx(styles.reason, compact && styles.reasonCompact)}>{errorText}</span>
       ) : null
 
     // 上传失败不可重试：保留缩略图，底部渐变显示原因

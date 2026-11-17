@@ -44,6 +44,8 @@ export const UserMessage = memo(function UserMessage({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isMobile = useIsMobile()
   const canSend = !busy && (draft.trim() !== '' || message.files.length > 0)
+  // 图片与文档混排时缩略图只有 64px
+  const withDocuments = message.files.some((file) => !file.isImage)
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current
@@ -63,16 +65,12 @@ export const UserMessage = memo(function UserMessage({
   return (
     <div className={clsx(styles.container, isFirst && styles.isFirst)}>
       {message.files.length > 0 ? (
-        <div
-          className={clsx(
-            styles.files,
-            message.files.some((file) => !file.isImage) && styles.filesWithDocuments
-          )}
-        >
+        <div className={clsx(styles.files, withDocuments && styles.filesWithDocuments)}>
           {message.files.map((file) => (
             <MessageFile
               key={file.id}
               file={file}
+              compact={withDocuments}
               onRetry={retryUploadId ? () => retryUpload(sessionId, retryUploadId) : null}
             />
           ))}

@@ -25,7 +25,6 @@
 
 .imageThumb {
   position: relative;
-  container-type: inline-size;
 }
 
 button.image {
@@ -91,11 +90,9 @@ button.image {
   pointer-events: none;
 }
 
-/* 比缩略图最小尺寸还窄时放不下文案，只保留状态 */
-@container (max-width: 63px) {
-  .reason {
-    display: none;
-  }
+/* 比缩略图最小尺寸还窄时放不下文案，只保留状态。用类名而不是容器查询，旧内核也认 */
+.reasonCompact {
+  display: none;
 }
 
 .spinner {

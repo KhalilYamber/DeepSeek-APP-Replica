@@ -44,6 +44,8 @@
     font: var(--dsw-font-markdown-small);
   }
 
+  /* 标题与段落自身留 12px，紧跟的列表用 -8px 抵消，外合并成 4px；
+     Chromium 105 以下会整条丢掉带 :has() 的规则，所以不用 :has()。 */
   h3 + ul,
   h4 + ul,
   h5 + ul,
@@ -52,25 +54,14 @@
   h4 + ol,
   h5 + ol,
   h6 + ol {
+    margin-top: -8px;
+  }
+  /* 上游的 :has() 选择器把 ol 写了两遍，段落 + ul 一直没收窄，这里照旧保留差异 */
+  .ds-markdown-paragraph + ul {
     margin-top: 4px;
   }
-  h3:has(+ ul),
-  h4:has(+ ul),
-  h5:has(+ ul),
-  h6:has(+ ul),
-  h3:has(+ ol),
-  h4:has(+ ol),
-  h5:has(+ ol),
-  h6:has(+ ol) {
-    margin-bottom: 4px;
-  }
-  .ds-markdown-paragraph + ul,
   .ds-markdown-paragraph + ol {
-    margin-top: 4px;
-  }
-  .ds-markdown-paragraph:has(+ ol),
-  .ds-markdown-paragraph:has(+ ol) {
-    margin-bottom: 4px;
+    margin-top: -8px;
   }
 
   li > ul,
