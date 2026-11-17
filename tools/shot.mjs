@@ -4,7 +4,8 @@ import { spawn } from 'node:child_process'
 import { writeFile, rm } from 'node:fs/promises'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 
 const CHROME =
   process.env.CHROME_PATH ??
@@ -20,8 +21,10 @@ const width = Number(wArg ?? 390)
 const height = Number(hArg ?? 844)
 const dsf = Number(dsfArg ?? 2)
 const port = 9500 + Math.floor(Math.random() * 200)
-// Chrome 对 --user-data-dir 的相对路径处理不稳，统一转绝对路径
-const prof = resolve(`${out}.profile`)
+// profile 放系统临时目录：原先放在截图旁边（`${out}.profile`），而 Windows 上
+// Chrome 刚被杀时常还攥着目录，rm 失败被 catch 吞掉，于是 screenshots/ 里越积越多。
+// 放临时目录后即便删不掉也只脏系统盘，不会混进验收截图。
+const prof = join(tmpdir(), `shot-profile-${port}`)
 if (existsSync(prof)) await rm(prof, { recursive: true, force: true })
 
 const child = spawn(
@@ -43,8 +46,12 @@ const child = spawn(
 
 const cleanup = async (code) => {
   try { child.kill() } catch {}
-  await sleep(150)
-  try { await rm(prof, { recursive: true, force: true }) } catch {}
+  // Windows 上 Chrome 刚被杀时还攥着 profile，过一会儿才放（实测 150ms 不够）。
+  // 重试几次；仍失败就算了——它在系统临时目录，不会污染项目。
+  for (let i = 0; i < 4; i++) {
+    await sleep(250)
+    try { await rm(prof, { recursive: true, force: true }); break } catch {}
+  }
   process.exit(code)
 }
 
