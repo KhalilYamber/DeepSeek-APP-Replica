@@ -1,0 +1,46 @@
+.avatar {
+  position: absolute;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 600;
+  user-select: none;
+}
+
+.left {
+  left: 0;
+}
+
+.right {
+  right: 0;
+}
+
+.userFallback {
+  color: var(--dsw-alias-label-primary);
+  background-color: var(--dsw-specific-bubble);
+}
+
+.assistantFallback {
+  color: var(--dsw-alias-brand-primary);
+  background-color: var(--dsw-alias-bg-layer-3);
+}
+
+img.avatar {
+  object-fit: cover;
+}
+
+@media not all and (min-width: 768px) {
+  .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+}

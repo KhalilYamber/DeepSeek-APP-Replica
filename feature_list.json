@@ -393,6 +393,48 @@
         "2026-11-18：`pnpm test` 97 条全绿（原 89 + 新增 8），`pnpm lint` 127 文件 0 警告，`pnpm build` 通过。"
       ],
       "notes": "**inferred：真机（尤其 iOS Safari）未验**。全部实测都在 Windows 上的 headless Chrome 157。\n\n只在网页版出现：用 `isNativeApp()` 运行时判断，APK 里不渲染这个入口。这样两个形态共用一份构建产物，不必维护第二套构建配置；代价是代码本身仍随 APK 打包（几 KB 死代码）。\n\n已知边界：① 搜索只覆盖本地已加载的会话数据，不含尚未导入的历史；② 中文按「连续几个字」子串匹配，不分词，「头像」能搜到、「像头」不能；③ 每次查询全量扫库，几百条会话量级可以接受，再大需要建索引；④ 思考过程不进搜索，避免「搜得到却看不见」。"
+    },
+    {
+      "id": "web-002",
+      "priority": 1,
+      "area": "feature",
+      "title": "网页版头像：用户可上传自己的照片",
+      "user_visible_behavior": "网页版的消息按气泡对话显示，用户消息右侧、AI 消息左侧各有一个圆形头像。默认显示「我」与「AI」，在设置 → 通用设置里可上传照片（自动居中裁成方形、压到 160px）或恢复默认。APK 里没有头像。",
+      "status": "inferred",
+      "verification": [
+        "真浏览器（headless Chrome 157，1280×800）里默认头像渲染出 2 个",
+        "设置页出现头像区，两个上传入口",
+        "用 CDP 真上传一张 200×200 PNG：localStorage 里存下 2495 字符的 data:image/jpeg，预览立即变成照片",
+        "关掉设置回会话，会话里 2 个头像、其中 1 个是图片",
+        "pnpm type / lint / test（97）/ build / scan-compat 全绿"
+      ],
+      "evidence": [
+        "2026-11-18：`src/services/avatar.ts`——头像存 localStorage（两条 key），`fileToAvatar` 用 Image + canvas 居中裁正方形、压到 160px、编码 JPEG 0.85（不用 createImageBitmap：旧 Safari 没有）。",
+        "2026-11-18：`MessageAvatar.tsx` 绝对定位（左/右），给消息容器加 `.withAvatar` 的左右内边距，不改原有气泡流式布局。",
+        "2026-11-18 真浏览器验证（`_probe/avatar-probe.mjs`）：默认头像 `{count:2, marks:['我','AI']}`；设置里 `{hasAvatarRow:true, uploads:2}`；用 `DOM.setFileInputFiles` 喂一张脚本手搓的 200×200 PNG 后 `{stored:2495, isJpeg:true, previewImg:true}`；回会话 `{total:2, imgs:1}`。截图 `screenshots/avatar-01-default.png`、`avatar-02-settings.png`、`avatar-03-after-upload.png`、`avatar-04-chat.png`。",
+        "2026-11-18：`./init.ps1` 六道门全绿（type / lint / 97 tests / build / 产物 / scan-compat error 0）。"
+      ],
+      "notes": "**inferred：真机上传路径未验**。桌面 headless Chrome 上验证了「真上传文件 → 真存下 → 真显示」，但手机相册选择器、iOS 的 HEIC 照片、iPad Safari 的 canvas 编码差异都没验。HEIC 需要确认：iOS 相册选出的 HEIC 在 Safari 里能通过 Image 解码，若不能会走失败 toast。\n\n只在网页版：`isNativeApp()` 运行时判断，APK 不渲染头像也不显示设置项。\n\n代价：界面从此与官方 demo 不同（ARCHITECTURE 决策 1 的推翻条件之一），以后同步上游时这块要单独处理。\n\n存储边界：头像存 localStorage（不是 IndexedDB），因为两条小图没必要为它升数据库版本；若 localStorage 不可用（隐私模式）只在内存生效，刷新后回到默认。"
+    },
+    {
+      "id": "web-003",
+      "priority": 1,
+      "area": "compat",
+      "title": "修掉启动兜底页的误报（v0.4.0 缺陷）",
+      "user_visible_behavior": "界面正常渲染时，8 秒后不再弹出「这个界面打不开」，用户也不会再看到覆盖在正常界面上的错误页。",
+      "status": "verified",
+      "verification": [
+        "真实页面等 3 / 6 / 10 / 14 秒，兜底页在 10 秒与 14 秒都不出现",
+        "兜底页自身的能力检测套件仍通过（verify-boot-guard）"
+      ],
+      "evidence": [
+        "2026-11-18 发现：界面正常时 `#root` 的 `getBoundingClientRect().height` 恒为 0，而兜底脚本用「#root 高度 < 120px」判定没渲染，于是 8 秒后误报。真因是 `.frame` 是 `position: absolute; inset: 0`，绝对定位的子元素不撑开父容器高度。",
+        "2026-11-18 复现：`_probe/boot-check.mjs` 在 1280×800 下等 3s/6s → guard=false；等 10s/14s → guard=true 且 `rootHeight:0`、`hasFrame:true`（界面明明在）。",
+        "2026-11-18 修复：`src/index.html` 的兜底脚本新增 `renderedHeight()`——先量 #root，为 0 时改量它第一个元素子节点；`rootState()` 与 `describeRoot()` 都改用它。",
+        "2026-11-18 复验：同样四次等待（3/6/10/14 秒）guard 全为 false。截图 `screenshots/avatar-04-chat.png` 里兜底页已不再出现。",
+        "2026-11-18：`node tools/verify-boot-guard.mjs` 25/27 通过——两条 `check-stubbed` 断言（去掉 Object.fromEntries / hasOwn·structuredClone 后的分级）失败。这两条属于 check.html 的能力检测，与本修复无关，也早于本轮改动（`src/check.html` 最后修改于 v0.4.0 的 75a1e32），列在已知问题里。"
+      ],
+      "notes": "标 verified 是因为「不再误报」这件事在本机真实浏览器上看到了；旧内核上的行为仍未验。\n\n**未修的部分**：`check.html` 的两条 stub 断言失败，说明自检页在缺 `Object.fromEntries` / `hasOwn` / `structuredClone` 时的分级与断言期望不一致，需单独一轮修。"
     }
   ]
 }

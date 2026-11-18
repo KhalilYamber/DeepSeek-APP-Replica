@@ -13,6 +13,18 @@
   }
 }
 
+/* 网页版右侧头像：绝对定位，不改原有气泡流式布局 */
+.withAvatar {
+  position: relative;
+  padding-right: 44px;
+}
+
+@media not all and (min-width: 768px) {
+  .withAvatar {
+    padding-right: 38px;
+  }
+}
+
 .files {
   display: flex;
   flex-wrap: wrap;

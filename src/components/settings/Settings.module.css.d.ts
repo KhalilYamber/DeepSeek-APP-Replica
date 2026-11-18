@@ -34,6 +34,13 @@ declare const styles: {
   readonly "importConfirm": string;
   readonly "importConfirmText": string;
   readonly "importConfirmHint": string;
+  readonly "avatarSetting": string;
+  readonly "avatarRow": string;
+  readonly "avatarPreview": string;
+  readonly "avatarFallback": string;
+  readonly "avatarActions": string;
+  readonly "avatarUpload": string;
+  readonly "avatarInput": string;
   readonly "deleteConfirm": string;
   readonly "deleteActions": string;
 };

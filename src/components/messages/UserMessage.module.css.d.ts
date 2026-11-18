@@ -1,5 +1,6 @@
 declare const styles: {
   readonly "container": string;
+  readonly "withAvatar": string;
   readonly "isFirst": string;
   readonly "actions": string;
   readonly "files": string;

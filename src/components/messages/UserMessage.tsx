@@ -4,6 +4,7 @@ import { memo, useLayoutEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
 import { IconEditOutline16 } from '../base/icons.js'
 import { editMessage, retryUpload } from '../../services/chat/store.js'
+import { isNativeApp } from '../../services/native/platform.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
 import type { UserMessage as UserMessageType } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
@@ -14,6 +15,7 @@ import {
   type MessageVersions,
   type SelectMessageVersion,
 } from './BranchSwitcher.js'
+import { MessageAvatar } from './MessageAvatar.js'
 import { MessageFile } from './MessageFile.js'
 import { CopyButton } from './CopyButton.js'
 import styles from './UserMessage.module.css'
@@ -43,6 +45,8 @@ export const UserMessage = memo(function UserMessage({
   const [draft, setDraft] = useState(message.content)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isMobile = useIsMobile()
+  // 头像只在网页版出现（APK 不渲染），与历史搜索同一套运行时判断
+  const showAvatar = !isNativeApp()
   const canSend = !busy && (draft.trim() !== '' || message.files.length > 0)
   // 图片与文档混排时缩略图只有 64px
   const withDocuments = message.files.some((file) => !file.isImage)
@@ -63,7 +67,10 @@ export const UserMessage = memo(function UserMessage({
   }
 
   return (
-    <div className={clsx(styles.container, isFirst && styles.isFirst)}>
+    <div
+      className={clsx(styles.container, isFirst && styles.isFirst, showAvatar && styles.withAvatar)}
+    >
+      {showAvatar ? <MessageAvatar role="user" /> : null}
       {message.files.length > 0 ? (
         <div className={clsx(styles.files, withDocuments && styles.filesWithDocuments)}>
           {message.files.map((file) => (

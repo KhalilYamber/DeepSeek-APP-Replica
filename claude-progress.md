@@ -222,4 +222,24 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 更新过的文件或工件：`src/services/chat/search.ts`、`src/services/chat/db.ts`、`src/components/sider/SearchBox.tsx`、`Sider.tsx`、`Sider.module.css`（含 `.d.ts`）、`i18n/zh.ts`、`i18n/en.ts`、`test/search.test.ts`、`feature_list.json`（`web-001`）、本文件
 - 下一步最佳动作：头像（用户要求：用户可上传自己的照片设置头像）
 
+### Session 008
+
+- 日期：2026-11-18
+- 本轮目标：网页版加头像（用户可上传自己的照片），顺手修掉发现的一处 v0.4.0 缺陷
+- 已完成：
+  - `src/services/avatar.ts`：头像存 localStorage 两条 key；`fileToAvatar` 居中裁正方形 → 160px → JPEG 0.85（用 Image + canvas，不用 `createImageBitmap`，旧 Safari 没有）
+  - `MessageAvatar.tsx`：绝对定位左/右，消息容器加 `.withAvatar` 内边距，**不改原有气泡流式布局**
+  - 设置 → 通用设置新增头像区（两个上传入口 + 恢复默认）；只在网页版渲染
+  - **修 bug**：`src/index.html` 兜底脚本新增 `renderedHeight()`——原先用「#root 高度 < 120px」判定没渲染，而 `.frame` 是 `position:absolute; inset:0`，`#root` 自身高度恒为 0，于是**界面正常也会在 8 秒后弹出「打不开」**。改为 #root 高度为 0 时量第一个元素子节点
+- 运行过的验证：
+  - `./init.ps1` 六道门全绿（type / lint / 97 tests / build / 产物 / scan-compat error 0）
+  - 真浏览器（headless Chrome 157，1280×800）：默认头像 2 个（我 / AI）；设置里有头像区与 2 个上传入口；`DOM.setFileInputFiles` 喂一张脚本手搓的 200×200 PNG → localStorage 存下 2495 字符 `data:image/jpeg`、预览立刻变照片；回会话 2 个头像、1 个是图片。截图 `screenshots/avatar-0*.png`
+  - 兜底页误报复现与复验：`_probe/boot-check.mjs` 等 3/6 秒无兜底页、10/14 秒**修复前出现**且 `rootHeight:0`；修复后四次等待全部无兜底页
+- **未验证（必须记清，不算通过）**：
+  - 真机上传未验（手机相册选择器、iOS HEIC 照片、iPad Safari 的 canvas 编码差异）
+  - **`tools/verify-boot-guard.mjs` 现在 25/27**：两条 `check-stubbed` 断言失败（去掉 `Object.fromEntries` / `hasOwn`·`structuredClone` 后的分级）。与「#root 高度」这条修复无关，且 `src/check.html` 最后修改于 v0.4.0 的 `75a1e32`，属**先前就存在的失败**，待单独一轮修
+- 更新过的文件或工件：`src/services/avatar.ts`、`src/components/messages/MessageAvatar.tsx`（含 css + d.ts）、`UserMessage.tsx`/`.module.css`（含 d.ts）、`AssistantMessage.tsx`/`.module.css`（含 d.ts）、`src/components/settings/SettingsDialog.tsx`、`Settings.module.css`（含 d.ts）、`src/i18n/zh.ts`、`src/i18n/en.ts`、`src/index.html`、`feature_list.json`（`web-002`、`web-003`）、本文件
+- 下一步最佳动作：修 `check.html` 的两条 stub 断言；真机上验一次头像上传
+
+
 

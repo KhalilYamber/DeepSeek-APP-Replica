@@ -11,8 +11,10 @@ import { openSettings } from '../settings/settingsDialogState.js'
 import { IconButton } from '../base/IconButton.js'
 import { Button } from '../base/Button.js'
 import { Markdown } from '../markdown/Markdown.js'
+import { isNativeApp } from '../../services/native/platform.js'
 import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
+import { MessageAvatar } from './MessageAvatar.js'
 import { ReadAloudButton } from './ReadAloudButton.js'
 import { CopyButton } from './CopyButton.js'
 import { ReplyArea } from './ReplyArea.js'
@@ -56,8 +58,11 @@ export const AssistantMessage = memo(function AssistantMessage({
   const copyText = responseText || notice?.text
   const waiting = streaming && view.steps.length === 0 && !view.answer && !message.thinking
   const summaryEntry = `${message.id}-summary`
+  // 头像只在网页版出现（APK 不渲染）
+  const showAvatar = !isNativeApp()
   return (
-    <div className={styles.message}>
+    <div className={clsx(styles.message, showAvatar && styles.withAvatar)}>
+      {showAvatar ? <MessageAvatar role="assistant" /> : null}
       {refused ? null : (
         <ReplyArea
           message={message}

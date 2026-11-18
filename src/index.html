@@ -128,25 +128,37 @@
           return document.getElementById('root')
         }
 
+        // 界面的根容器是绝对定位（`.frame { position: absolute; inset: 0 }`），
+        // 所以 #root 自身的高度恒为 0——只量它会把「正常渲染」误判成「塌了」。
+        // 先量 #root，量为 0 时改量它的第一个元素子节点。
+        function renderedHeight() {
+          var root = rootElement()
+          if (!root) return 0
+          var height = 0
+          if (root.getBoundingClientRect) height = root.getBoundingClientRect().height
+          if (!height) height = root.offsetHeight || 0
+          if (height) return height
+          var child = root.firstElementChild || (root.children && root.children[0])
+          if (!child) return 0
+          height = 0
+          if (child.getBoundingClientRect) height = child.getBoundingClientRect().height
+          if (!height) height = child.offsetHeight || 0
+          return height || 0
+        }
+
         // 'missing'（容器都没了）| 'empty'（有容器没内容）| 'flat'（有内容但高度塌了）| 'ok'
         function rootState() {
           var root = rootElement()
           if (!root) return 'missing'
           if (!root.children || root.children.length === 0) return 'empty'
-          var height = 0
-          if (root.getBoundingClientRect) height = root.getBoundingClientRect().height
-          if (!height) height = root.offsetHeight || 0
-          return height < ROOT_MIN_HEIGHT ? 'flat' : 'ok'
+          return renderedHeight() < ROOT_MIN_HEIGHT ? 'flat' : 'ok'
         }
 
         function describeRoot() {
           var root = rootElement()
           if (!root) return '容器不存在'
           var count = root.children ? root.children.length : 0
-          var height = 0
-          if (root.getBoundingClientRect) height = root.getBoundingClientRect().height
-          if (!height) height = root.offsetHeight || 0
-          return '子节点 ' + count + ' 个，高度 ' + Math.round(height) + 'px'
+          return '子节点 ' + count + ' 个，高度 ' + Math.round(renderedHeight()) + 'px'
         }
 
         function remember(kind, text) {

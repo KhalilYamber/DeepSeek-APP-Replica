@@ -11,6 +11,17 @@
   }
 }
 
+/* 网页版左侧头像：绝对定位，不改原有正文排布 */
+.withAvatar {
+  padding-left: 44px;
+}
+
+@media not all and (min-width: 768px) {
+  .withAvatar {
+    padding-left: 38px;
+  }
+}
+
 .waiting {
   display: flex;
   align-items: center;

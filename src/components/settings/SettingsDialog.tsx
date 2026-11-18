@@ -17,6 +17,7 @@ import {
   type ImportMode,
 } from '../../services/chat/backup.js'
 import { importMessage } from '../../services/chat/history/result.js'
+import { fileToAvatar, setAvatar, useAvatars, type AvatarRole } from '../../services/avatar.js'
 import { isNativeApp, saveBlobOnNative } from '../../services/native/platform.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useChatStore } from '../../services/chat/store.js'
@@ -103,6 +104,7 @@ const SettingsContent = () => {
               <ThemeSetting />
               <LocaleSetting />
               <TtsVoiceSetting />
+              {isNativeApp() ? null : <AvatarSetting />}
               <LocationSetting />
             </>
           ) : (
@@ -614,5 +616,79 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
         </Button>
       }
     />
+  )
+}
+
+/** 头像设置（仅网页版）：用户可上传自己的照片，AI 头像也可换或恢复默认。 */
+const AvatarSetting = () => {
+  const t = useTranslate()
+  return (
+    <div className={styles.avatarSetting}>
+      <AvatarRow role="user" label={t('settingsAvatarUser')} />
+      <AvatarRow role="assistant" label={t('settingsAvatarAssistant')} />
+    </div>
+  )
+}
+
+const AvatarRow = ({ role, label }: { role: AvatarRole; label: string }) => {
+  const t = useTranslate()
+  const src = useAvatars((state) => state[role])
+  const [busy, setBusy] = useState(false)
+
+  const pick = async (file: File | undefined) => {
+    if (!file) {
+      return
+    }
+    setBusy(true)
+    try {
+      setAvatar(role, await fileToAvatar(file))
+    } catch {
+      showToast({ key: 'settingsAvatarFailed', type: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className={styles.avatarRow}>
+      <span className={styles.avatarPreview}>
+        {src ? (
+          <img src={src} alt="" />
+        ) : (
+          <span className={styles.avatarFallback}>{role === 'user' ? '我' : 'AI'}</span>
+        )}
+      </span>
+      <div className={styles.text}>
+        <div className={styles.label}>{label}</div>
+        <div className={styles.description}>{t('settingsAvatarDescription')}</div>
+      </div>
+      <div className={styles.avatarActions}>
+        <label className={styles.avatarUpload}>
+          {t('settingsAvatarUpload')}
+          <input
+            className={styles.avatarInput}
+            type="file"
+            accept="image/*"
+            disabled={busy}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              event.target.value = ''
+              void pick(file)
+            }}
+          />
+        </label>
+        {src ? (
+          <Button
+            size="m"
+            variant="outlined"
+            className={styles.cellButton}
+            disabled={busy}
+            onClick={() => setAvatar(role, null)}
+          >
+            {t('settingsAvatarReset')}
+          </Button>
+        ) : null}
+      </div>
+    </div>
   )
 }
