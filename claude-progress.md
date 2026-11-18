@@ -241,5 +241,30 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 更新过的文件或工件：`src/services/avatar.ts`、`src/components/messages/MessageAvatar.tsx`（含 css + d.ts）、`UserMessage.tsx`/`.module.css`（含 d.ts）、`AssistantMessage.tsx`/`.module.css`（含 d.ts）、`src/components/settings/SettingsDialog.tsx`、`Settings.module.css`（含 d.ts）、`src/i18n/zh.ts`、`src/i18n/en.ts`、`src/index.html`、`feature_list.json`（`web-002`、`web-003`）、本文件
 - 下一步最佳动作：修 `check.html` 的两条 stub 断言；真机上验一次头像上传
 
+### Session 009
+
+- 日期：2026-11-18
+- 本轮目标：用户反馈「手机滑动有点卡」；找潜在 bug 并 debug（允许 0 改动，不许硬调）
+- 诊断过程（先量再改）：
+  1. 合成滚动测速（`_probe/perf-probe.mjs`，60 / 150 条消息，CPU 降速 4 倍与 10 倍）：**主线程一直是 60fps**，p90 约 20ms，几乎无掉帧 → 说明卡顿不在 JS 逻辑
+  2. 改从触摸链路查：`viewport.ts` 的 `preventPageScroll` 挂在 `document` 的 `touchmove` 上且 **`passive: false`**，每次事件都从触点向上逐祖先 `getComputedStyle` + 读 `scrollHeight/clientHeight`（强制样式 + 强制布局）；浏览器必须等它算完才敢滚
+  3. 量化：一次祖先扫描 0.219ms（CPU/10，1501 节点），换成 `closest()` 同场景 0.02ms
+- 已完成：
+  - **去掉阻塞滚动的监听**：支持 `overscroll-behavior` 的内核直接不挂（global.css 已把 html/body/#root 的 overflow 与 overscroll 设死）；老内核保留拦截，但把祖先扫描挪到 `touchstart`（passive），`touchmove` 只读布尔值
+  - `MessageList` 的 scroll 回调不再每帧读 `scrollHeight/clientHeight`（同样是强制布局），改由已有的 `ResizeObserver` 量一次写进 `metricsRef`
+  - **修红**：`tools/verify-boot-guard.mjs` 两条 `check-stubbed` 断言口径过期（v0.4.0 给 `Object.fromEntries` 补了垫片后，实际是 3 项兜底 / 0 项有毛病）。断言已更新，套件回到 **27/27**
+- 运行过的验证：
+  - `./init.ps1` 六道门全绿（type / lint / 97 tests / build / 产物 / scan-compat error 0）
+  - `_probe/listener-check.mjs`（390×844）：`document` 上**不再有** `touchmove(passive=false)`
+  - `_probe/touch-cost.mjs`：祖先扫描 0.219ms/次 vs `closest()` 0.02ms/次
+  - `verify-boot-guard`：27/27
+- **未验证（必须记清，不算通过）**：
+  - **改善只在真机体现，本机测不到**：合成滚动不走触摸事件链，所以「等不等主线程」在这套测法里不存在。改了之后的帧耗时与改前一致（avg 16.83 → 17.25，噪声内），**不能拿它当改善证据**
+  - 老内核（无 `overscroll-behavior`）上的新拦截逻辑只做了代码推理，没在真机跑过
+- 刻意没做：`content-visibility` / 列表虚拟化（能省绘制，但可能让滚动位置跳动，得先有真机数据）；Markdown 渲染策略（没有证据指向它）
+- 更新过的文件或工件：`src/app/viewport.ts`、`src/components/messages/MessageList.tsx`、`tools/verify-boot-guard.mjs`、`feature_list.json`（`web-004`、`web-005`）、本文件
+- 下一步最佳动作：请用户在真机上滑一遍确认手感；若仍卡，下一步再量绘制（`content-visibility` 需要先做 A/B 再决定）
+
+
 
 

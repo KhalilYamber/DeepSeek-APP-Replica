@@ -47,6 +47,8 @@ export const MessageList = ({
   const contentRef = useRef<HTMLDivElement>(null)
   const stickyRef = useRef(true)
   const scrollTopRef = useRef(0)
+  /** 滚动时只读缓存：在 scroll 回调里读 scrollHeight/clientHeight 会强制布局，手机上每帧都付一次。 */
+  const metricsRef = useRef({ scrollHeight: 0, clientHeight: 0 })
   const restoreScrollRef = useRef<{ messageId: string; top: number } | null>(null)
   const messages = getVisibleMessages(session)
   const [previousVersions, setPreviousVersions] = useState(() =>
@@ -75,7 +77,15 @@ export const MessageList = ({
     if (!content || !scroll) {
       return
     }
-    const observer = new ResizeObserver(scrollToBottom)
+    const measure = () => {
+      metricsRef.current = { scrollHeight: scroll.scrollHeight, clientHeight: scroll.clientHeight }
+    }
+    const onResize = () => {
+      measure()
+      scrollToBottom()
+    }
+    measure()
+    const observer = new ResizeObserver(onResize)
     observer.observe(content)
     observer.observe(scroll)
     return () => observer.disconnect()
@@ -126,7 +136,8 @@ export const MessageList = ({
       el.scrollTop = scrollTopRef.current
     }
     const onScroll = () => {
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < STICKY_THRESHOLD
+      const { scrollHeight, clientHeight } = metricsRef.current
+      const nearBottom = scrollHeight - el.scrollTop - clientHeight < STICKY_THRESHOLD
       // 仅在用户向上滚动时停止跟随底部，布局或内容增高时保持跟随状态。
       if (nearBottom) {
         stickyRef.current = true

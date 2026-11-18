@@ -380,8 +380,11 @@ const main = async () => {
       const text = await session.evaluate(`document.getElementById('app').textContent`)
       const file = await session.shot('check-page-stubbed.png')
       record('check-stubbed：删掉 ResizeObserver 后跑不了翻成 1 项', text.includes('跑不了 1 项'), `→ ${file}`)
-      record('check-stubbed：删掉 Object.fromEntries 后「有毛病」翻成 1 项', text.includes('能跑但有毛病 1 项'))
-      record('check-stubbed：删掉 hasOwn/structuredClone 记为有兜底', text.includes('有兜底 2 项'))
+      // 删掉的四项里三项在主包有垫片（fromEntries / hasOwn / structuredClone，见 polyfills.ts），
+      // 自检页会把它们算作「已兜底」而不是「能跑但有毛病」——所以有毛病是 0 项、有兜底是 3 项。
+      // 原先这里写的是「有毛病 1 项 / 有兜底 2 项」，那是 fromEntries 还没有垫片时的口径。
+      record('check-stubbed：四项垫片能力全记为「有兜底」', text.includes('有兜底 3 项'))
+      record('check-stubbed：有垫片的能力不再算「有毛病」', text.includes('能跑但有毛病 0 项'))
       if (identifier) await session.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
     }
   } finally {

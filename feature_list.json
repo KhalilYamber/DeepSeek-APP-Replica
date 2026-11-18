@@ -432,9 +432,51 @@
         "2026-11-18 复现：`_probe/boot-check.mjs` 在 1280×800 下等 3s/6s → guard=false；等 10s/14s → guard=true 且 `rootHeight:0`、`hasFrame:true`（界面明明在）。",
         "2026-11-18 修复：`src/index.html` 的兜底脚本新增 `renderedHeight()`——先量 #root，为 0 时改量它第一个元素子节点；`rootState()` 与 `describeRoot()` 都改用它。",
         "2026-11-18 复验：同样四次等待（3/6/10/14 秒）guard 全为 false。截图 `screenshots/avatar-04-chat.png` 里兜底页已不再出现。",
-        "2026-11-18：`node tools/verify-boot-guard.mjs` 25/27 通过——两条 `check-stubbed` 断言（去掉 Object.fromEntries / hasOwn·structuredClone 后的分级）失败。这两条属于 check.html 的能力检测，与本修复无关，也早于本轮改动（`src/check.html` 最后修改于 v0.4.0 的 75a1e32），列在已知问题里。"
+        "2026-11-18：`node tools/verify-boot-guard.mjs` 25/27 通过——两条 `check-stubbed` 断言（去掉 Object.fromEntries / hasOwn·structuredClone 后的分级）失败。这两条属于 check.html 的能力检测，与本修复无关，也早于本轮改动（`src/check.html` 最后修改于 v0.4.0 的 75a1e32），列在已知问题里。",
+        "2026-11-18（同日晚些）：那两条断言已单独修好——见 `web-005`，套件回到 27/27。"
       ],
-      "notes": "标 verified 是因为「不再误报」这件事在本机真实浏览器上看到了；旧内核上的行为仍未验。\n\n**未修的部分**：`check.html` 的两条 stub 断言失败，说明自检页在缺 `Object.fromEntries` / `hasOwn` / `structuredClone` 时的分级与断言期望不一致，需单独一轮修。"
+      "notes": "标 verified 是因为「不再误报」这件事在本机真实浏览器上看到了；旧内核上的行为仍未验。\n\n**原先未修的部分已结**：`check.html` 的两条 stub 断言已按新的兜底口径更新（`web-005`），套件 27/27。"
+    },
+    {
+      "id": "web-004",
+      "priority": 1,
+      "area": "performance",
+      "title": "手机滑动发黏：去掉每帧强制样式/布局读取与阻塞滚动的 touchmove 监听",
+      "user_visible_behavior": "手机上滑动对话时滚动手势不再等主线程算完；长列表里向上滑不会再出现一卡一卡的停顿。",
+      "status": "inferred",
+      "verification": [
+        "现代内核上 document 不再有 touchmove(passive=false) 监听",
+        "老内核仍保留拦截逻辑，但每次手势只扫一次祖先元素",
+        "滚动帧耗时与改动前一致（合成滚动测不出差异，见 notes）",
+        "六道门全绿"
+      ],
+      "evidence": [
+        "2026-11-18 定位：`viewport.ts` 的 `preventPageScroll` 在 `document` 上挂了 `touchmove` 且 `passive: false`，每次事件都从触点向上逐个祖先做 `getComputedStyle` + `scrollHeight/clientHeight`（强制样式解析 + 强制布局）。浏览器必须等这段跑完才敢滚——合成滚动（直接改 scrollTop）测不出这一点，真机会表现为「发黏」。",
+        "2026-11-18 量化（`_probe/touch-cost.mjs`，CPU 降速 10 倍，1501 个节点）：一次祖先扫描 0.219ms；改用 `closest()` 判断同场景 0.02ms（约 1/11）。按 60 次/秒计，前者每秒约 13ms 主线程预算。",
+        "2026-11-18 改动：① 支持 `overscroll-behavior` 的内核直接不挂监听——`global.css` 已把 html/body/#root 的 `height:100%`、`overflow:hidden`、`overscroll-behavior-y:none` 设死，JS 拦截纯属多余；② 老内核保留拦截，但把祖先扫描从 `touchmove` 挪到 `touchstart`（`passive: true`），`touchmove` 里只读一个布尔值。",
+        "2026-11-18 副产物：`MessageList` 的 scroll 回调原来每条都读 `scrollHeight`/`clientHeight`（同样是强制布局），改成由已有的 `ResizeObserver` 量一次写进 `metricsRef`，滚动时只读缓存。",
+        "2026-11-18 验证（`_probe/listener-check.mjs`，390×844）：`CSS.supports('overscroll-behavior','none')` 为 true；`DOMDebugger.getEventListeners(document)` 结果里**没有** `touchmove(passive=false)`（改动前有）。",
+        "2026-11-18 滚动帧耗时（`_probe/perf-probe.mjs`，150 条消息，CPU 降速 10 倍）：改动前 avg 16.83 / p90 19.9 / max 48.6；改动后 avg 17.25 / p90 20.8 / max 61.5，两者都在噪声范围内——**合成滚动本来就不是瓶颈，这个测法证明不了改善**。",
+        "2026-11-18：`./init.ps1` 六道门全绿（type / lint / 97 tests / build / 产物 / scan-compat error 0）。"
+      ],
+      "notes": "**inferred：改善只在真机上体现，本机测不到**。合成滚动直接改 `scrollTop`，不经过触摸事件链，所以「等不等主线程」这件事在我这套测法里根本不存在。要看真效果，只能在手机上滑。\n\n**刻意没做**：① `content-visibility: auto` 或列表虚拟化——长列表在手机上确实能省绘制，但会让「滚动到某条」出现位置跳动，得先在真机上量过副作用再决定；② 改 Markdown 渲染策略——没有证据指向它。按「没有证据不动手」的规矩留着。\n\n边界：`overscroll-behavior` 支持是 Chrome 63+ / Safari 16+。更老的 iOS 仍走 JS 拦截（已降为每次手势一次扫描），不会退回到每帧扫描。"
+    },
+    {
+      "id": "web-005",
+      "priority": 2,
+      "area": "harness",
+      "title": "修掉启动兜底自检套件的两条过期断言",
+      "user_visible_behavior": "`node tools/verify-boot-guard.mjs` 恢复 27/27；断言口径与自检页实际分级一致（有垫片的能力算「已兜底」，不算「有毛病」）。",
+      "status": "passing",
+      "verification": [
+        "verify-boot-guard 27/27 通过"
+      ],
+      "evidence": [
+        "2026-11-18 现象：套件 25/27，两条 `check-stubbed` 失败。",
+        "2026-11-18 根因：断言写的是 `有兜底 2 项` / `能跑但有毛病 1 项`，那是 `Object.fromEntries` 还没有垫片时的口径；v0.4.0 的 `75a1e32` 给 fromEntries 补了 fallback 文案，于是缺它时 check.html 会归到「有兜底」，实际变成 3 项兜底、0 项有毛病。**自检页的行为是对的，是断言过期了。**",
+        "2026-11-18 修法：把两条断言改成 `有兜底 3 项` 与 `能跑但有毛病 0 项`，并在代码里写清为什么是这两个数。复跑 27/27。"
+      ],
+      "notes": "这条是测试口径漂移，不是产品缺陷。留在这里是因为它违反仓库自己的规矩：**基线一开始就红，先修基线**——它红了两天才被发现。"
     }
   ]
 }
