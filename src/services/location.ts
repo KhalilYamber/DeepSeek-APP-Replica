@@ -1,4 +1,5 @@
 import { cityNames, regionCodes, regionNameOverrides, provinceNames } from './locationData.js'
+import { createRegionFormatter, type RegionNameFormatter } from './regionName.js'
 
 export { regionCodes } from './locationData.js'
 
@@ -17,14 +18,20 @@ export type UserLocation = {
 }
 
 const regions = new Set(regionCodes)
-const regionNames = {
-  'zh-CN': new Intl.DisplayNames(['zh-CN'], { type: 'region' }),
-  'en-US': new Intl.DisplayNames(['en-US'], { type: 'region' }),
+
+// 惰性 + 缓存：旧内核上没有 Intl.DisplayNames，这一格永远是 null，地区名直接退回代码。
+// 不在模块顶层 new 是硬要求——那会让整个主包在 Chrome 70–80 上求值阶段就崩，见 regionName.ts。
+const regionFormatters = new Map<'zh-CN' | 'en-US', RegionNameFormatter | null>()
+const formatterFor = (locale: 'zh-CN' | 'en-US'): RegionNameFormatter | null => {
+  if (!regionFormatters.has(locale)) {
+    regionFormatters.set(locale, createRegionFormatter(locale))
+  }
+  return regionFormatters.get(locale) ?? null
 }
 
 export const getRegionName = (code: string, locale: 'zh-CN' | 'en-US'): string =>
   regions.has(code)
-    ? (regionNameOverrides[locale][code] ?? regionNames[locale].of(code) ?? code)
+    ? (regionNameOverrides[locale][code] ?? formatterFor(locale)?.of(code) ?? code)
     : ''
 
 export const normalizeLocation = (value: unknown): UserLocation | null => {

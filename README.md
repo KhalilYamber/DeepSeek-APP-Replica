@@ -73,7 +73,7 @@ release/DeepSeek-APP-Replica-0.4.0-debug.apk
 
 也可以直接从 [Releases](https://github.com/KhalilYamber/DeepSeek-APP-Replica/releases) 下载对应版本。
 
-传到手机安装即可。要求 Android 8.0+，系统 WebView 需要 **Chrome 70 以上**（更低的内核会看到一页说明而不是白屏，见下）。
+传到手机安装即可。要求 Android 8.0+。**系统 WebView 需要 Chrome 84 以上**：构建目标（语法）仍是 70，所以 70–83 的设备多数还能打开，但界面会错位（间距塌掉）；低于 84 并且确实没渲染出来时，会看到一页中文说明而不是白屏（见下）。
 
 **第一次打开会要求填 API Key**（在 <https://platform.deepseek.com/api_keys> 创建）。
 
@@ -167,7 +167,7 @@ cd android
 | **`.raw` 文件不能再作为附件** | 它同时是相机 RAW 格式和传感器数据格式，为避免前者被误发而整体移除 |
 | 键盘弹出后的布局未经真机验证 | — |
 | 语音输入未经真机验证 | 权限已声明，模拟器无麦克风 |
-| **Chromium 70 的真实设备未验证** | 构建目标降到 70 之后，本机只测过 Chrome 157；老内核的实际表现待真机确认 |
+| **Chrome 70–83 的真实设备未验证** | 构建目标 70、支持承诺 84（见 ARCHITECTURE 决策 21）。本机只测过 Chrome 157；老内核上「能跑」以及「错位到什么程度」都是推理，不是实测 |
 | 没有应用内自动更新 | 只做到「能装」与「能查」，一键安装需要原生插件，暂未做 |
 | 这是 debug 构建 | debug 包默认开放 WebView 调试口，正式分发请打 release 并自备 keystore |
 

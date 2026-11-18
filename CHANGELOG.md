@@ -2,6 +2,20 @@
 
 本项目的显著变更记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [未发布]
+
+### 修复 — 旧内核上「整包不启动」
+
+- `src/services/location.ts` 在**模块顶层** `new Intl.DisplayNames(...)`。该接口要 Chrome 81+，而构建目标只有 70；Chrome 70–80 上它是 `undefined`，`new undefined()` 抛 TypeError，整个主包在模块求值阶段就停了——界面一片空白。而且报错发生在 React 之前，任何 React 层的兜底都来不及
+- 改成「用到才建 + 建不出来退回地区代码」：新增 `src/services/regionName.ts`（纯函数、可单测），并加一条源码断言，防止有人把它搬回模块顶层
+
+### 变更 — 支持承诺从 Chrome 70 改成 84
+
+- 「最低内核 70」只对**语法**成立。特性层转译器救不了：flex `gap` 要 84、`Intl.DisplayNames` 要 81、`:focus-visible` 要 86
+- 构建目标仍是 70（多降一层不额外花钱，70–83 的机器还能跑，只是界面错位），但**对外承诺与兜底页判据改成 84**（`MIN_CHROMIUM`）
+- 兜底页的「内核太旧」解释改成两种成因：低于 70 是解析失败，70–83 是缺接口
+- 取舍记在 `ARCHITECTURE.md` 决策 21：`gap` 的 margin 兜底暂不做，理由是「难看」排在「不能用」之后
+
 ## [0.4.1] - 2026-11-18
 
 ### 修复 — 兜底页误报（重要）

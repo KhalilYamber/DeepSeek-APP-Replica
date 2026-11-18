@@ -309,3 +309,30 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - 刻意没做：流式失败自动降级为非流式重发（要改 API 层、且没有真 Key 无法验证）；备用发送按钮（回车已可发）
 - 更新过的文件或工件：`src/services/diagnostics.ts`、`src/main.tsx`、`src/services/api/client.ts`、`src/components/chatInput/ChatInput.tsx`、`src/app/viewport.ts`、`src/app/App.tsx`、`src/components/settings/SettingsDialog.tsx`、`Settings.module.css`（含 d.ts）、`i18n/zh.ts`、`i18n/en.ts`、`feature_list.json`（`defense-001`~`004`）、本文件
 - 下一步最佳动作：请那位 iPhone 用户点「设置 → 诊断信息 → 复制」，把文本发回来；那份文本能直接定位「卡」是内核问题还是布局问题
+
+### Session 012
+
+- 日期：2026-11-19
+- 本轮目标：用户问「你的计划考虑过为旧手机适配吗」。查了一遍**特性地板**，发现对外承诺的「最低内核 Chrome 70」只对语法成立，真实地板更高——其中一条会让整包不启动。按用户选定的 C+A 做：先修掉硬崩，再把承诺改成 84
+- 定位（读产物逐项核，不是按 API 常见程度猜）：
+  - `src/services/location.ts` 在**模块顶层** `new Intl.DisplayNames(...)`。该接口要 Chrome 81+，`location.ts` 又在启动主链上（`App` → `services/settings` → `services/location`），所以 Chrome 70–80 上 `new undefined()` 抛 TypeError → 主包求值中断 → 白屏，且报错早于 React，兜底层接不住
+  - 其余特性地板：flex `gap` 84（44 处，只影响观感）、`:focus-visible` 86（9 处，焦点框）、`min()/max()/clamp()` 79（5 处）
+  - 顺带确认两件「已经兜住」的事：`inset` 简写被构建期拆成 `top/right/bottom/left`（产物里 `inset:` 0 处）；`crypto.randomUUID` 有 `typeof` 兜底
+- 已完成：
+  - **C｜`Intl.DisplayNames` 惰性化**：新增 `src/services/regionName.ts`（`createRegionFormatter`：缺接口或构造失败返回 null，永不抛）；`location.ts` 改成 `formatterFor(locale)` 惰性 + 缓存，缺接口时地区名退回地区代码；删掉顶层的两行 `new`
+  - **A｜承诺改 84**：`index.html` / `check.html` 的 `MIN_CHROMIUM` 70 → 84；兜底页「内核太旧」的成因改写为两种（低于 70 = 解析失败，70–83 = 缺接口）；README 与 `docs/使用说明.md` 的系统要求同步；`docs/known-devices.md` 加一行（70–80 上顶层 `new` 的坑）与一条经验；`ARCHITECTURE.md` 新增决策 21（构建目标 70 ≠ 支持承诺 84），决策 17 加交叉引用
+  - `check.html` 新增 `Intl.DisplayNames` 检测项（注明已兜底）
+  - 新增 `test/region-name.test.ts` 4 条：缺接口返回 null、构造抛错返回 null、正常环境可用、`location.ts` 源码不许再出现 `new Intl.DisplayNames`（防回流）
+- 运行过的验证：
+  - `./init.ps1` 六道门全绿：type / lint（132 文件 0 警告）/ **101 条测试** / build / 产物齐全 / scan-compat（error 0 · hint 1 · info 9）
+  - 产物核对：`dist/index.html` 有 `d<84`、「最低要求 84」、两种成因文案；`dist/check.html` 的 `MIN_CHROMIUM = 84`；`main.js` 里 `Intl.DisplayNames` **只剩一处**，形态是 `typeof` 检查 + `try/catch` 的惰性闭包
+  - `node tools/verify-boot-guard.mjs`：**27/27 通过**（真实 Chrome 157，CDP 把 UA 改成 Chrome/60），含「写出了最低要求 Chrome 84」「要求的最低内核 Chrome 84」
+- **未验证（必须记清，不算通过）**：
+  - **Chrome 70–80 真机一次没跑过**：结论依据是源码形态 + 单测模拟缺失/抛错 + 接口最低版本
+  - **70–83 设备上 gap 全塌后的观感**没看过——没有真机也没有截图
+  - 本轮**没有动** OPPO A58 / A58x 的整屏空白：那是另一条路径（视口变量或绘制层），属于上一轮方案里的 L1–L3
+- 环境坑：
+  - pwsh 沙箱对 `chat-demo` 目录**无写权限**（`mkdir` 在 dist 里就 EPERM），`pnpm build` 与 `verify-boot-guard` 全程用 `danger-full-access` 执行
+  - `pnpm exec oxfmt` 报 `spawn EPERM`，格式化跑不了；本次改动按既有风格手写对齐
+- 更新过的文件或工件：`src/services/regionName.ts`（新）、`src/services/location.ts`、`src/index.html`、`src/check.html`、`test/region-name.test.ts`（新）、`test/boot-guard.test.ts`、`tools/verify-boot-guard.mjs`、`README.md`、`docs/使用说明.md`、`docs/known-devices.md`、`ARCHITECTURE.md`、`CHANGELOG.md`、`feature_list.json`（`compat-006`、`compat-007`）、本文件
+- 下一步最佳动作：回到用户眼前那两台机器——视口变量钳制 + 看门狗 + 双层错误边界（上一轮分析的 L1–L3）。`gap` 的 margin 兜底按用户选择先不做

@@ -313,7 +313,7 @@ const main = async () => {
       record('no-render-ua：内核分支在 8 秒前就开口', waited > 0 && waited < 6000, `等了 ${waited}ms → ${file}`)
       record('no-render-ua：判定是「内核太旧」不是「超时」', text.includes('系统内核太旧') && !text.includes('8 秒内没有渲染出来'))
       record('no-render-ua：写出了当前内核 Chrome 60', text.includes('Chrome 60'))
-      record('no-render-ua：写出了最低要求 Chrome 70', text.includes('Chrome 70'))
+      record('no-render-ua：写出了最低要求 Chrome 84', text.includes('Chrome 84'))
       record('no-render-ua：给了 WebView 更新与完全退出', text.includes('Android System WebView') && text.includes('完全退出'))
     }
 
@@ -339,7 +339,7 @@ const main = async () => {
       record('check：检测项都渲染出来了', items >= 18, `${items} 项 → ${file}`)
       record('check：现代内核上跑不了 0 项', text.includes('跑不了 0 项'))
       record('check：三档分组都在', text.includes('跑不了') && text.includes('能跑但有毛病') && text.includes('未使用 / 有兜底'))
-      record('check：写了构建门槛与应用版本', text.includes('构建门槛 Chrome 70') && !text.includes('__APP_VERSION__'), text.slice(0, 30))
+      record('check：写了要求的最低内核与应用版本', text.includes('要求的最低内核 Chrome 84') && !text.includes('__APP_VERSION__'), text.slice(0, 30))
       // 复制按钮不是断言项：headless 下 execCommand 能不能过和真实点击不是一回事。
       // 用真实鼠标事件点它（先滚进视口），把实际结果打出来，别让「一键复制」停在「应该能用」。
       const box = await session.evaluate(`(function () {

@@ -185,7 +185,9 @@
       (function () {
         'use strict'
 
-        var MIN_CHROMIUM = 70
+        // 支持承诺的最低内核：构建目标（语法）是 70，界面要正常显示还需要 flex gap（84）这类
+        // 转译器救不了的特性，所以承诺按 84 定。见 ARCHITECTURE 决策 21。
+        var MIN_CHROMIUM = 84
         var ACCENT = '#3964fe'
 
         var UA = ''
@@ -383,6 +385,16 @@
           },
           {
             tier: 'info',
+            name: 'Intl.DisplayNames',
+            need: 'Chrome 81+',
+            why: '地区名称本地化用它。曾经在模块顶层直接 new，Chrome 70–80 上会让整个主包在求值阶段抛错——界面一片空白。现已改成「用到才建，建不出来退回地区代码」。',
+            fallback: 'src/services/regionName.ts',
+            run: function () {
+              return has('Intl.DisplayNames')
+            }
+          },
+          {
+            tier: 'info',
             name: 'Array.prototype.at / String.prototype.at',
             need: 'Chrome 92+',
             why: '主包启动时 polyfill 补齐，源码里可以照常用。',
@@ -529,7 +541,7 @@
             block(
               'div',
               'font-size:13px;color:#4b5563;margin:0 0 4px;word-break:break-all',
-              '本机内核：' + (CHROMIUM ? 'Chrome ' + CHROMIUM : '无法从 UA 识别') + '（构建门槛 Chrome ' + MIN_CHROMIUM + '）'
+              '本机内核：' + (CHROMIUM ? 'Chrome ' + CHROMIUM : '无法从 UA 识别') + '（要求的最低内核 Chrome ' + MIN_CHROMIUM + '）'
             )
           )
           card.appendChild(
@@ -649,7 +661,7 @@
           lines.push('应用版本 ' + appVersion())
           lines.push('页面 ' + (location.href || ''))
           lines.push('UA ' + (UA || '（读不到）'))
-          lines.push('内核 ' + (CHROMIUM ? 'Chrome ' + CHROMIUM : '无法识别') + '（构建门槛 Chrome ' + MIN_CHROMIUM + '）')
+          lines.push('内核 ' + (CHROMIUM ? 'Chrome ' + CHROMIUM : '无法识别') + '（要求的最低内核 Chrome ' + MIN_CHROMIUM + '）')
           lines.push(
             '结论 跑不了 ' + counts.fail + ' 项 / 能跑但有毛病 ' + counts.degraded + ' 项 / 有兜底 ' + counts.fallback + ' 项 / 通过 ' + counts.pass + ' 项 / 未使用 ' + counts.unused + ' 项'
           )

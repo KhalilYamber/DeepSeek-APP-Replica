@@ -86,7 +86,7 @@ test('index.html 的兜底挂了错误监听，判定点是 8 秒 / 120px', () =
   assert.match(script, /addEventListener\('unhandledrejection'/)
   assert.match(script, /TIMEOUT_MS = 8000/)
   assert.match(script, /ROOT_MIN_HEIGHT = 120/)
-  assert.match(script, /MIN_CHROMIUM = 70/)
+  assert.match(script, /MIN_CHROMIUM = 84/)
 })
 
 test('check.html 分了「跑不了 / 有毛病 / 未使用兜底」三档，且语法检测走 new Function', () => {

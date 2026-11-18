@@ -1,6 +1,6 @@
 {
   "project": "DeepSeek APP Replica（官方 chat-demo 前端 + Capacitor 8 安卓壳）",
-  "last_updated": "2026-11-17",
+  "last_updated": "2026-11-19",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
@@ -569,6 +569,50 @@
         "2026-11-19 改动：`viewport.ts` 的 `usePreventPageScroll` 连同 `preventPageScroll` / `startsInScroller` / `cssManagesPageScroll` 一并删除，`App.tsx` 的调用与导入同步移除。"
       ],
       "notes": "**inferred：只在代码层确认了监听不再注册，没有 iPhone 真机**。若某台老设备出现整页被拖动的情况，说明那条 CSS 没兜住，届时要换个更便宜的办法（例如只在 `overscroll` 时钳制），而不是恢复非被动监听。"
+    },
+    {
+      "id": "compat-006",
+      "priority": 1,
+      "area": "compat",
+      "title": "Chrome 70–80 上不再因为 Intl.DisplayNames 整包不启动",
+      "user_visible_behavior": "系统 WebView 是 Chrome 70–80 的旧机型上，应用能进到界面（地区名称退回地区代码显示）；旧版在这种情况下是整屏空白。",
+      "status": "inferred",
+      "verification": [
+        "单测：宿主缺 Intl.DisplayNames 时 createRegionFormatter 返回 null 且不抛",
+        "单测：构造器抛错（ICU 不全）时同样返回 null 且不抛",
+        "单测：location.ts 源码里不再出现 new Intl.DisplayNames（防回流）",
+        "静态门与构建全绿"
+      ],
+      "evidence": [
+        "2026-11-19 定位：`src/services/location.ts` 在模块顶层 `new Intl.DisplayNames(...)`。该接口要 Chrome 81+，而构建目标是 70；Chrome 70–80 上它是 `undefined`，`new undefined()` 抛 TypeError，整个主包在模块求值阶段就停了。报错早于 React，兜底层接不住。",
+        "为什么在启动主链上：location.ts 被 services/settings.ts 引用，settings.ts 被 App.tsx 引用，所以它进的是入口 chunk，不是懒加载块。",
+        "2026-11-19 修复：新增 `src/services/regionName.ts`（惰性构造 + try/catch + 缓存），location.ts 改用 formatterFor(locale)，缺接口时退回地区代码。",
+        "单测 101 条全过（原 97 + region-name 4 条）；lint 0 warning。",
+        "2026-11-19 产物核对：入口 chunk `main.35db7ec7.js` 里 `Intl.DisplayNames` 只剩一处，形态是 `\"u\"<typeof Intl ? void 0 : Intl.DisplayNames` + `if(\"function\"!=typeof t)return null` + `try{return new t(...)}catch{return null}`——惰性闭包内，构造不再发生在求值阶段。"
+      ],
+      "notes": "**inferred：没有 Chrome 70–80 的真机。** 依据是「源码形态 + 单测模拟缺失/抛错 + 该接口的最低版本」三条，按 rules.passing_requires_device_evidence 不标 passing。\n\n**这不是 OPPO A58/A58x 那两台机器的病**：它们能打开设置页，说明内核 ≥81。那两台的整屏空白是另一条路径（视口变量或绘制层），本轮未修。"
+    },
+    {
+      "id": "compat-007",
+      "priority": 1,
+      "area": "compat",
+      "title": "支持承诺按特性地板改成 Chrome 84，兜底页判据同步",
+      "user_visible_behavior": "内核低于 84 的设备在「界面确实没渲染出来」时，看到的中文说明写的是「最低要求 Chrome 84」，并区分两种成因：低于 70 是解析失败，70–83 是缺接口。",
+      "status": "inferred",
+      "verification": [
+        "index.html 与 check.html 的 MIN_CHROMIUM 都是 84",
+        "boot-guard 单测断言 MIN_CHROMIUM = 84",
+        "README 与 docs/使用说明.md 不再写「WebView 需要 Chrome 70 以上」",
+        "./init.ps1 全绿"
+      ],
+      "evidence": [
+        "2026-11-19 逐项核产物得到的特性地板：flex gap 84（44 处）、Intl.DisplayNames 81（已兜底）、:focus-visible 86（9 处，仅影响焦点框）、min()/max()/clamp() 79（5 处）。构建目标 70 只保证语法。",
+        "选择：构建目标保持 70（70–83 仍能跑，只是间距塌），承诺与兜底判据改 84；gap 的 margin 兜底暂不做，理由记在 ARCHITECTURE 决策 21。",
+        "判据只影响「没渲染出来」那一页：checkKernel() 在 rootState() === 'ok' 时直接放行，能跑的低版本机器不会被拦。",
+        "2026-11-19 产物核对：dist/index.html 里出现 `d<84`、「最低要求 84」、两种成因的文案；dist/check.html 的 MIN_CHROMIUM = 84。",
+        "2026-11-19 `node tools/verify-boot-guard.mjs`（真实 Chrome 157，CDP 把 UA 改成 Chrome/60）**27/27 通过**，其中两条直接盯这一条：「写出了最低要求 Chrome 84」「要求的最低内核 Chrome 84」。"
+      ],
+      "notes": "**inferred：文案与判据在本机可验（真 Chrome + 伪造 UA 已跑），但「低版本设备上真的会看到这页」没有真机。**\n\n**未验**：70–83 的设备上「界面错位到什么程度」没看过——gap 全塌，既没有真机也没有截图。"
     }
   ]
 }

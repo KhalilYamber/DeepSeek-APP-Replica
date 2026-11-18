@@ -8,12 +8,15 @@
 
 | 设备或内核 | 症状 | 根因 | 现状 | 验证方式 |
 | --- | --- | --- | --- | --- |
+| **Chrome 70–80 的 WebView**（Android 9/10 出厂、系统 WebView 一直没更新的机器） | 装上、打得开，**一片空白**（浅色下白、深色下黑），连兜底页也看不到——脚本在模块求值阶段就抛了 | `services/location.ts` 在**模块顶层** `new Intl.DisplayNames(...)`；该接口要 Chrome 81+，旧内核上是 `undefined`，`new undefined()` 抛 TypeError，整个主包求值中断 | 2026-11-19 改成惰性构造 + 兜底（`src/services/regionName.ts`，缺接口时地区名退回地区代码）。**未在 Chromium 70–80 真机上验证** | 真机装新版能开即可；0.4.1 及更早的包在这类机器上必挂 |
 | **任意低于 Chrome 70 的 WebView**（Android 8–10 出厂常见，很多国产机不更新系统 WebView） | 装上、打得开，但**一片白**（深色 body 露出来时像黑屏），界面完全不出现，也没有任何报错弹窗 | **构建目标原来是 `chrome >= 105`**，而安装门槛只要求 WebView 60+。老内核解析到产物里的 `??`（空值合并）就**整包解析失败**，脚本一行都不执行。注意这是**语法层**的问题，改 CSS 没有任何用 | 0.4.0 把 targets 降到 `chrome >= 70`，并补了 9 个 API 垫片。低于 70 的设备会看到一页中文说明（不再是白屏），见下一条。**未在 Chromium 70 真机上验证** | 真机装 APK：能开 → 说明 70 够用；仍白 → 检查兜底页有没有出来（出来了说明是内核门槛，没出来说明连兜底脚本都没跑起来） |
 | Android 12 出厂 / Chromium 93 级别 WebView（反馈来自 OPPO A58x） | 装得上、开得开，但打开就是白屏 | （这条是**当时以为的**根因）`.frame` 用 `height: var(--app-viewport-height, 100dvh)`，`dvh` 需 Chrome 108+，不识别时整条 `height` 被丢弃，根容器塌成 0 | 已改为「先 `100vh` 后 `100dvh`」双声明。**但事后确认：这不是白屏的主要原因**——真正的原因是上一条的构建目标。这条修复本身是对的（避免根容器塌陷），只是当时误判了它的份量 | 同上 |
 | 本机 Chrome 157（Windows，`tools/shot.mjs` 用的那台） | `node tools/shot.mjs` 起不来，CDP 连不上 DevTools，出不了图 | 该版本上 `--headless=new` 起不来 DevTools | 已改 `--headless`；顺带把 `--user-data-dir` 由相对路径改绝对路径。**已确认**：改后截图正常产出（2026-11-16） | 跑一次 `node tools/shot.mjs <url> <out.png>`，能落下 png 即为好 |
 | Chromium 93 级别 WebView（`structuredClone` 需 Chrome 98+） | 打开**带 Mermaid 图**的对话时图表区报错、图不出来；纯文字对话不受影响 | mermaid 的异步 chunk 里用了 `structuredClone`，这是 `node_modules` 被 bundle 进来的，源码层没有。老内核上是 `undefined`，调用即 TypeError | 已在 `src/app/polyfills.ts` 加兜底（JSON 深拷贝），`tools/scan-compat.mjs` 会检查兜底痕迹是否在入口 chunk 里。**未真机确认** | 真机打开一个带流程图的对话，看图能否渲染 |
 
 **经验**：这一条值得记住——**排查白屏先看「JS 有没有跑起来」，再看 CSS**。拿 `logcat` 或兜底页的「根容器高度」判断：容器存在但空的，多半是 JS 崩了；容器都没有的，是 HTML/资源层面的事。
+
+**另一条经验（2026-11-19）**：**语法转译管不到「模块求值阶段就抛的 API 缺失」**。构建目标降到 70 解决的是「解析失败」；而 `Intl.DisplayNames`（81+）这类接口缺失会在模块求值时抛错，症状和解析失败一模一样——白屏、无弹窗、无文字，连兜底页都要等 8 秒。所以「最低内核」不能只看构建目标，要按**特性地板**算（见 ARCHITECTURE 决策 21）。
 
 **另一条经验（自己踩的）**：判断「界面渲染出来没有」，**量 `#root` 的高度是错的**。`.frame` 是 `position: absolute`，`#root` 自身高度恒为 0，于是 0.4.0 在正常设备上也会 8 秒后弹出「打不开」。正确做法是量 `#root` 的**第一个元素子节点**高度。这个 bug 在 2026-11-18 修掉（`c7ea349`）。
 
