@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
+import { findInSession, sortHits, type SearchHit } from './search.js'
 import { toSessionSummary, type Session, type SessionSummary } from './types.js'
 
 /** IndexedDB 存储结构版本；新增或调整存储、索引时递增。 */
@@ -80,6 +81,23 @@ export const loadSessionSummaries = async (): Promise<SessionSummary[]> =>
 
 export const loadSession = async (id: string): Promise<Session | undefined> =>
   (await getDB()).get('sessions', id)
+
+/**
+ * 跨会话搜索历史对话。
+ * 用游标逐条读，不 `getAll`——消息全在会话对象里，一次读进内存会白白吃下几十 MB。
+ * 代价是要扫完才能给出正确的排序（按最近更新），所以没有中途截断。
+ */
+export const searchSessions = async (query: string, limit = 40): Promise<SearchHit[]> => {
+  const tx = (await getDB()).transaction('sessions', 'readonly')
+  const hits: SearchHit[] = []
+  for (let cursor = await tx.store.openCursor(); cursor; cursor = await cursor.continue()) {
+    const hit = findInSession(cursor.value, query)
+    if (hit) {
+      hits.push(hit)
+    }
+  }
+  return sortHits(hits, limit)
+}
 
 export const saveSession = async (session: Session, files: StoredFile[] = []): Promise<void> => {
   const summary = storedSummary(session)

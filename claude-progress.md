@@ -183,3 +183,43 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - `check.html` 一度把 `fromEntries`/`allSettled` 标成「功能退化」，本轮已补 `fallback` 字段（主包有垫片）
 - 下一步最佳动作：**拿那台白屏手机装 `DeepSeek-APP-Replica-0.3.0-full-20261117.apk`**。能开 → 降到 70 够了，把 `compat-003`/`compat-004` 推到 `verified`；还是白 → 说明内核 < 70，兜底页会说明原因，届时考虑继续降到 60 或接受兜底页方案
 
+### Session 006
+
+- 日期：2026-11-18
+- 本轮目标：把同一份前端发布成**网页版**（GitHub Pages），给装不了 APK 的苹果 / 鸿蒙 / 老机型用户一条入口
+- 已完成：
+  - **发布链路**：`ci.yml` 增加 `deploy` 作业——`needs: gates`，只在 push 到 main 时跑，取回 gates 产出的**那一份 `dist`** 直接发布，不重新构建。发布串行（`concurrency: group: pages`），两次发布不交错
+  - `gates` 作业在 main 上把 `dist` 作为 artifact 交出去（PR 不传）
+  - 仓库 Pages 的 Source 已由用户设为「GitHub Actions」
+  - 站点：<https://khalilyamber.github.io/DeepSeek-APP-Replica/>
+- 运行过的验证：
+  - **子路径 404 不存在**：产物 HTML 引用的是相对路径（`static/js/...`）+ `publicPath: 'auto'`，本地把 `dist` 放到 `/DeepSeek-APP-Replica/` 前缀下起服务，index、JS、CSS、check.html 全部 200，截图渲染正常（`screenshots/pages-subpath-check.png`）
+  - push 后 run #9：gates 16 步 ✅ + deploy 5 步 ✅
+  - 线上复核：`https://khalilyamber.github.io/DeepSeek-APP-Replica/` 200，`static/js/main.e6cb252b.js`、`static/css/main.89073ee2.css`、`check.html` 全部 200
+- **未验证（必须记清，不算通过）**：
+  - **iOS Safari / 鸿蒙浏览器一次都没打开过**。用户手上 iOS 侧只有 iPad 9，Windows 上用不了 Safari 远程调试
+  - 国内可达性没有测（`github.io` 时通时不通，不在我们控制内）
+- 更新过的文件或工件：`.github/workflows/ci.yml`、`screenshots/pages-subpath-check.png`、本文件、`feature_list.json`
+- 下一步最佳动作：等用户在真机上看过再动界面；搜索与头像按「一次一个单元」推进
+
+### Session 007
+
+- 日期：2026-11-18
+- 本轮目标：网页版加「搜索历史对话」（用户要求只给网页版）
+- 已完成：
+  - `src/services/chat/search.ts`（纯函数）：`messageText` / `flattenText` / `makeSnippet` / `findInSession` / `sortHits` / `searchAllSessions`
+  - `src/services/chat/db.ts` 新增 `searchSessions`：游标逐条读，不 `getAll`
+  - `src/components/sider/SearchBox.tsx`：200ms 防抖 + 结果列表 + 命中高亮（`<mark>`）
+  - `Sider.tsx` 接入；**用 `isNativeApp()` 运行时判断，APK 里不渲染**——一份产物两个形态
+  - 词表 5 个 key；`Sider.module.css` 新增 9 个类
+- 运行过的验证：
+  - `pnpm test` **97 条**（原 89 + `search.test.ts` 8 条）；`pnpm lint` 127 文件 0 警告；`pnpm build` 通过
+  - 真浏览器（headless Chrome 157）：灌两条构造对话后敲字。「头像」1 条命中并高亮、「IndexedDB」1 条、「内部思考」0 条（思考过程不进搜索）、「物理化学」1 条、「不存在的词」0 条
+  - 手机端 390×844：点「打开边栏」后抽屉里搜索框可见，输入「头像」1 条命中。截图 `screenshots/pages-search.png`
+- **未验证（必须记清，不算通过）**：
+  - 真机（iOS Safari / 鸿蒙 / 老内核）未验
+  - 数据量大时的搜索耗时未测（几百条会话量级未实测）
+- 更新过的文件或工件：`src/services/chat/search.ts`、`src/services/chat/db.ts`、`src/components/sider/SearchBox.tsx`、`Sider.tsx`、`Sider.module.css`（含 `.d.ts`）、`i18n/zh.ts`、`i18n/en.ts`、`test/search.test.ts`、`feature_list.json`（`web-001`）、本文件
+- 下一步最佳动作：头像（用户要求：用户可上传自己的照片设置头像）
+
+

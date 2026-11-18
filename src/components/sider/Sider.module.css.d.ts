@@ -4,6 +4,15 @@ declare const styles: {
   readonly "appName": string;
   readonly "newChat": string;
   readonly "newChatIcon": string;
+  readonly "search": string;
+  readonly "searchIcon": string;
+  readonly "searchInput": string;
+  readonly "searchClear": string;
+  readonly "searchResult": string;
+  readonly "searchResultTitle": string;
+  readonly "searchResultSnippet": string;
+  readonly "searchMatch": string;
+  readonly "searchHint": string;
   readonly "listWrap": string;
   readonly "list": string;
   readonly "section": string;

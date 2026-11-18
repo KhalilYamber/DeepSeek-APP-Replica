@@ -371,6 +371,28 @@
         "2026-11-17：11 条 timeout 测试。"
       ],
       "notes": "**inferred：真机弱网、后台标签页定时器节流未验**。非流式请求读完响应头后读 body 没有单独超时，是已知空洞。"
+    },
+    {
+      "id": "web-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "网页版历史对话搜索",
+      "user_visible_behavior": "侧栏新对话按钮下方有搜索框。输入关键词即列出命中的对话（按最近更新排序），命中片段高亮；桌面常驻侧栏与手机抽屉里都能用；APK 里不出现这个入口。",
+      "status": "inferred",
+      "verification": [
+        "纯函数 8 条测试（消息取文本、空白归一、片段截取、单会话命中、排序与 limit）",
+        "真浏览器（headless Chrome 157）在 1280×800 与 390×844 下敲字，结果与预期一致",
+        "思考过程里的词搜不到（只搜可见文本块）",
+        "pnpm type / lint / test / build / scan-compat 全绿"
+      ],
+      "evidence": [
+        "2026-11-18：`test/search.test.ts` 8 条——messageText 只取用户正文与助手可见文本块、flattenText 压空白、makeSnippet 保留原文大小写并补省略号、跨换行命中、findInSession 正文取最新一条且仅标题命中时片段为 null、searchAllSessions 排序与 limit、sortHits 倒序。",
+        "2026-11-18：`src/services/chat/db.ts` 新增 `searchSessions`，用游标逐条读会话（不 getAll），扫完再排序截断。",
+        "2026-11-18 真浏览器验证（`_probe/search-probe.mjs`，headless Chrome 157，临时 profile）：先往 IndexedDB 灌两条构造对话，再敲字。结果——搜「头像」1 条命中、片段「可以的。头像压缩到 128 像素后存进 IndexedDB，换设…」；搜「IndexedDB」1 条；搜「内部思考」（只存在于 thinking 块）0 条并显示「没有找到匹配的对话」；搜「物理化学」1 条；搜「不存在的词」0 条。",
+        "2026-11-18 手机端：Emulation 390×844，点 `button[aria-label=打开边栏]` 打开抽屉后抽屉内出现搜索框（visible=true），输入「头像」得 1 条命中。截图 `screenshots/pages-search.png`。",
+        "2026-11-18：`pnpm test` 97 条全绿（原 89 + 新增 8），`pnpm lint` 127 文件 0 警告，`pnpm build` 通过。"
+      ],
+      "notes": "**inferred：真机（尤其 iOS Safari）未验**。全部实测都在 Windows 上的 headless Chrome 157。\n\n只在网页版出现：用 `isNativeApp()` 运行时判断，APK 里不渲染这个入口。这样两个形态共用一份构建产物，不必维护第二套构建配置；代价是代码本身仍随 APK 打包（几 KB 死代码）。\n\n已知边界：① 搜索只覆盖本地已加载的会话数据，不含尚未导入的历史；② 中文按「连续几个字」子串匹配，不分词，「头像」能搜到、「像头」不能；③ 每次查询全量扫库，几百条会话量级可以接受，再大需要建索引；④ 思考过程不进搜索，避免「搜得到却看不见」。"
     }
   ]
 }
