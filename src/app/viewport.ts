@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { resolveSafeSide } from './safeArea.js'
+import { resolveFrameOverride } from './viewportClamp.js'
 
 /**
  * 按移动端布局的三种情况，逗号＝或：
@@ -22,7 +23,16 @@ const subscribe = (onChange: () => void) => {
 export const useIsMobile = () => useSyncExternalStore(subscribe, () => query.matches)
 
 
-/** 移动端页面跟随视觉视口，键盘弹出后顶栏和输入框仍留在可见区域。 */
+/** 接管期间每秒复核一次：不少内核收键盘时既不发 resize 也不发 focusout */
+const VIEWPORT_WATCH_MS = 1000
+
+/**
+ * 移动端页面跟随视觉视口，键盘弹出后顶栏和输入框仍留在可见区域。
+ *
+ * 判定交给 `resolveFrameOverride`（纯函数），这里只负责接线与复核：
+ * 事件来了算一次，另外每秒兜底算一次——**写进去的坏值必须有人能撤掉**，
+ * 这是「收键盘后整屏空白」那条路的关键。
+ */
 export const useMobileViewport = (enabled: boolean) => {
   const frameRef = useRef<HTMLDivElement>(null)
 
@@ -32,58 +42,76 @@ export const useMobileViewport = (enabled: boolean) => {
       return
     }
     const viewport = window.visualViewport
-    const inputSelector = 'textarea, input:not([type="file"])'
     let animationFrame = 0
-    const reset = () => {
-      frame.style.removeProperty('--app-viewport-height')
-      frame.style.removeProperty('--app-viewport-top')
+    let watchTimer = 0
+
+    const read = () => ({
+      innerHeight: window.innerHeight,
+      visualHeight: viewport?.height,
+      offsetTop: viewport?.offsetTop,
+      scale: viewport?.scale,
+    })
+
+    // 只在值真的变了才写，避免每秒复核都触发一次样式重算
+    const setVar = (name: string, value: string) => {
+      if (frame.style.getPropertyValue(name) === value) {
+        return
+      }
+      if (value) {
+        frame.style.setProperty(name, value)
+        return
+      }
+      frame.style.removeProperty(name)
     }
-    const update = () => {
-      // 双指缩放由浏览器处理，保持当前布局尺寸。
-      if (viewport && viewport.scale !== 1) {
+    const write = (height: string, top: string) => {
+      setVar('--app-viewport-height', height)
+      setVar('--app-viewport-top', top)
+    }
+
+    const apply = () => {
+      const decision = resolveFrameOverride(read())
+      if (decision.mode === 'keep') {
         return
       }
-      // 失焦后直接恢复 CSS 的全高布局，不等 Safari 收键盘后的 resize。
-      if (!document.activeElement?.matches(inputSelector)) {
-        reset()
+      if (decision.mode === 'css') {
+        write('', '')
         return
       }
-      frame.style.setProperty(
-        '--app-viewport-height',
-        `${viewport?.height ?? window.innerHeight}px`
-      )
-      frame.style.setProperty('--app-viewport-top', `${viewport?.offsetTop ?? 0}px`)
+      write(`${decision.height}px`, `${decision.top}px`)
     }
     const scheduleFrame = () => {
       cancelAnimationFrame(animationFrame)
-      animationFrame = requestAnimationFrame(update)
+      animationFrame = requestAnimationFrame(apply)
     }
     const schedule = () => {
-      // 先同步跟上键盘动画，下一帧再校准 Safari 延迟更新的视口读数。
-      update()
+      // 先同步跟上键盘动画，下一帧再校准延迟更新的视口读数
+      apply()
       scheduleFrame()
     }
-    const onFocusIn = () => {
-      if (document.activeElement?.matches(inputSelector)) {
-        schedule()
-      }
-    }
+    const onFocusChange = () => scheduleFrame()
+    const onVisibilityChange = () => apply()
 
-    update()
+    schedule()
     viewport?.addEventListener('resize', schedule)
     viewport?.addEventListener('scroll', schedule)
     window.addEventListener('resize', schedule)
-    document.addEventListener('focusin', onFocusIn)
-    // 等点击和焦点切换完成，避免按钮移动、或切换输入框时短暂恢复全高。
-    document.addEventListener('focusout', scheduleFrame)
+    window.addEventListener('orientationchange', schedule)
+    document.addEventListener('focusin', onFocusChange)
+    document.addEventListener('focusout', onFocusChange)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    watchTimer = window.setInterval(apply, VIEWPORT_WATCH_MS)
+
     return () => {
       cancelAnimationFrame(animationFrame)
+      window.clearInterval(watchTimer)
       viewport?.removeEventListener('resize', schedule)
       viewport?.removeEventListener('scroll', schedule)
       window.removeEventListener('resize', schedule)
-      document.removeEventListener('focusin', onFocusIn)
-      document.removeEventListener('focusout', scheduleFrame)
-      reset()
+      window.removeEventListener('orientationchange', schedule)
+      document.removeEventListener('focusin', onFocusChange)
+      document.removeEventListener('focusout', onFocusChange)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      write('', '')
     }
   }, [enabled])
 
