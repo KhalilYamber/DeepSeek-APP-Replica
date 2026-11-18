@@ -8,11 +8,22 @@
 
 | 设备或内核 | 症状 | 根因 | 现状 | 验证方式 |
 | --- | --- | --- | --- | --- |
-| Android 12 出厂 / Chromium 93 级别 WebView（反馈来自 OPPO A58x） | 装得上、开得开，但打开就是白屏（深色 body 露出来时看起来是黑屏），界面完全不出现 | 根容器用 `height: var(--app-viewport-height, 100dvh)`；`dvh` 需 Chrome 108+，内核不识别时 `var()` 兜底一并失效，整条 `height` 被丢弃，根容器塌成 0 高度 | 已改为「先 `100vh` 后 `100dvh`」双声明，并把 `toSorted` / `toReversed`（需 Chrome 110）改成复制后 `sort` / `reverse`。**未真机确认**——`feature_list.json` 里 `compat-001` 标 `inferred` | 真机装 debug 包打开看界面是否出现；仍白屏就取 logcat，区分是这条 CSS 路径，还是另有 JS 报错导致 `.frame` 根本没创建（后者本修复不覆盖） |
-| 本机 Chrome 157（Windows，`tools/shot.mjs` 用的那台） | `node tools/shot.mjs` 起不来，CDP 连不上 DevTools，出不了图 | 该版本上 `--headless=new` 起不来 DevTools | 已改 `--headless`；顺带把 `--user-data-dir` 由相对路径改绝对路径（Chrome 对相对路径处理不稳）。**已确认**：改后截图正常产出（2026-11-16） | 跑一次 `node tools/shot.mjs <url> <out.png>`，能落下 png 即为好 |
-| Chromium 93 级别 WebView（`structuredClone` 需 Chrome 98+） | 打开**带 Mermaid 图**的对话时图表区报错、图不出来；纯文字对话不受影响 | mermaid 的 5 个异步 chunk 里用了 `structuredClone`（共 9 处：`3909` ×1、`4138` ×3、`4471` ×1、`5172` ×2、`8821` ×2）。这是 `node_modules` 被 bundle 进来的，源码层没有。老内核上是 `undefined`，调用即 TypeError | 已加 `src/app/polyfills.ts`（JSON 深拷贝兜底，不处理 Date/Map/Set/循环引用——够用是因为 mermaid 只克隆纯配置对象），在 `src/main.tsx` 最早 import。`tools/scan-compat.mjs` 检查兜底痕迹是否在入口 chunk `main.*.js` 里，在就把这类调用降级为 info。**未真机确认** | 真机装 APK 打开一个带流程图或时序图的对话，看图能否渲染；或 `node tools/scan-compat.mjs --json` 看 `structuredClone` 是否仍落在 info 而非 error |
+| **任意低于 Chrome 70 的 WebView**（Android 8–10 出厂常见，很多国产机不更新系统 WebView） | 装上、打得开，但**一片白**（深色 body 露出来时像黑屏），界面完全不出现，也没有任何报错弹窗 | **构建目标原来是 `chrome >= 105`**，而安装门槛只要求 WebView 60+。老内核解析到产物里的 `??`（空值合并）就**整包解析失败**，脚本一行都不执行。注意这是**语法层**的问题，改 CSS 没有任何用 | 0.4.0 把 targets 降到 `chrome >= 70`，并补了 9 个 API 垫片。低于 70 的设备会看到一页中文说明（不再是白屏），见下一条。**未在 Chromium 70 真机上验证** | 真机装 APK：能开 → 说明 70 够用；仍白 → 检查兜底页有没有出来（出来了说明是内核门槛，没出来说明连兜底脚本都没跑起来） |
+| Android 12 出厂 / Chromium 93 级别 WebView（反馈来自 OPPO A58x） | 装得上、开得开，但打开就是白屏 | （这条是**当时以为的**根因）`.frame` 用 `height: var(--app-viewport-height, 100dvh)`，`dvh` 需 Chrome 108+，不识别时整条 `height` 被丢弃，根容器塌成 0 | 已改为「先 `100vh` 后 `100dvh`」双声明。**但事后确认：这不是白屏的主要原因**——真正的原因是上一条的构建目标。这条修复本身是对的（避免根容器塌陷），只是当时误判了它的份量 | 同上 |
+| 本机 Chrome 157（Windows，`tools/shot.mjs` 用的那台） | `node tools/shot.mjs` 起不来，CDP 连不上 DevTools，出不了图 | 该版本上 `--headless=new` 起不来 DevTools | 已改 `--headless`；顺带把 `--user-data-dir` 由相对路径改绝对路径。**已确认**：改后截图正常产出（2026-11-16） | 跑一次 `node tools/shot.mjs <url> <out.png>`，能落下 png 即为好 |
+| Chromium 93 级别 WebView（`structuredClone` 需 Chrome 98+） | 打开**带 Mermaid 图**的对话时图表区报错、图不出来；纯文字对话不受影响 | mermaid 的异步 chunk 里用了 `structuredClone`，这是 `node_modules` 被 bundle 进来的，源码层没有。老内核上是 `undefined`，调用即 TypeError | 已在 `src/app/polyfills.ts` 加兜底（JSON 深拷贝），`tools/scan-compat.mjs` 会检查兜底痕迹是否在入口 chunk 里。**未真机确认** | 真机打开一个带流程图的对话，看图能否渲染 |
 
-相关背景（不是设备本身的毛病，但决定了它为什么能装上）：Capacitor 8 对 Android WebView 的默认最低要求是 Chrome 60，远低于上面这些特性所需的 108 / 110。所以旧内核的设备**既不拦也不提示**，装得上、打得开，然后白屏。
+**经验**：这一条值得记住——**排查白屏先看「JS 有没有跑起来」，再看 CSS**。拿 `logcat` 或兜底页的「根容器高度」判断：容器存在但空的，多半是 JS 崩了；容器都没有的，是 HTML/资源层面的事。
+
+**另一条经验（自己踩的）**：判断「界面渲染出来没有」，**量 `#root` 的高度是错的**。`.frame` 是 `position: absolute`，`#root` 自身高度恒为 0，于是 0.4.0 在正常设备上也会 8 秒后弹出「打不开」。正确做法是量 `#root` 的**第一个元素子节点**高度。这个 bug 在 2026-11-18 修掉（`c7ea349`）。
+
+教训不只是「改用子节点」，而是：**用自己构造的页面验自己的判据，验的是假设不是现实**。当时的验证脚本里 `#root` 恰好有高度，所以报「没有误报」，而真实设备上必然误报。
+
+**相关背景**：Capacitor 8 对 Android WebView 的默认最低要求是 **Chrome 60**，远低于构建目标所需的 70。所以旧内核的设备**既不拦也不提示**，装得上、打得开。
+
+0.4.0 之前，这个过程没有任何提示——白屏就是全部信息。现在有了启动兜底（见 `src/index.html` 的内联脚本）：低于 70 的内核、或界面 8 秒没渲染出来，都会看到一页中文说明（当前内核版本、要求的最低版本、怎么更新 WebView、可复制的诊断信息）。
+
+**但兜底页本来也可能看不到**：如果连那段内联 ES5 脚本都跑不起来（比 Chrome 40 还老），屏幕上仍然会是白的。那种设备是真的装不了。
 
 ## 尚未验证的风险（不是已知毛病，是还没撞到或还没验的）
 

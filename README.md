@@ -17,7 +17,7 @@
 | | 官方 App | 本项目 |
 |---|---|---|
 | 计费 | 官方出算力，免费 | 扣你自己的 API 余额 |
-| 单次输入长度 | 约 4 万字 | 受模型上下文限制（1M tokens） |
+| 单次输入长度 | 约 4 万字 | 受模型上下文限制（未核实具体上限，按模型文档为准） |
 | 会话保存 | 官方服务器，7 天不活跃会清 | 手机本地，不会被清 |
 | 每日额度 | 有 | 无，只有余额 |
 | 跨设备同步 | 有 | 无 |
@@ -31,13 +31,29 @@
 
 - 流式回复、深度思考过程展开
 - 联网搜索 + 来源引用、链接自动阅读
-- 图片 / PDF / Office 附件上传与解析
+- 图片 / PDF / Office 附件上传与解析（图片支持 JPG / PNG / WebP / GIF，选择时即校验真实格式）
 - 语音输入、回复朗读
 - Markdown、代码高亮、KaTeX 公式、Mermaid 图表
 - 多会话管理（自动标题、重命名、删除、消息分支切换）
 - 深浅色主题、中英文切换
 - 导入 DeepSeek 官方 App 导出的历史对话（ZIP）
 - 导出全部对话为 ZIP（安卓端走「写文件 + 系统分享」）
+- **网络超时与自动重试**：连接 5 秒 / 首字节 30 秒 / 流式空闲 60 秒，超时给中文提示，不再无限转圈
+- **启动兜底与兼容性自检**：打不开时显示一页说明（内核版本、怎么更新 WebView、可复制的诊断信息），并可进入 `check.html` 逐项检测设备能力
+- **仅网页版有**：历史对话搜索、自定义头像（APK 里不显示这两个入口，因为它们是 `isNativeApp()` 判断后排除的）
+
+## 两种用法
+
+| | 安卓 APK | 网页版 |
+|---|---|---|
+| 怎么用 | 装到手机 | 浏览器直接打开 |
+| 数据存在哪 | App 私有目录 | 浏览器 localStorage / IndexedDB |
+| 历史搜索、头像 | ❌ 不显示 | ✅ 有 |
+| 语音输入、文件导出 | ✅ 原生能力 | 受浏览器限制 |
+
+网页版地址：<https://khalilyamber.github.io/DeepSeek-APP-Replica/>
+
+网页版由 CI 在每次推送 `main` 之后自动发布（验过的同一份 `dist`），见 `.github/workflows/ci.yml` 的 `deploy` 作业。
 
 ## 截图
 
@@ -52,10 +68,12 @@
 `release/` 目录下有已构建好的 debug APK：
 
 ```
-release/DeepSeek-APP-Replica-debug.apk
+release/DeepSeek-APP-Replica-0.4.0-debug.apk
 ```
 
-传到手机安装即可。要求 Android 8.0+，系统 WebView 建议 Chrome 105+。
+也可以直接从 [Releases](https://github.com/KhalilYamber/DeepSeek-APP-Replica/releases) 下载对应版本。
+
+传到手机安装即可。要求 Android 8.0+，系统 WebView 需要 **Chrome 70 以上**（更低的内核会看到一页说明而不是白屏，见下）。
 
 **第一次打开会要求填 API Key**（在 <https://platform.deepseek.com/api_keys> 创建）。
 
@@ -94,7 +112,7 @@ cd android
 
 ## 相对官方 chat-demo 的改动
 
-上游是纯网页 demo，本项目只做了「让它成为一个能装的安卓 App」所需的最小改动。
+上游是纯网页 demo。本项目做了两类改动：**把它变成一个能装的安卓 App**，以及 **让它在老设备上也能跑起来**。
 
 ### 新增
 
@@ -102,6 +120,11 @@ cd android
 |---|---|
 | `src/services/native/platform.ts` | 判断是否在原生壳内；导出 ZIP 在安卓端改用 Filesystem + Share |
 | `src/app/useNativeShell.ts` | 接管安卓返回键（关弹层 → 回列表 → 退 App），状态栏图标跟随主题 |
+| `src/app/polyfills.ts` | 9 个运行时 API 垫片（`globalThis` / `Object.hasOwn` / `Array.at` / `structuredClone` 等） |
+| `src/app/safeArea.ts` | 横屏左右安全边距的取大逻辑（纯函数） |
+| `src/services/imageFormat.ts` | 读文件头判断图片真实格式（纯函数） |
+| `src/services/api/timeout.ts` | 三类超时、有限重试、流式空闲检测 |
+| `src/check.html` | 兼容性自检页（单独一份老语法的样式，因为它要跑在更老的机器上） |
 | `scripts/build.mjs` | 跨平台构建脚本（官方的是 `rm -rf`，Windows 上不可用） |
 | `capacitor.config.ts` | Capacitor 配置 |
 
@@ -109,9 +132,11 @@ cd android
 
 | 文件 | 改动 |
 |---|---|
-| `src/index.html` | viewport 加 `viewport-fit=cover` |
+| `src/index.html` | viewport 加 `viewport-fit=cover`；内联一段纯 ES5 的启动兜底脚本 |
+| `rspack.config.ts` | 构建目标 `chrome >= 70`（上游是 105）；loader 规则补 `.mjs`（否则 mermaid 不会被转译） |
 | `src/app/App.module.css` | 根容器加 `box-sizing` 与安全区 padding |
-| `src/app/App.tsx` | 挂载 `useNativeShell` |
+| `src/app/App.tsx` | 挂载 `useNativeShell`；转回桌面布局时不自动展开侧栏 |
+| `src/app/viewport.ts` | `isMobile` 判据加高度与宽高比 |
 | `src/components/settings/SettingsDialog.tsx` | 导出逻辑分流到原生实现 |
 | `android/app/src/main/AndroidManifest.xml` | 加 `RECORD_AUDIO` 权限 |
 | `android/build.gradle` | Maven 换阿里云镜像（国内直连 Central 会失败） |
@@ -119,13 +144,16 @@ cd android
 
 ### 工具
 
-`tools/` 下有开发期自测脚本：
+`tools/` 下有开发期与验收脚本：
 
 | 脚本 | 用途 |
 |---|---|
 | `serve.mjs` | 本地静态服务器，用来在浏览器里验证 dist |
 | `shot.mjs` | 用 Chrome DevTools 协议做精确设备尺寸截图 |
 | `webview-eval.mjs` | 通过 adb 连到真机/模拟器里的 WebView 执行 JS，用于自动化断言 |
+| `scan-compat.mjs` | 扫产物里裸用的新特性（视口单位、`:has()`、新 API 等），是 `init.ps1` 的第六道门 |
+| `measure-layout.mjs` | 10 档固定尺寸量布局并断言，防适配回归 |
+| `verify-boot-guard.mjs` | 真开 Chrome 验启动兜底页（7 个场景、27 条断言） |
 
 ---
 
@@ -135,8 +163,12 @@ cd android
 |---|---|
 | 启动图 / 桌面图标是 Capacitor 默认素材 | 未替换 |
 | 状态栏底色跟随系统而非 App 主题 | WebView 内核 < 140 时做不到真全屏；内核 ≥ 140 的设备会自动正确 |
+| **图片只支持 JPG / PNG / WebP / GIF** | 服务端只认这几种。BMP、TIFF、SVG 等在选择时会被拦下并说明原因，不会等到发送才失败 |
+| **`.raw` 文件不能再作为附件** | 它同时是相机 RAW 格式和传感器数据格式，为避免前者被误发而整体移除 |
 | 键盘弹出后的布局未经真机验证 | — |
 | 语音输入未经真机验证 | 权限已声明，模拟器无麦克风 |
+| **Chromium 70 的真实设备未验证** | 构建目标降到 70 之后，本机只测过 Chrome 157；老内核的实际表现待真机确认 |
+| 没有应用内自动更新 | 只做到「能装」与「能查」，一键安装需要原生插件，暂未做 |
 | 这是 debug 构建 | debug 包默认开放 WebView 调试口，正式分发请打 release 并自备 keystore |
 
 ---
