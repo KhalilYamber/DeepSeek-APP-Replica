@@ -6,6 +6,9 @@ name: CI
 # 刻意不含的两项：
 #   - oxfmt 格式检查：格式不该阻断合并，留给人自己 pnpm format
 #   - android/ 打包 APK：需要 Android SDK，属发布流程，不属代码门禁
+#
+# 网页版（GitHub Pages）在本文件的 deploy 作业里发布，依赖 gates 通过。
+# 发出去的是 gates 产出的那一份 dist，不重新构建——发布的东西必须就是被验过的东西。
 
 on:
   push:
@@ -67,3 +70,46 @@ jobs:
       # 有内核门槛但没兜底的写法：老 WebView 上静默失效（2026-11 的 100dvh 白屏就是这类）
       - name: 内核兼容
         run: node tools/scan-compat.mjs
+
+      # 发布用：把门禁验过的那份产物交出去。PR 上不传，省时间，也避免两份来路的产物混淆。
+      - name: 保存产物
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 7
+
+  # 网页版发布：push 到 main（或手动触发）且门禁全绿才发。
+  deploy:
+    name: 发布网页版（GitHub Pages）
+    needs: gates
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    # 发布串行：两次发布不能交错，否则 Pages 上可能是旧的
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - name: 取回门禁产出的 dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: 打成 Pages 产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: 发布到 GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
