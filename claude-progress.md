@@ -387,3 +387,4 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - iOS Safari 上高度改由 `innerHeight` 驱动，与 dvh 的细微差别未验
 - 更新过的文件或工件：`src/app/App.module.css`、`src/components/chatInput/ChatInput.module.css`、`src/app/viewport.ts`、`src/index.html`、`tools/verify-boot-guard.mjs`、`docs/known-devices.md`、`ARCHITECTURE.md`（决策 22 + 决策 17 补充）、`CHANGELOG.md`、`feature_list.json`（`compat-008`；`compat-001` 加更正）、`_probe/var-fallback.html`、本文件
 - 下一步最佳动作：那台机器装新包（`D:\快速访问_from用户\Desktop\DeepSeek复刻-防御版-20261119\`），看界面是否出来——出来了这条线才算闭环
+- 交付包改为 **0.4.2（versionCode 402）**：最初那一版与已发布的 0.4.1 同名同版本号，用户分不出装的是哪一个（实测连体积都只差 29 字节）。改成 0.4.2 之后，文件名、系统安装提示、诊断信息里的「应用版本」三处都能区分
