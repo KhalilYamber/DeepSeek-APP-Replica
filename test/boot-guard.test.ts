@@ -89,6 +89,15 @@ test('index.html 的兜底挂了错误监听，判定点是 8 秒 / 120px', () =
   assert.match(script, /MIN_CHROMIUM = 84/)
 })
 
+test('「1.5 秒就判死」只用于硬地板；承诺门槛交给 8 秒那条判定归因', () => {
+  const script = inlineScriptRaw('index.html')
+  // 硬地板（语法门槛）与承诺门槛是两件事：低于硬地板的机器永远渲染不出来，可以提前开口；
+  // 70–83 是「可能能跑」的一段，慢设备要给它时间，否则就是 0.4.0 那种误报。
+  assert.match(script, /HARD_MIN_CHROMIUM = 70/)
+  assert.match(script, /chromium < HARD_MIN_CHROMIUM/)
+  assert.match(script, /chromium < MIN_CHROMIUM \? 'kernel' : 'timeout'/)
+})
+
 test('check.html 分了「跑不了 / 有毛病 / 未使用兜底」三档，且语法检测走 new Function', () => {
   const script = inlineScriptRaw('check.html')
   assert.match(script, /tier: 'fatal'/)

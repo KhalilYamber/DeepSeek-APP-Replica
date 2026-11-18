@@ -36,6 +36,10 @@
         // 支持承诺的最低内核。构建目标（语法）是 70，但界面要正常显示还需要 flex gap（84）这类
         // 转译器救不了的特性，所以承诺按 84 定。低于它、且界面确实没渲染出来，才归到这一类。
         var MIN_CHROMIUM = 84
+        // 硬地板 = 语法门槛（rspack targets）。低于它连解析都过不去，永远渲染不出来，
+        // 所以只有这一档才允许「1.5 秒就先开口」；70–83 是「可能能跑」的一段，慢设备要给它时间，
+        // 免得慢机器还没挂载完就被判成打不开（0.4.0 误报的同一形状，见决策 19）。
+        var HARD_MIN_CHROMIUM = 70
         var TIMEOUT_MS = 8000
         var EXTEND_MS = 4000
         var MAX_EXTENDS = 3
@@ -478,7 +482,9 @@
             schedule(EXTEND_MS)
             return
           }
-          show('timeout')
+          // 8 秒后还没渲染出来：版本低于承诺的按「内核太旧」归因（诊断信息里仍带着真实错误记录），
+          // 其余照旧走超时那一页。
+          show(chromium && chromium < MIN_CHROMIUM ? 'kernel' : 'timeout')
         }
 
         function onError(event) {
@@ -506,7 +512,7 @@
 
         // 内核门槛：先解版本，但只在「界面确实没渲染」时才算数。
         // UA 里的版本号不等于真实能力（有的套壳浏览器乱报），所以宁可晚 1.5 秒确认一次，
-        // 也不要在能跑的机器上糊一个错误页。
+        // 也不要在能跑的机器上糊一个错误页。低于硬地板的那一档才走这个提前判定。
         function checkKernel() {
           if (finished) return
           if (rootState() === 'ok') {
@@ -528,7 +534,7 @@
 
         schedule(TIMEOUT_MS)
 
-        if (chromium && chromium < MIN_CHROMIUM) {
+        if (chromium && chromium < HARD_MIN_CHROMIUM) {
           whenBody(function () {
             setTimeout(checkKernel, KERNEL_PAINT_DELAY_MS)
           })

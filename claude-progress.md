@@ -327,6 +327,7 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - `./init.ps1` 六道门全绿：type / lint（132 文件 0 警告）/ **101 条测试** / build / 产物齐全 / scan-compat（error 0 · hint 1 · info 9）
   - 产物核对：`dist/index.html` 有 `d<84`、「最低要求 84」、两种成因文案；`dist/check.html` 的 `MIN_CHROMIUM = 84`；`main.js` 里 `Intl.DisplayNames` **只剩一处**，形态是 `typeof` 检查 + `try/catch` 的惰性闭包
   - `node tools/verify-boot-guard.mjs`：**27/27 通过**（真实 Chrome 157，CDP 把 UA 改成 Chrome/60），含「写出了最低要求 Chrome 84」「要求的最低内核 Chrome 84」
+  - **复审（同一轮内）**：发现并修掉一条本轮自己引入的风险——「1.5 秒就判内核太旧」原来只对 <70 成立（那批永远渲染不出来），承诺改 84 后 70–83 的「慢但能跑」也进了这条分支，会糊一页误报。现改为提前判定只挂 `HARD_MIN_CHROMIUM = 70`，70–83 交给 8 秒判定并按 `MIN_CHROMIUM` 归因；加了一条单测钉住「硬地板与承诺门槛分离」（测试 102 条），复跑六道门与 27/27 仍全绿
 - **未验证（必须记清，不算通过）**：
   - **Chrome 70–80 真机一次没跑过**：结论依据是源码形态 + 单测模拟缺失/抛错 + 接口最低版本
   - **70–83 设备上 gap 全塌后的观感**没看过——没有真机也没有截图
