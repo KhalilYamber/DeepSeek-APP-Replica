@@ -4,7 +4,6 @@ import { setSiderCollapsed, useSettings } from '../services/settings.js'
 import {
   useIsMobile,
   useMobileViewport,
-  usePreventPageScroll,
   useViewportLayoutSync,
 } from './viewport.js'
 import { useNativeShell } from './useNativeShell.js'
@@ -58,7 +57,6 @@ export const App = () => {
   )
   const activeId = useChatStore((state) => state.activeId)
 
-  usePreventPageScroll(isMobile)
   useViewportLayoutSync()
   useNativeShell()
 

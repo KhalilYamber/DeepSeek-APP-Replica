@@ -41,6 +41,7 @@ declare const styles: {
   readonly "avatarActions": string;
   readonly "avatarUpload": string;
   readonly "avatarInput": string;
+  readonly "diagnosticsText": string;
   readonly "deleteConfirm": string;
   readonly "deleteActions": string;
 };

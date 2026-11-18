@@ -245,6 +245,23 @@ export async function* streamMessage(
     }, timeoutMs(scope))
   }
 
+  // iOS 会冻结后台标签页里的定时器：切回前台时那根定时器可能还没走到点，
+  // 但流其实早就断了——界面就一直停在「正在生成」，发送键永远是灰的。
+  // 所以除定时器外再记一个「最后一次收到数据的时间」，回到前台时按时间戳判断，
+  // 不依赖后台是否执行过定时器。
+  let lastChunkAt = Date.now()
+  const onVisibility = () => {
+    if (document.visibilityState !== 'visible') {
+      return
+    }
+    const scope = watch.deadline
+    if (Date.now() - lastChunkAt >= timeoutMs(scope)) {
+      stalled.scope = scope
+      stream.abort()
+    }
+  }
+  document.addEventListener('visibilitychange', onVisibility)
+
   try {
     arm()
     for await (const { event: eventName, data } of readServerSentEvents(
@@ -252,6 +269,7 @@ export async function* streamMessage(
       stream.signal
     )) {
       watch = noteStreamEvent(watch)
+      lastChunkAt = Date.now()
       arm()
       let payload: unknown
       try {
@@ -278,6 +296,7 @@ export async function* streamMessage(
     }
   } finally {
     window.clearTimeout(timer)
+    document.removeEventListener('visibilitychange', onVisibility)
     unlink()
   }
   const stalledScope = stalled.scope

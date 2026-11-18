@@ -499,6 +499,76 @@
         "2026-11-18：`./init.ps1` 六道门全绿（97 条测试）。"
       ],
       "notes": "标 verified：声明是否正确写入、以及「应用设置压过系统偏好」这四组组合都在真实浏览器（headless Chrome 157）上看到了。\n\n**边界（必须说清）**：如果夸克的「网页深色」是它自己的滤镜层（在渲染后统一反色，不走 UA 强制深色那套 declared color-scheme 判定），页面侧无法阻止，只能在浏览器里关掉那个开关。这条修复覆盖的是标准路径。\n\n另一条相关事实：夸克可能把 `prefers-color-scheme` 报成 dark 而不随手机系统变，那样「跟随系统」就会变深色——这不是被压制，是应用照做了系统偏好。要固定外观，就在应用里显式选浅色或深色。"
+    },
+    {
+      "id": "defense-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "点了发送不再静默失败",
+      "user_visible_behavior": "草稿没准备好（附件仍在上传）或当前对话正在生成时点发送，会弹出具体原因，而不是什么也不发生。",
+      "status": "verified",
+      "verification": [
+        "空输入点发送：弹出「还有内容没准备好…」提示",
+        "同一次点击在本机诊断日志里留下一条 send 记录"
+      ],
+      "evidence": [
+        "2026-11-19：`ChatInput.send()` 原来在两处静默 `return`——`prepareDraftMessage` 失败（附件还在传/草稿为空）、以及 `sendMessage` 返回 false（会话正在生成）。改成各自给一条 toast，并写一条 `logDiagnostic`。未填 API Key 的分支仍打开设置弹窗，同时记日志。",
+        "2026-11-19 实测（headless Chrome 157，390×844，`_probe/defense-check.mjs`）：点发送 → toast 文案「还有内容没准备好（附件可能仍在上传），稍等一下再发」；`localStorage['chat-demo:diagnostics']` 里出现 `{\"kind\":\"send\",\"text\":\"草稿未就绪（可能附件仍在上传）\"}`。"
+      ],
+      "notes": "这一条直接对应用户反馈的「消息都发不出去」：以前有一类情况是点击真的被吞掉了、界面上什么都看不到。现在至少能分清是「没 Key」「附件没传完」「正在生成」还是别的。\n\n**回车可以直接发送**是上游原本就有的行为（`onKeyDown` 里没有按平台分支），所以这次没有另加「备用发送按钮」。"
+    },
+    {
+      "id": "defense-002",
+      "priority": 1,
+      "area": "feature",
+      "title": "后台冻结定时器导致的「假生成中」能自己收尾",
+      "user_visible_behavior": "从别的 App 切回来时，如果那条回答其实早就断了，界面不会一直停在「正在生成」把发送键锁死，而是按超时处理并放开输入。",
+      "status": "inferred",
+      "verification": [
+        "代码路径：回到前台时用时间戳比较，超过阈值即 abort",
+        "静态门全绿（type / lint / 97 tests / build / scan-compat）"
+      ],
+      "evidence": [
+        "2026-11-19：`streamMessage` 的看门狗原本只有 `setTimeout`。iOS 会冻结后台标签页的定时器，切回前台时定时器可能还没到点，而流已经断了——`streaming` 状态就一直挂着，`canSend` 永远为 false。",
+        "2026-11-19 改动：另记 `lastChunkAt`（每次收到事件刷新），`visibilitychange` 回到 visible 时用 `Date.now() - lastChunkAt >= timeoutMs(watch.deadline)` 判断，超时就 `abort()` 并把 scope 记进 `stalled`，让调用方按超时收尾。"
+      ],
+      "notes": "**inferred：这条没有在真机上验过**——本机无法制造「iOS 后台冻结定时器 + 流已断」这个组合。代码路径与静态门都过了，实际效果要在 iPhone 上切后台再回来才知道。"
+    },
+    {
+      "id": "defense-003",
+      "priority": 1,
+      "area": "feature",
+      "title": "本机诊断面板：环境摘要 + 最近错误，一键复制",
+      "user_visible_behavior": "设置 → 通用设置 → 诊断信息，点开是一段可直接复制的文本：应用版本、UA、iOS 版本、内核版本、是否加到主屏幕、屏幕与视口尺寸、语言与配色声明、有没有填 API Key、存储持久化状态与占用、最近 8 条错误记录。",
+      "status": "verified",
+      "verification": [
+        "面板能打开且有内容（11 行）",
+        "包含 UA / 系统 iOS / 存储 三段",
+        "本机错误日志能落到 localStorage"
+      ],
+      "evidence": [
+        "2026-11-19：新增 `src/services/diagnostics.ts`——环形日志（20 条上限）`logDiagnostic` / `readDiagnostics` / `clearDiagnostics`，以及 `collectDiagnostics()` 拼环境摘要。`main.tsx` 挂 `error` 与 `unhandledrejection` 全局捕获。",
+        "2026-11-19：设置 → 通用设置新增「诊断信息」一项，弹窗里 `<pre>` 显示并可复制；`navigator.clipboard` 不可用时退回 `execCommand('copy')`（老内核、非安全上下文）。",
+        "2026-11-19 实测（`_probe/defense-check.mjs`）：面板打开成功，共 11 行，`hasUA:true` / `hasIOS:true` / `hasStorage:true`，首行「时间 11-19 00:16:27 | 页面 http://… | 应用版本 0.4.1」。"
+      ],
+      "notes": "这是这次四块里最值钱的一块：以后用户说「发不出去」，让她点两下复制过来，就不用再靠猜。\n\n**只写本机**：不请求、不上报任何服务器；清空按钮在弹窗底部。\n\n未验：真机上剪贴板权限被拒时的退回路径（桌面 Chrome 上两条路都写好了，但只跑了主路径）。"
+    },
+    {
+      "id": "defense-004",
+      "priority": 2,
+      "area": "performance",
+      "title": "老内核不再为「阻止整页滚动」付出滚动代价",
+      "user_visible_behavior": "iOS 15 等不支持 overscroll-behavior 的内核上，滑动对话不再被 document 级 touchmove 拦截拖住；代价是页面边缘可能有一点橡皮筋回弹。",
+      "status": "inferred",
+      "verification": [
+        "document 上不再注册这条拦截",
+        "静态门与构建全绿"
+      ],
+      "evidence": [
+        "2026-11-19：上一轮保留了「老内核走 JS 拦截，但把扫描挪到 touchstart」的路径。按「宁可回弹不要卡」的取舍，这次把拦截整体删掉——整页滚动本来就由 `global.css` 的 `html/body/#root { height:100%; overflow:hidden }` 管住，`overscroll-behavior` 只是锦上添花。",
+        "2026-11-19 改动：`viewport.ts` 的 `usePreventPageScroll` 连同 `preventPageScroll` / `startsInScroller` / `cssManagesPageScroll` 一并删除，`App.tsx` 的调用与导入同步移除。"
+      ],
+      "notes": "**inferred：只在代码层确认了监听不再注册，没有 iPhone 真机**。若某台老设备出现整页被拖动的情况，说明那条 CSS 没兜住，届时要换个更便宜的办法（例如只在 `overscroll` 时钳制），而不是恢复非被动监听。"
     }
   ]
 }

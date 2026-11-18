@@ -21,6 +21,7 @@ import {
   useDrafts,
 } from '../../services/chat/drafts.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
+import { logDiagnostic } from '../../services/diagnostics.js'
 import { IconButton } from '../base/IconButton.js'
 import { Tooltip } from '../base/Tooltip.js'
 import { ensureApiKey } from '../settings/settingsDialogState.js'
@@ -135,15 +136,25 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const canSend = !importingHistory && !streaming && voice.status === 'idle' && draftReady
 
   const send = () => {
-    if (
-      useChatStore.getState().importingHistory ||
-      voice.status !== 'idle' ||
-      !prepareDraftMessage(getDraft(sessionId), useUploads.getState().tasks)
-    ) {
+    const draft = getDraft(sessionId)
+    if (useChatStore.getState().importingHistory || voice.status !== 'idle') {
+      return
+    }
+    if (!prepareDraftMessage(draft, useUploads.getState().tasks)) {
+      // 最容易被当成「点了没反应」的一条：附件还在传、或草稿其实没有内容。
+      // 以前这里是静默 return，用户只能一遍遍点。
+      logDiagnostic('send', '草稿未就绪（可能附件仍在上传）')
+      showToast({ key: 'chatInputNotReady', type: 'error' })
       return
     }
     // 文本与上传完成态由提交动作读取最新快照，不使用上一次渲染的草稿。
-    if (!ensureApiKey() || !sendMessage(sessionId)) {
+    if (!ensureApiKey()) {
+      logDiagnostic('send', '未填写 API Key，已打开设置')
+      return
+    }
+    if (!sendMessage(sessionId)) {
+      logDiagnostic('send', 'sendMessage 拒绝：当前会话正在生成或状态不允许')
+      showToast({ key: 'chatInputBlocked', type: 'error' })
       return
     }
     stopReadAloud()

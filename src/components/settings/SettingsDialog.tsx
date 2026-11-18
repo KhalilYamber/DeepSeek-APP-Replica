@@ -18,6 +18,7 @@ import {
 } from '../../services/chat/backup.js'
 import { importMessage } from '../../services/chat/history/result.js'
 import { fileToAvatar, setAvatar, useAvatars, type AvatarRole } from '../../services/avatar.js'
+import { clearDiagnostics, collectDiagnostics } from '../../services/diagnostics.js'
 import { isNativeApp, saveBlobOnNative } from '../../services/native/platform.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useChatStore } from '../../services/chat/store.js'
@@ -106,6 +107,7 @@ const SettingsContent = () => {
               <TtsVoiceSetting />
               {isNativeApp() ? null : <AvatarSetting />}
               <LocationSetting />
+              <DiagnosticsSetting />
             </>
           ) : (
             <>
@@ -691,4 +693,93 @@ const AvatarRow = ({ role, label }: { role: AvatarRole; label: string }) => {
       </div>
     </div>
   )
+}
+
+/** 诊断信息：把本机环境与最近的错误整理成一段文本，供用户一键复制给开发者。 */
+const DiagnosticsSetting = () => {
+  const t = useTranslate()
+  const [text, setText] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const open = () => {
+    setCopied(false)
+    void collectDiagnostics().then(setText)
+  }
+
+  const copy = () => {
+    if (!text) {
+      return
+    }
+    const finish = (ok: boolean) => {
+      setCopied(ok)
+      if (!ok) {
+        showToast({ key: 'settingsDiagnosticsFailed', type: 'error' })
+      }
+    }
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard
+        .writeText(text)
+        .then(() => finish(true))
+        .catch(() => finish(copyBySelection(text)))
+      return
+    }
+    finish(copyBySelection(text))
+  }
+
+  return (
+    <>
+      <SettingCell
+        label={t('settingsDiagnostics')}
+        description={t('settingsDiagnosticsDescription')}
+        status={null}
+        action={
+          <Button size="m" variant="outlined" className={styles.cellButton} onClick={open}>
+            {t('settingsDiagnosticsCopy')}
+          </Button>
+        }
+      />
+      {text === null ? null : (
+        <Modal
+          title={t('settingsDiagnostics')}
+          onClose={() => setText(null)}
+          footer={
+            <>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  clearDiagnostics()
+                  setText(null)
+                }}
+              >
+                {t('settingsDiagnosticsClear')}
+              </Button>
+              <Button onClick={copy}>
+                {copied ? t('settingsDiagnosticsCopied') : t('settingsDiagnosticsCopy')}
+              </Button>
+            </>
+          }
+        >
+          <pre className={styles.diagnosticsText}>{text}</pre>
+        </Modal>
+      )}
+    </>
+  )
+}
+
+/** 剪贴板 API 不可用时的兜底：老内核、非安全上下文都走这条路。 */
+const copyBySelection = (value: string): boolean => {
+  try {
+    const area = document.createElement('textarea')
+    area.value = value
+    area.setAttribute('readonly', 'readonly')
+    area.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0'
+    document.body.appendChild(area)
+    area.select()
+    area.setSelectionRange(0, value.length)
+    const ok = document.execCommand?.('copy') ?? false
+    document.body.removeChild(area)
+    return ok
+  } catch {
+    return false
+  }
 }

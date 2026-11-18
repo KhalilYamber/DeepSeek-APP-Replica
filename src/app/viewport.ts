@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { resolveSafeSide } from './safeArea.js'
 
 /**
@@ -21,72 +21,6 @@ const subscribe = (onChange: () => void) => {
 
 export const useIsMobile = () => useSyncExternalStore(subscribe, () => query.matches)
 
-const preventPageScroll = (event: TouchEvent) => {
-  if (event.touches.length !== 1) {
-    return
-  }
-  event.preventDefault()
-}
-
-/** 指针是否落在可滚动区域里（手里这一次手势，只在 touchstart 算一次）。 */
-const startsInScroller = (target: EventTarget | null): boolean => {
-  for (
-    let element = target instanceof Element ? target : null;
-    element && element !== document.body;
-    element = element.parentElement
-  ) {
-    const style = getComputedStyle(element)
-    const scrollsY =
-      /auto|scroll/.test(style.overflowY) && element.scrollHeight > element.clientHeight
-    const scrollsX =
-      /auto|scroll/.test(style.overflowX) && element.scrollWidth > element.clientWidth
-    if (scrollsY || scrollsX) {
-      return true
-    }
-  }
-  return false
-}
-
-/**
- * 支持 overscroll-behavior 的内核上，整页滚动已经完全由 CSS 管住
- * （global.css 里 html/body/#root 的 height:100% + overflow:hidden + overscroll-behavior-y:none），
- * 这条 JS 拦截纯属多余——而它是 passive:false，会让浏览器每帧等 JS 算完才敢滚，
- * 真机上表现为「滑动发黏」。所以这类内核直接不挂监听。
- */
-const cssManagesPageScroll = (): boolean =>
-  typeof CSS !== 'undefined' &&
-  typeof CSS.supports === 'function' &&
-  CSS.supports('overscroll-behavior', 'none')
-
-/** 阻止移动端整页滚动，保留内部可滚动区域的滚动和双指缩放。 */
-export const usePreventPageScroll = (enabled: boolean) => {
-  useEffect(() => {
-    if (!enabled) {
-      return
-    }
-    if (cssManagesPageScroll()) {
-      return
-    }
-    // 老内核没有 overscroll-behavior，仍要用 JS 拦。
-    // 但把「扫祖元素量样式」挪到 touchstart：手势一开始算一次，
-    // touchmove 里只读一个布尔值，不再做 getComputedStyle 与布局读取。
-    let inScroller = false
-    const onTouchStart = (event: TouchEvent) => {
-      inScroller = event.touches.length === 1 && startsInScroller(event.target)
-    }
-    const onTouchMove = (event: TouchEvent) => {
-      if (event.touches.length === 1 && !inScroller) {
-        preventPageScroll(event)
-      }
-    }
-    document.addEventListener('touchstart', onTouchStart, { passive: true })
-    document.addEventListener('touchmove', onTouchMove, { passive: false })
-    return () => {
-      document.removeEventListener('touchstart', onTouchStart)
-      document.removeEventListener('touchmove', onTouchMove)
-    }
-  }, [enabled])
-}
 
 /** 移动端页面跟随视觉视口，键盘弹出后顶栏和输入框仍留在可见区域。 */
 export const useMobileViewport = (enabled: boolean) => {

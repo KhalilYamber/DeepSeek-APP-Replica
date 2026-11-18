@@ -290,3 +290,22 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - 夸克是否把 `prefers-color-scheme` 报成固定值，未测
 - 更新过的文件或工件：`src/index.html`、`src/app/theme.ts`、`feature_list.json`（`theme-001`）、本文件
 - 下一步最佳动作：用户在夸克里按「选浅色 / 选深色 / 跟随系统」三组各看一次；若仍被反色，说明是浏览器滤镜，去关它的网页深色开关
+
+### Session 011
+
+- 日期：2026-11-19
+- 本轮目标：按用户要求做「防御性兜底」四块（自愈 / 第二通道 / 降级 / 取证）。起因是 iPhone 用户反馈「UI 卡 + 消息发不出去」
+- 已完成：
+  - **取证**：`src/services/diagnostics.ts`（环形日志 20 条 + `collectDiagnostics()` 环境摘要）；`main.tsx` 挂全局 error / unhandledrejection；设置 → 通用设置新增「诊断信息」，弹窗可复制（`navigator.clipboard` 不可用时退回 `execCommand`）
+  - **第二通道 / 有回应**：`ChatInput.send()` 两处静默 return 改成 toast + 诊断日志；回车发送上游本来就有，未另加按钮
+  - **自愈**：`streamMessage` 除 `setTimeout` 外另记 `lastChunkAt`，回到前台时按时间戳判断超时并 abort——针对 iOS 冻结后台定时器
+  - **降级**：删掉整页滚动的 JS 拦截（`usePreventPageScroll` 及三个辅助函数），老内核允许橡皮筋回弹，不再每帧等 JS
+- 运行过的验证：
+  - 六道门全绿（type / lint / 97 tests / build / 产物 / scan-compat error 0）
+  - `_probe/defense-check.mjs`（headless Chrome 157，390×844）：诊断面板打开成功、11 行、含 UA / 系统 iOS / 存储；空输入点发送弹出「还有内容没准备好…」；本机日志记下 `{kind:'send'}` 一条
+- **未验证（必须记清，不算通过）**：
+  - **iPhone 真机一次没跑过**：自愈那条（后台冻结定时器）与「老内核不再被拦截」都只有代码路径与静态门，没有真机
+  - 真机剪贴板被拒时的退回路径未跑
+  - 刻意没做：流式失败自动降级为非流式重发（要改 API 层、且没有真 Key 无法验证）；备用发送按钮（回车已可发）
+- 更新过的文件或工件：`src/services/diagnostics.ts`、`src/main.tsx`、`src/services/api/client.ts`、`src/components/chatInput/ChatInput.tsx`、`src/app/viewport.ts`、`src/app/App.tsx`、`src/components/settings/SettingsDialog.tsx`、`Settings.module.css`（含 d.ts）、`i18n/zh.ts`、`i18n/en.ts`、`feature_list.json`（`defense-001`~`004`）、本文件
+- 下一步最佳动作：请那位 iPhone 用户点「设置 → 诊断信息 → 复制」，把文本发回来；那份文本能直接定位「卡」是内核问题还是布局问题
