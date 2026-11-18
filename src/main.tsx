@@ -2,6 +2,7 @@ import './app/polyfills.js'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/App.js'
 import { setupTheme } from './app/theme.js'
+import { ErrorBoundary } from './components/base/ErrorBoundary.js'
 import { logDiagnostic } from './services/diagnostics.js'
 import { ensureKatex } from './services/markdown/katex.js'
 import './app/theme.css'
@@ -20,4 +21,9 @@ window.addEventListener('unhandledrejection', (event) => {
 ensureKatex()
 setupTheme()
 
-createRoot(document.getElementById('root') as HTMLElement).render(<App />)
+// 最外层保险丝：整棵树渲染崩掉时，界面降级成一页能重试的说明，而不是全白
+createRoot(document.getElementById('root') as HTMLElement).render(
+  <ErrorBoundary scope="root">
+    <App />
+  </ErrorBoundary>
+)
