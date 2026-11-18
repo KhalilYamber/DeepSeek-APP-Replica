@@ -309,6 +309,27 @@ const main = async () => {
       )
       record('watchdog：框恢复后修复条自己撤掉', cleared >= 0, `${cleared}ms`)
       record('watchdog：没有顺带弹出兜底页', (await session.evaluate(hasOverlay)) === null)
+
+      // 宽度这一路单独验一次：判据里最容易漏的就是它（塌成 0 宽同样是整屏看不见）
+      await session.evaluate(
+        `(function () {
+          var frame = document.getElementById('root').firstElementChild
+          frame.style.width = '0px'
+          return frame.getBoundingClientRect().width
+        })()`
+      )
+      const narrow = await session.waitFor(`document.getElementById('boot-guard-repair')`, 12000)
+      const narrowText = await session.evaluate(
+        `(document.getElementById('boot-guard-repair') || { textContent: '' }).textContent`
+      )
+      record('watchdog：宽度塌成 0 也能抓到', narrow >= 0 && narrowText.includes('宽度'), narrowText.slice(0, 40))
+      await session.evaluate(
+        `(function () {
+          var frame = document.getElementById('root').firstElementChild
+          frame.style.removeProperty('width')
+        })()`
+      )
+      await session.waitFor(`document.getElementById('boot-guard-repair') === null`, 8000)
     }
 
     if (!skip('no-render')) {
