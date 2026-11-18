@@ -40,7 +40,10 @@ const applyTheme = (theme: Theme) => {
   } else {
     body.removeAttribute('data-ds-dark-theme')
   }
-  document.documentElement.style.colorScheme = theme
+  // 应用自己选定的深浅色优先于浏览器/系统的强制深色：
+  // 浅色时写 `only light`，这是浏览器识别「不要替我反色」的标准写法
+  // （只写 light 仍可能被 UA 的强制深色接管，夸克这类浏览器就吃这一条）。
+  document.documentElement.style.colorScheme = theme === 'dark' ? 'dark' : 'only light'
   // 首次背景色同步在样式表加载完成后执行，适配 WebKit 的 defer 脚本执行顺序。
   if (document.readyState === 'complete') {
     syncPageBackground()

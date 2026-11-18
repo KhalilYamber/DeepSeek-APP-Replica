@@ -268,3 +268,24 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 
 
 
+
+### Session 010
+
+- 日期：2026-11-18
+- 本轮目标：用户反馈在**夸克浏览器**里主题被浏览器主题压制
+- 定位：
+  - `theme.ts` 原来只写 `colorScheme = 'light' | 'dark'`。按标准，`light` 仍可能被 UA 的强制深色接管；明确「不要替我反色」要写 `only light`
+  - 另外这个声明由 JS 在运行时写入，**首屏之前文档没有任何 color-scheme 声明**——强制深色最容易在这一段生效
+- 已完成：
+  - `src/index.html` head 加 `<meta name="color-scheme" content="light">`，首屏即声明
+  - `theme.ts`：浅色分支改写为 `only light`，深色仍为 `dark`
+- 运行过的验证（`_probe/theme-check.mjs`，headless Chrome 157 / 390×844）：
+  - 选浅色 → html 计算值 `light only`，body 背景 rgb(255,255,255)
+  - 选深色 → `dark`，rgb(21,21,23)
+  - **模拟系统深色 + 应用浅色 → 仍是浅色**；系统浅色 + 应用深色 → 仍是深色
+  - 六道门全绿（97 条测试）
+- **未验证（必须记清，不算通过）**：
+  - **夸克本体没有验过**（这台机器装不了夸克；也没法在桌面复现它的强制深色）。如果夸克的「网页深色」是自己渲染后统一反色的滤镜，页面侧无法阻止，只能在浏览器里关掉
+  - 夸克是否把 `prefers-color-scheme` 报成固定值，未测
+- 更新过的文件或工件：`src/index.html`、`src/app/theme.ts`、`feature_list.json`（`theme-001`）、本文件
+- 下一步最佳动作：用户在夸克里按「选浅色 / 选深色 / 跟随系统」三组各看一次；若仍被反色，说明是浏览器滤镜，去关它的网页深色开关
