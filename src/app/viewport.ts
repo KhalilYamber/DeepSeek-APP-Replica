@@ -53,7 +53,7 @@ export const useMobileViewport = (enabled: boolean) => {
     })
 
     // 只在值真的变了才写，避免每秒复核都触发一次样式重算
-    const setVar = (name: string, value: string) => {
+    const setStyle = (name: string, value: string) => {
       if (frame.style.getPropertyValue(name) === value) {
         return
       }
@@ -63,9 +63,17 @@ export const useMobileViewport = (enabled: boolean) => {
       }
       frame.style.removeProperty(name)
     }
+    /**
+     * 三个值一起写，理由是各有一个消费者：
+     * - 内联 `height`：优先级最高，也是唯一真正决定高度的东西。哪怕别处把它写成坏值，
+     *   每秒复核也会按实测覆盖回来（「height 依赖 dvh 导致塌成 0」那条路的兜底）。
+     * - `--app-viewport-height`：输入框的 max-height 在用它。
+     * - `--app-viewport-top`：CSS 里 fixed 元素的 top。
+     */
     const write = (height: string, top: string) => {
-      setVar('--app-viewport-height', height)
-      setVar('--app-viewport-top', top)
+      setStyle('height', height)
+      setStyle('--app-viewport-height', height)
+      setStyle('--app-viewport-top', top)
     }
 
     const apply = () => {
@@ -74,7 +82,9 @@ export const useMobileViewport = (enabled: boolean) => {
         return
       }
       if (decision.mode === 'css') {
-        write('', '')
+        // 没键盘：按布局视口取全高，同样用像素写——高度从此不依赖 dvh 这类新单位
+        const height = Math.round(window.innerHeight)
+        write(height > 0 ? `${height}px` : '', height > 0 ? '0px' : '')
         return
       }
       write(`${decision.height}px`, `${decision.top}px`)

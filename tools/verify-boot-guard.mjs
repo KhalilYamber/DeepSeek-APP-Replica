@@ -13,6 +13,7 @@
  *   5 check         dist/check.html 的检测项与结论
  *   6 check-stubbed 把几项能力删掉后重新打开 check.html，确认判定真的会翻红
  *   7 watchdog      注入「框塌了」，确认几何看门狗自愈、写诊断、给修复条，且恢复后自己撤掉
+ *   8 poison        复现真机症状：height 的 var() 兜底带一个不认识的单位 → 塌成 0 → 每秒复核自动写回
  *
  * 用法：node tools/verify-boot-guard.mjs [--only <场景名>]
  * 退出码：0 全部通过；1 有断言失败；2 环境问题（dist 不在、Chrome 起不来等）
@@ -190,6 +191,12 @@ const clickByText = (label) => `(function () {
 })()`
 const overlayText = `(document.getElementById('boot-guard-fatal') || {textContent:''}).textContent`
 const rootInfo = `(function(){var r=document.getElementById('root');if(!r)return {count:-1,height:-1};return {count:r.children.length,height:Math.round(r.getBoundingClientRect().height)}})()`
+// 根容器的实际高度（-1 表示还没挂载）
+const frameHeight = `(function () {
+  var root = document.getElementById('root')
+  var frame = root && root.firstElementChild
+  return frame ? Math.round(frame.getBoundingClientRect().height) : -1
+})()`
 
 const main = async () => {
   if (!existsSync(join(DIST, 'index.html'))) throw new Error('dist/index.html 不存在，先 pnpm build')
@@ -268,12 +275,13 @@ const main = async () => {
       )
       record('watchdog：界面先正常渲染出来', ready >= 0, `${ready}ms`)
 
-      // 注入「框塌了」：直接压内联 height——样式表里的 --app-viewport-height 管不到它，
-      // 正好模拟「变量被写坏之后没人复核」那种状态
+      // 注入「框塌了」：用 display:none 而不是 height:0。
+      // 高度现在由 JS 每秒按实测写回，写坏的 height 一秒就会被覆盖——那是 L1 的功劳，
+      // 这里要测的是看门狗自己那条路，所以挑一个 JS 不改的东西。
       await session.evaluate(
         `(function () {
           var frame = document.getElementById('root').firstElementChild
-          frame.style.height = '0px'
+          frame.style.display = 'none'
           return frame.getBoundingClientRect().height
         })()`
       )
@@ -299,7 +307,7 @@ const main = async () => {
       await session.evaluate(
         `(function () {
           var frame = document.getElementById('root').firstElementChild
-          frame.style.removeProperty('height')
+          frame.style.removeProperty('display')
           return frame.getBoundingClientRect().height
         })()`
       )
@@ -310,12 +318,13 @@ const main = async () => {
       record('watchdog：框恢复后修复条自己撤掉', cleared >= 0, `${cleared}ms`)
       record('watchdog：没有顺带弹出兜底页', (await session.evaluate(hasOverlay)) === null)
 
-      // 宽度这一路单独验一次：判据里最容易漏的就是它（塌成 0 宽同样是整屏看不见）
+      // 宽度这一路单独验一次：判据里最容易漏的就是它（塌成 0 宽同样是整屏看不见）。
+      // 用 max-width 而不是 width：自愈会撤掉内联 width，撤不掉 max-width，才能走到「修不好才提示」。
       await session.evaluate(
         `(function () {
           var frame = document.getElementById('root').firstElementChild
-          frame.style.width = '0px'
-          return frame.getBoundingClientRect().width
+          frame.style.maxWidth = '10px'
+          return Math.round(frame.getBoundingClientRect().width)
         })()`
       )
       const narrow = await session.waitFor(`document.getElementById('boot-guard-repair')`, 12000)
@@ -326,10 +335,35 @@ const main = async () => {
       await session.evaluate(
         `(function () {
           var frame = document.getElementById('root').firstElementChild
-          frame.style.removeProperty('width')
+          frame.style.removeProperty('max-width')
         })()`
       )
       await session.waitFor(`document.getElementById('boot-guard-repair') === null`, 8000)
+    }
+
+    if (!skip('poison')) {
+      await session.send('Emulation.setUserAgentOverride', { userAgent: realUa })
+      await session.navigate(`${distServer.url}`)
+      const ready = await session.waitFor(`(${frameHeight}) > 0`, 15000)
+      record('poison：界面先正常渲染出来', ready >= 0, `${ready}ms`)
+
+      // 复现真机症状（OPPO A58 / 2026-11-19）：height 写成「var() 的兜底里带一个本内核不认识的单位」。
+      // 旧内核上的 100dvh 走的就是这条路径——计算时无效 → height: auto → 根容器塌成 0。
+      const collapsed = await session.evaluate(
+        `(function () {
+          var frame = document.getElementById('root').firstElementChild
+          frame.style.height = 'var(--nope, 100qq)'
+          return ${frameHeight}
+        })()`
+      )
+      record('poison：注入后确实塌成 0（复现真机症状）', collapsed === 0, `高度 ${collapsed}`)
+
+      // 每秒复核会按实测像素写回内联 height，不需要用户点任何按钮
+      const recovered = await session.waitFor(`(${frameHeight}) >= window.innerHeight * 0.9`, 8000)
+      const bar = await session.evaluate(`document.getElementById('boot-guard-repair')`)
+      const file = await session.shot('watchdog-poison-recovered.png')
+      record('poison：自动写回像素高度，不用点修复', recovered >= 0, `${recovered}ms → ${file}`)
+      record('poison：没弹修复条（自愈成功就不打扰人）', bar === null)
     }
 
     if (!skip('no-render')) {

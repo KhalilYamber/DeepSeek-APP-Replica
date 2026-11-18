@@ -361,3 +361,29 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - 视口钳制改了触发语义：不再看焦点，只看视觉视口高度——设置弹窗里打字也会让背后那层跟着缩，收键盘恢复
 - 更新过的文件或工件：`src/app/viewportClamp.ts`（新）、`src/app/viewport.ts`、`src/components/base/ErrorBoundary.tsx`（新）、`ErrorBoundary.module.css`（含 d.ts）、`src/main.tsx`、`src/app/App.tsx`、`src/components/messages/MessageList.tsx`、`src/i18n/zh.ts`、`src/i18n/en.ts`、`src/index.html`、`test/viewport-clamp.test.ts`（新）、`test/error-boundary.test.ts`（新）、`test/boot-guard.test.ts`、`tools/verify-boot-guard.mjs`、`CHANGELOG.md`、`feature_list.json`（`defense-005`~`007`）、本文件
 - 下一步最佳动作：打一个包装到 A58x 上看两件事——① 是否还整屏空白；② 若还会，底部有没有出现修复条（有 → 几何问题且自愈失效；没有 → 更可能是绘制层）。这一步能把本轮的猜测收敛成事实
+
+### Session 014
+
+- 日期：2026-11-19
+- 本轮目标：用户装了防御版 APK，A58 仍然整屏空白——**但底部出现了修复条，写的是「高度 0」**。据此定位真根因并修掉
+- 定位（先做实验，不猜）：
+  - 看门狗报「高度 0」→ 根容器几何确实是 0，不是绘制层
+  - 写了一个 headless 复现件 `_probe/var-fallback.html`：`height:300px; height:var(--missing,100qq)` 实测 **0**；兜底换成 `250px` 时是 250；只有 `height:300px` 时是 300
+  - 结论：**`var()` 的兜底里带本内核不认识的单位时，整条声明在「计算期」失效退回 `auto`，前面那条 `100vh` 不会接管**（只有解析期就整条丢弃的值才会退回上一条声明）
+  - `.frame` 正好是 `height: var(…,100vh); height: var(…,100dvh);` → 旧内核上第二条胜出并失效 → 根容器塌成 0
+  - 这也解释了 0.3.0 那次「双声明兜底」为什么没治好：前提是错的；而验证环境 Chrome 157 支持 dvh，永远走不到这条路径
+- 已完成：
+  - `App.module.css` / `ChatInput.module.css`：去掉 `var()` 兜底里的 `100dvh`，只留 `100vh`（`Settings.module.css` 那条是纯 `calc(100vh/100dvh)`，解析期就被丢弃，本来就对，未动）
+  - `viewport.ts`：高度改由 JS **每秒写内联 `height`（像素）**——键盘弹出用视觉视口、平时用布局视口；内联优先级最高，写坏了 1 秒内自动覆盖
+  - `index.html`：`healFrame()` 额外撤掉内联 `height` / `width`
+  - 验收新增 `poison` 场景：注入 `var(--nope,100qq)` → 塌成 0 → 断言 1 秒内自动写回、且不弹修复条
+  - 看门狗场景改用 `display:none` 注入（`height` 注入现在会被 L1 一秒覆盖，测不到看门狗）；宽度改用 `max-width`（`width` 注入会被自愈撤掉）
+- 运行过的验证：
+  - 六道门全绿（114 条测试）
+  - `node tools/verify-boot-guard.mjs`：**39/39**（8 个场景）；poison 场景：塌成 0 → **1057ms** 自动恢复、无修复条
+  - APK 重新打包并核对：包内 CSS 的 `.frame` 已是 `var(…,100vh)`，无 dvh
+- **未验证（必须记清）**：
+  - 修复本身**尚未在 A58 真机复验**（新包已放在桌面目录）
+  - iOS Safari 上高度改由 `innerHeight` 驱动，与 dvh 的细微差别未验
+- 更新过的文件或工件：`src/app/App.module.css`、`src/components/chatInput/ChatInput.module.css`、`src/app/viewport.ts`、`src/index.html`、`tools/verify-boot-guard.mjs`、`docs/known-devices.md`、`ARCHITECTURE.md`（决策 22 + 决策 17 补充）、`CHANGELOG.md`、`feature_list.json`（`compat-008`；`compat-001` 加更正）、`_probe/var-fallback.html`、本文件
+- 下一步最佳动作：那台机器装新包（`D:\快速访问_from用户\Desktop\DeepSeek复刻-防御版-20261119\`），看界面是否出来——出来了这条线才算闭环

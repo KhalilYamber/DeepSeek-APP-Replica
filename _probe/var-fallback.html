@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>pending</title>
+<style>
+  /* 模拟旧内核不认 dvh：用一个同样不存在的单位 100qq 放进 var() 的兜底里 */
+  .double { height: 300px; height: var(--missing, 100qq); background: #f00; }
+  /* 对照组：兜底本身就是合法值 */
+  .valid  { height: 300px; height: var(--missing, 250px); background: #0f0; }
+  /* 对照组：只有 vh，没有 dvh */
+  .plain  { height: 300px; background: #00f; }
+</style></head>
+<body>
+<div class="double" id="a"></div>
+<div class="valid" id="b"></div>
+<div class="plain" id="c"></div>
+<script>
+  var a = document.getElementById('a').offsetHeight
+  var b = document.getElementById('b').offsetHeight
+  var c = document.getElementById('c').offsetHeight
+  document.title = 'double=' + a + ' valid=' + b + ' plain=' + c
+</script>
+</body></html>

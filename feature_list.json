@@ -134,7 +134,7 @@
         "布局验证：强制 100vh 兜底时 frameH=844 / contentH=844，与正常态逐像素一致（screenshots/06-compat-fix.png 与 07-vh-fallback.png 同图）。",
         "顺带修：`useNativeShell` 里重复 registerPlugin 触发的 “SystemBars already registered” 警告已消除，改为从桥按需取。"
       ],
-      "notes": "**本条状态为 inferred：这是推理结论，不是真机确认。**（2026-11-17 依 rules.passing_requires_device_evidence 由 passing 改标；证据一条未删）\n\n**未在真实低版本 WebView 上验证**：本机与模拟器 WebView 都是 133，复现不出 93 的 dvh 缺失。结论依据是 CSS 层叠规范 + 产物顺序 + 兜底值撑起布局的实测，不等同真机确认。剩余风险：若白屏另由 JS 报错引起（.frame 根本未创建），本修复不覆盖那条路径，需 logcat 才能区分。"
+      "notes": "**本条状态为 inferred：这是推理结论，不是真机确认。**（2026-11-17 依 rules.passing_requires_device_evidence 由 passing 改标；证据一条未删）\n\n**2026-11-19 更正**：本条里「先 100vh 后 100dvh 的双声明可以兜底」这个判断是**错的**——var() 的兜底在解析期不解析，第二条声明照样生效、照样在计算期失效，根容器退回 auto。已由 compat-008 取代。\\n\\n**未在真实低版本 WebView 上验证**：本机与模拟器 WebView 都是 133，复现不出 93 的 dvh 缺失。结论依据是 CSS 层叠规范 + 产物顺序 + 兜底值撑起布局的实测，不等同真机确认。剩余风险：若白屏另由 JS 报错引起（.frame 根本未创建），本修复不覆盖那条路径，需 logcat 才能区分。"
     },
     {
       "id": "import-001",
@@ -673,6 +673,27 @@
         "截图 `screenshots/watchdog-repair.png`：设置弹窗能正常显示、背后整块空白、底部就是这条修复条——与用户反馈的症状形态一致。"
       ],
       "notes": "**inferred：本机 Chrome 157 + 故障注入验过，目标设备（OPPO A58/A58x）一次没跑过。**\n\n**覆盖边界**：它只管「DOM 在、几何错」；GPU 光栅化失败的整块空白它检测不到（那种情况 getBoundingClientRect 是正常的），只能靠切后台/转屏时的手动重排碰运气。"
+    },
+    {
+      "id": "compat-008",
+      "priority": 1,
+      "area": "compat",
+      "title": "真机白屏根因：var() 兜底里的 dvh 让根容器塌成 0",
+      "user_visible_behavior": "不认 dvh 的内核（Chrome < 108）上界面不再整屏空白；高度由 JS 按实测写像素值，写坏了也会在 1 秒内自己恢复。",
+      "status": "inferred",
+      "verification": [
+        "headless 机制复现：height:300px; height:var(--x,100qq) → 实测 0（对照 250）",
+        "故障注入（本机 Chrome 157，390×844）：把根容器 height 写成 var(--nope,100qq) → 立刻塌成 0 → 1.06 秒自动写回、没弹修复条",
+        "完整验收 39/39（既有 7 个场景 + 新增 poison 场景）",
+        "产物核对：APK 内 CSS 的 .frame 规则已是 var(…,100vh)，无 dvh"
+      ],
+      "evidence": [
+        "2026-11-19 真机（OPPO A58，Android 13）：整屏白色；新加的几何看门狗报「界面显示异常（高度 0）」；点「修复」无效——当时那键只撤 CSS 变量，撤不掉 CSS 本身算出来的 0。",
+        "机制：var() 的兜底在解析期不解析，第二条声明合法胜出；计算期发现 dvh 不认识 → 整条声明失效 → height: auto → 根容器（子元素全是 flex + 百分比高度）塌成 0。前面那条 100vh 不会接管。",
+        "改法：CSS 只留 var(--app-viewport-height, 100vh)；JS 每秒写内联 height（像素），键盘弹出用视觉视口高度、平时用布局视口高度；兜底页的「修复」额外撤掉内联 height/width。",
+        "为什么两轮都没抓到：0.3.0 与 0.4.0 的验证都在 Chrome 157 上做，而它支持 dvh，这条路径永远走不到——所以 0.4.0 那句「双声明可以兜底」是错的结论。"
+      ],
+      "notes": "**inferred：真机确认了症状，修复包已生成，但修复本身还没在那台机器上复验**（等用户装新包）。\n\n**残留**：iOS Safari 工具栏展开时高度会跟着 innerHeight 走，与 dvh 可能有细微差别——未在 iOS 真机验证。"
     }
   ]
 }

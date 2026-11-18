@@ -60,9 +60,11 @@
     position: fixed;
     top: var(--app-viewport-top, 0px);
     bottom: auto;
-    /* dvh 需 Chrome 108+；旧 WebView 不认 dvh 会让整条 height 失效、根容器塌成 0。先给 vh 兜底。 */
+    /* 高度只用像素（JS 每秒按实测值写内联样式）。这里只做「JS 还没接管」时的兜底。
+       千万不要把 100dvh 写进 var() 的兜底：旧内核不认这个单位时，整条声明会变成
+       「计算时无效」退回 auto——前面那条 100vh 并不会接管，根容器直接塌成 0。
+       2026-11-19 在 OPPO A58 上验到症状（看门狗报「高度 0」），headless 里也复现过。 */
     height: var(--app-viewport-height, 100vh);
-    height: var(--app-viewport-height, 100dvh);
     padding-top: env(safe-area-inset-top);
     /* 横屏刘海与导航条只报在一侧，两侧共用较大的一边，内容才在玻璃上居中；竖屏由 JS 写 0 */
     padding-left: var(--app-safe-side, 0px);

@@ -524,12 +524,15 @@
           return ''
         }
 
-        // 自愈：撤掉可能写坏的视口变量，再强制一次回流让它真的生效
+        // 自愈：撤掉可能写坏的视口变量与内联尺寸，再强制一次回流让它真的生效。
+        // 内联 height/width 也要撤：坏值可能就写在它们身上（高度塌成 0 那条路）。
         function healFrame() {
           var el = frameElement()
           if (!el || !el.style) return
           el.style.removeProperty('--app-viewport-height')
           el.style.removeProperty('--app-viewport-top')
+          el.style.removeProperty('height')
+          el.style.removeProperty('width')
           void el.offsetHeight
         }
 
