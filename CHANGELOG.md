@@ -2,6 +2,33 @@
 
 本项目的显著变更记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.4.1] - 2026-11-18
+
+### 修复 — 兜底页误报（重要）
+
+- **0.4.0 的启动兜底页会在正常的设备上误报。** 它用 `#root` 的高度判断「界面有没有渲染出来」，而界面的根容器 `.frame` 是 `position: absolute`，导致 `#root` 自身高度恒为 0——于是应用完全正常，8 秒后也会弹出「打不开」那一页
+- 改为「先量 `#root`，为 0 时改量它的第一个元素子节点」
+- 教训已记进 `docs/known-devices.md`：用自己构造的页面验自己的判据，验的是假设，不是现实
+
+### 修复 — 手机滑动发黏
+
+- `touchmove` 的整页滚动拦截是 `passive: false`，浏览器每帧都要等 JS 算完才敢滚。而 `.frame` 的 `overscroll-behavior` 已经把整页滚动管住了，这段 JS 在支持该属性的内核上纯属多余
+- 现在：支持 `overscroll-behavior` 的内核直接不挂监听；老内核仍用 JS 拦，但把「扫描祖先元素样式」挪到 `touchstart`，`touchmove` 里只读一个布尔值
+
+### 修复 — 浏览器强制深色不再压制应用主题
+
+- `theme.ts` 原来只写 `colorScheme = 'light'`，而标准里 `light` 仍可能被 UA 的强制深色接管。浅色分支改写为 `only light`
+- `index.html` 的 head 加 `<meta name="color-scheme" content="light">`，首屏之前就有声明（此前由 JS 运行时写入，强制深色最容易在那一段生效）
+- **未在夸克本体上验证**——这台机器装不了
+
+### 新增 — 网页版
+
+- `dist` 由 CI 在推送到 `main` 后自动发布到 GitHub Pages：<https://khalilyamber.github.io/DeepSeek-APP-Replica/>
+- **历史对话搜索**：按你问过的话和回复摘要搜，思考过程不进搜索；侧栏搜索框 + 命中高亮
+- **自定义头像**：上传后居中裁正方形压到 160px 存 JPEG；设置 → 通用设置里有入口
+
+**后两项只在网页版渲染**（`isNativeApp()` 运行时判断），APK 里不出现这两个入口。
+
 ## [0.4.0] - 2026-11-17
 
 ### 修复 — 老设备白屏的真正原因
