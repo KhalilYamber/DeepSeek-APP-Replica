@@ -5,13 +5,14 @@
  * 为什么不能只用 tools/shot.mjs：它固定等 7 秒，而启动兜底的判定点在 8 秒之后——
  * 用 7 秒的截图证明「没有误伤」，等于在兜底还没来得及开口的时候就收工。
  *
- * 六个场景：
- *   1 normal        dist/index.html 正常启动，11 秒后仍无错误页（跨过 8 秒判定点）
+ * 七个场景：
+ *   1 normal        dist/index.html 正常启动，11 秒后仍无错误页、也没有误报出修复条（跨过 8 秒判定点）
  *   2 no-render     拿 dist 里那段真实的内联脚本套一个「永远不渲染」的页面，等兜底页出现
  *   3 no-render-ua  同上 + UA 改成 Chrome/60，确认内核分支走的是「内核太旧」而不是「超时」
  *   4 ua-but-ok     dist/index.html + UA 改成 Chrome/60，确认界面渲染成功时不上错误页（抗误伤）
  *   5 check         dist/check.html 的检测项与结论
  *   6 check-stubbed 把几项能力删掉后重新打开 check.html，确认判定真的会翻红
+ *   7 watchdog      注入「框塌了」，确认几何看门狗自愈、写诊断、给修复条，且恢复后自己撤掉
  *
  * 用法：node tools/verify-boot-guard.mjs [--only <场景名>]
  * 退出码：0 全部通过；1 有断言失败；2 环境问题（dist 不在、Chrome 起不来等）
@@ -248,6 +249,66 @@ const main = async () => {
       const file = await session.shot('boot-ok-after-watchdog.png')
       record('normal：过了 8 秒判定点仍无错误页', !shown, shown ? '错误页出现了（误伤）' : `#root 子节点 ${root.count}、高 ${root.height}px`)
       record('normal：主界面确实渲染了', root.count > 0 && root.height >= 120, `子节点 ${root.count}、高 ${root.height}px → ${file}`)
+      // 正常态也必须没有修复条：那个误报一次就是「界面显示异常」的假警报（0.4.0 的坑）
+      const repairBar = await session.evaluate(`document.getElementById('boot-guard-repair')`)
+      record('normal：没有误报出修复条', repairBar === null)
+    }
+
+    if (!skip('watchdog')) {
+      await session.send('Emulation.setUserAgentOverride', { userAgent: realUa })
+      await session.navigate(`${distServer.url}`)
+      // 先等界面真的立起来，否则看门狗还在「等界面出现过一次」的状态，注入也白搭
+      const ready = await session.waitFor(
+        `(function () {
+          var root = document.getElementById('root')
+          var frame = root && root.firstElementChild
+          return !!(frame && frame.getBoundingClientRect().height > 0)
+        })()`,
+        15000
+      )
+      record('watchdog：界面先正常渲染出来', ready >= 0, `${ready}ms`)
+
+      // 注入「框塌了」：直接压内联 height——样式表里的 --app-viewport-height 管不到它，
+      // 正好模拟「变量被写坏之后没人复核」那种状态
+      await session.evaluate(
+        `(function () {
+          var frame = document.getElementById('root').firstElementChild
+          frame.style.height = '0px'
+          return frame.getBoundingClientRect().height
+        })()`
+      )
+      const banner = await session.waitFor(`document.getElementById('boot-guard-repair')`, 12000)
+      const bannerText = await session.evaluate(
+        `(document.getElementById('boot-guard-repair') || { textContent: '' }).textContent`
+      )
+      const shot = await session.shot('watchdog-repair.png')
+      record('watchdog：框塌了之后给出修复条', banner >= 0, `等了 ${banner}ms → ${shot}`)
+      record('watchdog：修复条说清是显示异常', bannerText.includes('界面显示异常'), bannerText.slice(0, 40))
+
+      const logged = await session.evaluate(
+        `(function () {
+          try {
+            var list = JSON.parse(localStorage.getItem('chat-demo:diagnostics') || '[]')
+            return list.filter(function (entry) { return entry.kind === 'boot-guard' }).length
+          } catch (e) { return -1 }
+        })()`
+      )
+      record('watchdog：自愈写进了设置里的诊断日志', logged > 0, `boot-guard 记录 ${logged} 条`)
+
+      // 把注入撤掉：修复条应该自己消失，而不是一直挂在那儿
+      await session.evaluate(
+        `(function () {
+          var frame = document.getElementById('root').firstElementChild
+          frame.style.removeProperty('height')
+          return frame.getBoundingClientRect().height
+        })()`
+      )
+      const cleared = await session.waitFor(
+        `document.getElementById('boot-guard-repair') === null`,
+        8000
+      )
+      record('watchdog：框恢复后修复条自己撤掉', cleared >= 0, `${cleared}ms`)
+      record('watchdog：没有顺带弹出兜底页', (await session.evaluate(hasOverlay)) === null)
     }
 
     if (!skip('no-render')) {

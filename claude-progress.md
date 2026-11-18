@@ -337,3 +337,26 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - `pnpm exec oxfmt` 报 `spawn EPERM`，格式化跑不了；本次改动按既有风格手写对齐
 - 更新过的文件或工件：`src/services/regionName.ts`（新）、`src/services/location.ts`、`src/index.html`、`src/check.html`、`test/region-name.test.ts`（新）、`test/boot-guard.test.ts`、`tools/verify-boot-guard.mjs`、`README.md`、`docs/使用说明.md`、`docs/known-devices.md`、`ARCHITECTURE.md`、`CHANGELOG.md`、`feature_list.json`（`compat-006`、`compat-007`）、本文件
 - 下一步最佳动作：回到用户眼前那两台机器——视口变量钳制 + 看门狗 + 双层错误边界（上一轮分析的 L1–L3）。`gap` 的 margin 兜底按用户选择先不做
+
+### Session 013
+
+- 日期：2026-11-19
+- 本轮目标：做上一轮定的三块防御——L1 视口钳制、L2 错误边界、L3 几何看门狗
+- 已完成：
+  - **L1 视口钳制**：新增 `src/app/viewportClamp.ts`（纯函数，返回 keep / css / pin 三态）；`viewport.ts` 的 `useMobileViewport` 重写为「事件 + 每秒复核 + 只写变化值」，不再按焦点判断
+  - **L2 错误边界**：新增 `src/components/base/ErrorBoundary.tsx`（class 组件，`componentDidCatch` → 诊断日志，retry 换 key 重挂子树），挂三层：`main.tsx` 整树、`App.tsx` 会话区、`MessageList.tsx` 每条消息（compact）；补 4 个词条
+  - **L3 几何看门狗**：`src/index.html` 内联 ES5（跑在 React 之前）——每秒量根容器矩形，先自愈（撤视口变量 + 强制回流），连续 3 次修不好才弹修复条；自愈记录写进 `chat-demo:diagnostics`
+  - 验收脚本加 `watchdog` 场景 + 「normal 不许误报修复条」断言（27 → 34 条）
+- 运行过的验证：
+  - 六道门全绿：type / lint（135 文件 0 警告）/ **114 条测试** / build / 产物 / scan-compat（error 0 · hint 1 · info 9）
+  - 单测新增：`viewport-clamp` 8 条、`error-boundary` 3 条、`boot-guard` +1 条
+  - `node tools/verify-boot-guard.mjs`：**34/34**（本机 Chrome 157 / 390×844）。故障注入：注入 `height:0` → 7.0 秒出现修复条、文案「界面显示异常（高度 0）」、诊断日志 3 条 boot-guard、撤掉注入后 0.8 秒修复条自己消失；正常态 11 秒无修复条
+  - 截图 `screenshots/watchdog-repair.png`：设置弹窗正常、背后整块空白、底部是修复条——与用户反馈的症状形态一致
+- **写这版时被测试抓到的一个真缺陷**：看门狗最初的「武装」条件是「看到过一次正常高度」，于是**从第一秒就塌着**的界面永远不会被武装，正好是 A58x 那种形态。改成「根节点有内容就武装」+ 2 秒宽限期。
+- **未验证（必须记清，不算通过）**：
+  - 三块**都没有真机**：键盘弹出/收起、错误边界接不接得住、看门狗在 OPPO 上的行为，全部是代码 + 本机 Chrome 证据
+  - 错误边界只做了结构断言，**没造一条必然抛错的组件去点**
+  - GPU 光栅化失败那一类整块空白，看门狗检测不到（几何读数正常）
+  - 视口钳制改了触发语义：不再看焦点，只看视觉视口高度——设置弹窗里打字也会让背后那层跟着缩，收键盘恢复
+- 更新过的文件或工件：`src/app/viewportClamp.ts`（新）、`src/app/viewport.ts`、`src/components/base/ErrorBoundary.tsx`（新）、`ErrorBoundary.module.css`（含 d.ts）、`src/main.tsx`、`src/app/App.tsx`、`src/components/messages/MessageList.tsx`、`src/i18n/zh.ts`、`src/i18n/en.ts`、`src/index.html`、`test/viewport-clamp.test.ts`（新）、`test/error-boundary.test.ts`（新）、`test/boot-guard.test.ts`、`tools/verify-boot-guard.mjs`、`CHANGELOG.md`、`feature_list.json`（`defense-005`~`007`）、本文件
+- 下一步最佳动作：打一个包装到 A58x 上看两件事——① 是否还整屏空白；② 若还会，底部有没有出现修复条（有 → 几何问题且自愈失效；没有 → 更可能是绘制层）。这一步能把本轮的猜测收敛成事实

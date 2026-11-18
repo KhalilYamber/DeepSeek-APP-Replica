@@ -24,6 +24,8 @@
        *      避免误伤「版本号偏低但碰巧能跑」的机器；
        *   2. 把启动期的 error / unhandledrejection 记进诊断信息，供开发者定位；
        *   3. 8 秒后看 #root：没有子节点、或高度 < 120px（根容器塌了）就判定「没渲染」，画错误页。
+       *   4. 界面明明渲染出来了，框却算错（高度塌成 0、被推到屏幕外、宽度没了）——这类在 8 秒之后
+       *      才发生，兜底页看不到，靠下面那个几何看门狗：先自愈，连续修不好才给一条能点的修复条。
        *
        * 只在判定「没渲染」时才往 DOM 里放东西，正常启动一个像素都不出现；界面一旦自己渲染出来，
        * 已经画出来的错误页也会自动撤下。
@@ -48,6 +50,19 @@
         var KEEP_ERRORS = 8
         var RECHECK_MS = 2000
         var RECHECK_LIMIT = 45
+        // 几何看门狗：只管「框算错了」，判据刻意保守——正常态一个像素都不改
+        var FRAME_WATCH_MS = 1000
+        var FRAME_WATCH_TICKS = 180
+        var FRAME_SLOW_MS = 5000
+        var FRAME_MIN_RATIO = 0.5
+        var FRAME_MIN_WIDTH = 120
+        // 挂载后先给 2 秒：这一段里的尺寸还在抖，判早了就是 0.4.0 那种误报
+        var FRAME_GRACE_MS = 2000
+        var MAX_HEALS = 3
+        var REPAIR_ID = 'boot-guard-repair'
+        // 与 services/diagnostics.ts 的 STORAGE_KEY 必须一致，设置里的「诊断信息」才读得到
+        var DIAG_KEY = 'chat-demo:diagnostics'
+        var DIAG_LIMIT = 20
         var OVERLAY_ID = 'boot-guard-fatal'
         var UI_FONT =
           '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif'
@@ -457,6 +472,168 @@
           startRecheck()
         }
 
+        // ---------------------------------------------------------------- 几何看门狗
+        // 管的是「界面在 DOM 里、但框算错了」：高度塌成 0、被推到屏幕外、宽度没了。
+        // 这类故障表现和没渲染一样是整屏纯色，却发生在 8 秒判定之后，兜底页看不见。
+        // 顺序是「先自愈、修不好才打扰人」；判据只认几何上不可能的状态，避免 0.4.0 那种误报。
+
+        var watchTimer = null
+        var watchTicks = 0
+        var healCount = 0
+        var watchdogArmed = false
+        var armedAt = 0
+        var repairDismissed = false
+
+        function frameElement() {
+          var root = rootElement()
+          if (!root) return null
+          return root.firstElementChild || (root.children && root.children[0]) || null
+        }
+
+        function frameRect() {
+          var el = frameElement()
+          if (!el) return null
+          if (el.getBoundingClientRect) return el.getBoundingClientRect()
+          return { height: el.offsetHeight || 0, width: el.offsetWidth || 0, top: 0 }
+        }
+
+        // 键盘弹出时高度本来就小，别拿它当故障
+        function keyboardOpen() {
+          var viewport = window.visualViewport
+          if (!viewport) return false
+          return window.innerHeight - viewport.height > 120
+        }
+
+        // 返回问题描述；没问题返回空串
+        function frameProblem() {
+          var rect = frameRect()
+          if (!rect) return ''
+          var height = rect.height || 0
+          var width = rect.width || 0
+          var top = rect.top || 0
+          var viewportHeight = window.innerHeight
+          if (!viewportHeight) return ''
+          if (width > 0 && width < FRAME_MIN_WIDTH) return '宽度 ' + Math.round(width)
+          if (height <= 0) return '高度 0'
+          if (height < viewportHeight * FRAME_MIN_RATIO) {
+            return '高度 ' + Math.round(height) + '/' + Math.round(viewportHeight)
+          }
+          if (top > viewportHeight * 0.25) return '顶边 ' + Math.round(top)
+          return ''
+        }
+
+        // 自愈：撤掉可能写坏的视口变量，再强制一次回流让它真的生效
+        function healFrame() {
+          var el = frameElement()
+          if (!el || !el.style) return
+          el.style.removeProperty('--app-viewport-height')
+          el.style.removeProperty('--app-viewport-top')
+          void el.offsetHeight
+        }
+
+        function hideRepair() {
+          var node = document.getElementById(REPAIR_ID)
+          if (node && node.parentNode) node.parentNode.removeChild(node)
+        }
+
+        // 自愈记录写进与设置里「诊断信息」同一个存储键：下次有人反馈，能直接看到自愈了几次
+        function logGuard(text) {
+          try {
+            var key = DIAG_KEY
+            var raw = window.localStorage.getItem(key)
+            var list = raw ? JSON.parse(raw) : []
+            if (!Array.isArray(list)) list = []
+            list.push({ at: now(), kind: 'boot-guard', text: String(text).slice(0, 300) })
+            while (list.length > DIAG_LIMIT) list.shift()
+            window.localStorage.setItem(key, JSON.stringify(list))
+          } catch (e) {
+            // 存不进去就算了，不能让看门狗自己把界面搞崩
+          }
+        }
+
+        function showRepair(problem) {
+          if (document.getElementById(REPAIR_ID) || !document.body) return
+          var bar = document.createElement('div')
+          bar.id = REPAIR_ID
+          bar.setAttribute('role', 'alert')
+          bar.style.cssText =
+            'position:fixed;left:0;right:0;bottom:0;z-index:2147483646;display:flex;align-items:center;gap:10px;' +
+            'padding:10px 14px;background:#1f2328;color:#ffffff;font:13px/1.5 ' +
+            '-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif'
+          var text = document.createElement('span')
+          text.style.cssText = 'flex:1;min-width:0'
+          text.textContent = '界面显示异常（' + problem + '），点「修复」试试'
+          var fix = document.createElement('button')
+          fix.type = 'button'
+          fix.textContent = '修复'
+          fix.style.cssText =
+            'flex:none;padding:7px 14px;border:0;border-radius:8px;background:#3964fe;' +
+            'color:#ffffff;font:inherit;font-weight:600'
+          fix.onclick = function () {
+            healFrame()
+            hideRepair()
+            healCount = 0
+            logGuard('手动修复：' + problem)
+          }
+          var close = document.createElement('button')
+          close.type = 'button'
+          close.textContent = '×'
+          close.setAttribute('aria-label', '关闭')
+          close.style.cssText =
+            'flex:none;width:28px;height:28px;padding:0;border:0;border-radius:50%;' +
+            'background:transparent;color:#ffffff;font-size:18px;line-height:1'
+          close.onclick = function () {
+            repairDismissed = true
+            hideRepair()
+          }
+          bar.appendChild(text)
+          bar.appendChild(fix)
+          bar.appendChild(close)
+          document.body.appendChild(bar)
+        }
+
+        function watchTick() {
+          watchTicks += 1
+          if (watchTicks === FRAME_WATCH_TICKS) {
+            window.clearInterval(watchTimer)
+            watchTimer = window.setInterval(watchTick, FRAME_SLOW_MS)
+          }
+          if (repairDismissed || reported) return
+          if (document.visibilityState === 'hidden') return
+          if (document.readyState !== 'complete') return
+          if (keyboardOpen()) return
+          // 武装条件只看「根节点有没有内容」——不能等「看到过正常高度」：
+          // 一进去就塌着的界面（整屏空白那类）永远不会出现正常高度，等于是把最该救的情况漏掉。
+          if (!watchdogArmed) {
+            var root = rootElement()
+            if (root && root.children && root.children.length > 0) {
+              watchdogArmed = true
+              armedAt = now()
+            }
+            return
+          }
+          // 挂载后头 2 秒尺寸还在抖，先不判
+          if (now() - armedAt < FRAME_GRACE_MS) return
+          var problem = frameProblem()
+          if (!problem) {
+            healCount = 0
+            hideRepair()
+            return
+          }
+          if (healCount < MAX_HEALS) {
+            healCount += 1
+            healFrame()
+            logGuard('自愈 ' + healCount + ' 次：' + problem)
+            return
+          }
+          showRepair(problem)
+        }
+
+        function startWatchdog() {
+          if (watchTimer !== null) return
+          watchTimer = window.setInterval(watchTick, FRAME_WATCH_MS)
+        }
+
         function schedule(ms) {
           if (finished) return
           var at = now() + ms
@@ -533,6 +710,7 @@
         }
 
         schedule(TIMEOUT_MS)
+        whenBody(startWatchdog)
 
         if (chromium && chromium < HARD_MIN_CHROMIUM) {
           whenBody(function () {

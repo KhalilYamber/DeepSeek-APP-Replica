@@ -98,6 +98,17 @@ test('「1.5 秒就判死」只用于硬地板；承诺门槛交给 8 秒那条�
   assert.match(script, /chromium < MIN_CHROMIUM \? 'kernel' : 'timeout'/)
 })
 
+test('几何看门狗：先自愈、修不好才提示，且与诊断面板共用存储键', () => {
+  const script = inlineScriptRaw('index.html')
+  assert.match(script, /FRAME_WATCH_MS = 1000/)
+  assert.match(script, /MAX_HEALS = 3/)
+  assert.match(script, /whenBody\(startWatchdog\)/)
+  assert.match(script, /'boot-guard-repair'/)
+  // 自愈记录必须写进设置里「诊断信息」读的那个键，否则用户看不到自愈发生过
+  assert.match(script, /chat-demo:diagnostics/)
+  assert.match(read('services/diagnostics.ts'), /chat-demo:diagnostics/)
+})
+
 test('check.html 分了「跑不了 / 有毛病 / 未使用兜底」三档，且语法检测走 new Function', () => {
   const script = inlineScriptRaw('check.html')
   assert.match(script, /tier: 'fatal'/)
