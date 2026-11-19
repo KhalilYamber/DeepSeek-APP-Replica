@@ -67,7 +67,7 @@ const formatAt = (at: number) => {
   return `${two(date.getMonth() + 1)}-${two(date.getDate())} ${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`
 }
 
-const appVersion = (): string => {
+export const appVersion = (): string => {
   const meta = document.querySelector('meta[name="application-version"]')
   return meta?.getAttribute('content') || '读不到'
 }

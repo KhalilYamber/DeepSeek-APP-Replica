@@ -226,6 +226,8 @@ export const en = {
   renderFailedTitleCompact: 'This message failed to render',
   renderFailedUnknown: 'Unknown error',
   reload: 'Reload',
+  settingsVersion: 'Version',
+  settingsCheckUpdate: 'Check for updates',
   settingsThinkingEnd: 'Thinking after reply',
   settingsThinkingEndCollapse: 'Collapse thinking',
   settingsThinkingEndExpand: 'Expand thinking',

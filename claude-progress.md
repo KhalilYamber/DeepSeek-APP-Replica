@@ -498,3 +498,21 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 更新过的文件或工件：`src/services/settings.ts`、`src/services/thinkingOpen.ts`（新）、`src/components/messages/thinkingPanel.ts`、`ReplyArea.tsx`、`src/components/settings/SettingsDialog.tsx`、`src/i18n/zh.ts`、`src/i18n/en.ts`、`test/thinking-panel.test.ts`、`_probe/thinking-collapse.mjs`、`package.json`（0.4.6）、`CHANGELOG.md`、`feature_list.json`（`think-002`，`think-001` 加交叉引用）、本文件
 - 复审（同日，→ 0.4.7）：查出 0.4.6 丢了 0.4.5 的一条规则——**没有正文时不收起**（用户点停止 / 请求出错时）。简化成三级回落时把 `hasResponse` 这一项漏了，导致默认收起下"一点停止，思考立刻被收起来"。已在 0.4.7 补回，测试 6→7 条（总 **122**）。顺带修正：上一轮我记成"129 条"，实际是 121 条
 - 下一步最佳动作：装 0.4.7，先看设置里那行（位置/文案/下拉），再验「手动收起一条 → 切走再回来」和「设置改成展开 → 新回答是否展开」
+
+### Session 020
+
+- 日期：2026-11-19
+- 本轮目标：设置里加「版本号 + 检查更新」跳 GitHub Releases；版本 → **0.4.8**；**首次发正式 Release**
+- 已完成：
+  - `diagnostics.ts` 的 `appVersion()` 改为导出，设置页复用（版本号与诊断信息同源）
+  - 新增 `UpdateSetting`：`SettingCell` + 普通 `<a target="_blank" rel="noreferrer">`，位置在「位置信息」之下、「诊断信息」之上
+  - `.updateLink` 样式照 outlined 按钮写（不引新组件）
+  - 中英词条 `settingsVersion` / `settingsCheckUpdate`
+- 运行过的验证：
+  - 新探针 `_probe/update-link.mjs`（390×844）**7/7**：链接 href 指向 releases/latest、文案「检查更新」、`target=_blank` + `noreferrer`、同行显示版本号、点击后当前页没被导航走；截图 `screenshots/settings-update-row-scrolled.png`
+  - 六道门全绿（122 条测试）
+- **未验证**：真机点「检查更新」是否真的进系统浏览器（Capacitor 对 `target=_blank` 的默认处理）。若变成 WebView 内导航，用户会困在没有地址栏的页面里，那时要改接 `@capacitor/browser`
+- 附带完成：把 keystore 备份到 `E:\DS-Echo-签名备份\`（做法 A：原位留一份 + E 盘副本，两份 SHA256 已核对一致），并写了说明文件。**这不是换签名**，老用户照常升级
+- 已知局限：无代理用户大概率打不开 GitHub；文案里刻意没写
+- 更新过的文件或工件：`src/components/settings/SettingsDialog.tsx`、`Settings.module.css`、`src/services/diagnostics.ts`、`src/i18n/{zh,en}.ts`、`_probe/update-link.mjs`（新）、`package.json`（0.4.8）、`CHANGELOG.md`、`feature_list.json`（`update-001`）、本文件
+- 下一步最佳动作：真机点一次「检查更新」；然后按需改 release 说明或补发后续版本

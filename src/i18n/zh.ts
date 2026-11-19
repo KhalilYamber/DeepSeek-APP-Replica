@@ -213,6 +213,8 @@ export const zh = {
   renderFailedTitleCompact: '这一条没能显示出来',
   renderFailedUnknown: '未知错误',
   reload: '重新加载',
+  settingsVersion: '版本',
+  settingsCheckUpdate: '检查更新',
   settingsThinkingEnd: '思考结束后',
   settingsThinkingEndCollapse: '收起思考',
   settingsThinkingEndExpand: '展开思考',

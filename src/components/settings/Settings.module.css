@@ -567,3 +567,29 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* 检查更新：外观照抄 outlined 按钮，但它是链接（点了交给系统浏览器） */
+.updateLink {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 72px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 4096px;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--ds-transition-duration) var(--ds-ease-in-out);
+
+  &:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+}
