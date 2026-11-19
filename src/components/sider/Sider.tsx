@@ -4,7 +4,6 @@ import { useTranslate } from '../../i18n/index.js'
 import { IconPanelLeftOutline16, IconSettingsOutline16, NewChatIcon } from '../base/icons.js'
 import { setSiderCollapsed } from '../../services/settings.js'
 import { groupSessions } from '../../services/chat/sessionGroups.js'
-import { isNativeApp } from '../../services/native/platform.js'
 import { newChat, removeSession, useChatStore } from '../../services/chat/store.js'
 import type { SessionSummary } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
@@ -26,12 +25,11 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const groups = useMemo(() => groupSessions(sessions, now, t), [sessions, now, t])
   const [deleting, setDeleting] = useState<SessionSummary | null>(null)
   const [deletePending, setDeletePending] = useState(false)
-  // 历史搜索只给网页版：APK 里不渲染这个入口。同一份源码两个形态，靠运行时判断区分，
-  // 这样 APK 也能照常构建与发布，不必维护第二套构建产物。
-  const webSearch = !isNativeApp()
+  // 历史搜索：网页版与 APK 都渲染。APK 侧原先被 isNativeApp() 挡掉（2026-11-18 按「只给网页版」
+   // 做的），2026-11-19 按需求在 APK 里打开；同一份源码两个形态，不维护第二套构建产物。
   const [query, setQuery] = useState('')
-  const search = useSessionSearch(webSearch ? query : '')
-  const searching = webSearch && query.trim().length > 0
+  const search = useSessionSearch(query)
+  const searching = query.trim().length > 0
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
@@ -82,7 +80,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
         </span>
         {t('newChat')}
       </button>
-      {webSearch ? <SearchBox value={query} onChange={setQuery} /> : null}
+      <SearchBox value={query} onChange={setQuery} />
       <div className={styles.listWrap}>
         <div className={styles.list}>
           {searching ? (

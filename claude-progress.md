@@ -390,3 +390,22 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 下一步最佳动作：那台机器装新包（`D:\快速访问_from用户\Desktop\DeepSeek复刻-防御版-20261119\`），看界面是否出来——出来了这条线才算闭环
 - 交付包改为 **0.4.2（versionCode 402）**：最初那一版与已发布的 0.4.1 同名同版本号，用户分不出装的是哪一个（实测连体积都只差 29 字节）。改成 0.4.2 之后，文件名、系统安装提示、诊断信息里的「应用版本」三处都能区分
 - **真机复验（2026-11-19 11:40）**：用户在那台 OPPO A58 上装 0.4.2，界面正常显示——白屏这条线闭环。`compat-008` 与 `defense-007` 由 inferred 升为 **verified**（后者只覆盖「检测 + 提示」两段：真机截图里修复条写出「高度 0」）。**A58x 尚未复验**，但它与 A58 同代，大概率同因
+
+### Session 015
+
+- 日期：2026-11-19
+- 本轮目标：按需求在 **APK** 里打开「搜索历史对话」（2026-11-18 是照「只给网页版」用 `isNativeApp()` 挡住整块的）
+- 已完成：
+  - `Sider.tsx`：删掉 `webSearch = !isNativeApp()`，搜索框与查询无条件启用；`SearchBox.tsx` 的注释同步
+  - 版本 0.4.2 → **0.4.3**（versionCode 403），便于和已装包区分
+  - 新增 `_probe/sider-search.mjs`：headless Chrome 390×844，关掉首启的设置弹窗 → 点 ≡ 打开抽屉 → 输入「物理化学」→ 断言查询走完
+  - 新增 `test/sider-search.test.ts`：钉住「Sider 不再 import isNativeApp / 不再有 webSearch 开关」
+- 运行过的验证：
+  - 六道门全绿（**115 条测试**）
+  - `_probe/sider-search.mjs`：**4/4**——挂载 243ms、抽屉出现输入框 9ms、输入后显示「没有找到匹配的对话」；截图 `screenshots/sider-search-apk.png`（抽屉里搜索框、清空按钮、提示都对）
+  - 写这条测试时自己踩了一下：断言里查 `isNativeApp` 把注释里的历史说明也算了进去，收窄成「查 import 与 webSearch 开关」
+- **未验证（必须记清）**：
+  - **真机没验**：尤其小屏 + 键盘弹出时抽屉里搜索框的位置，以及点结果后抽屉是否顺畅收起（代码里 `closeMobileSider()` 已有，但没在真机上点过）
+  - iOS Safari 未验
+- 更新过的文件或工件：`src/components/sider/Sider.tsx`、`src/components/sider/SearchBox.tsx`、`test/sider-search.test.ts`（新）、`_probe/sider-search.mjs`（新）、`package.json`（0.4.3）、`CHANGELOG.md`、`feature_list.json`（`web-001` 改为「网页版 + APK」）、本文件
+- 下一步最佳动作：把 0.4.3 装到 A58 上，走一遍「打开抽屉 → 搜一个以前聊过的词 → 点结果」，确认抽屉会收起、会话能切过去

@@ -50,7 +50,7 @@ export const useSessionSearch = (query: string): SearchState => {
   return state
 }
 
-/** 侧栏顶部的搜索框：只出现在网页版（APK 里不渲染）。 */
+/** 侧栏顶部的搜索框：网页版与 APK 都有（APK 在移动端抽屉里）。 */
 export const SearchBox = ({
   value,
   onChange,
