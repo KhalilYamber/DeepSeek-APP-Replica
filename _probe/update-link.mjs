@@ -142,6 +142,22 @@ try {
   })()`)
   check('网页版里没有「检查更新」这一行', rowInWeb === false)
 
+  // 删掉一整行之后，网页版那一屏的收尾有没有留下空档或多余横线
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '复制诊断信息') { nodes[i].scrollIntoView({ block: 'end' }); return }
+    }
+  })()`)
+  await sleep(400)
+  await shot('settings-web-no-update.png')
+  const tail = await evaluate(`(function () {
+    var text = document.body.textContent || ''
+    return { hasVersionRow: text.indexOf('版本 ') >= 0, hasDiagnostics: text.indexOf('诊断信息') >= 0 }
+  })()`)
+  check('网页版仍能看到诊断信息', tail.hasDiagnostics)
+  check('网页版看不到版本行', tail.hasVersionRow === false)
+
   // ---- 第二段：伪装成 Android（Capacitor 靠 window.androidBridge 判定）----
   await send('Page.addScriptToEvaluateOnNewDocument', {
     source: 'window.androidBridge = { postMessage: function () {} }',
