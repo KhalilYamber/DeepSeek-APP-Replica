@@ -152,6 +152,74 @@ try {
   const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
   await writeFile(SHOT, Buffer.from(shot.result.data, 'base64'))
   console.log(`截图：${SHOT}`)
+
+  // ---- 第二阶段：真的有一条命中，点进去看抽屉收不收、会话切不切 ----
+  const seeded = await evaluate(`new Promise(function (resolve, reject) {
+    var req = indexedDB.open('chat-demo', 11)
+    req.onerror = function () { reject(req.error) }
+    req.onsuccess = function () {
+      var db = req.result
+      var now = Date.now()
+      var tx = db.transaction(['sessions', 'sessionSummaries'], 'readwrite')
+      tx.objectStore('sessions').put({
+        id: 'probe-search-1',
+        title: '物理化学期中复习',
+        createdAt: now,
+        updatedAt: now,
+        messages: []
+      })
+      tx.objectStore('sessionSummaries').put({
+        id: 'probe-search-1',
+        title: '物理化学期中复习',
+        createdAt: now,
+        updatedAt: now
+      })
+      tx.oncomplete = function () { db.close(); resolve(true) }
+      tx.onerror = function () { reject(tx.error) }
+    }
+  })`)
+  check('塞进一条会话作为搜索目标', seeded === true)
+
+  await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
+  await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  await sleep(400)
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await sleep(200)
+
+  await evaluate(`(function () {
+    var btn = document.querySelector('button[aria-label="打开边栏"]')
+    if (btn) btn.click()
+    return !!btn
+  })()`)
+  await waitFor(`document.querySelector('input[aria-label="搜索历史对话"]')`)
+  await evaluate(`(function () {
+    var input = document.querySelector('input[aria-label="搜索历史对话"]')
+    var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+    setter.call(input, '物理化学')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })()`)
+  const hit = await waitFor(`document.querySelector('[class*="searchResult"]')`)
+  const hitText = await evaluate(
+    `(document.querySelector('[class*="searchResult"]') || { textContent: '' }).textContent`
+  )
+  check('搜到那条会话', hit >= 0, hitText.trim().slice(0, 20))
+
+  // 点结果：应切到该会话，且抽屉自己收起
+  await evaluate(`(function () {
+    var node = document.querySelector('[class*="searchResult"]')
+    if (node) node.click()
+    return !!node
+  })()`)
+  await sleep(600)
+  const drawerGone = await waitFor(`document.querySelector('[class*="drawerMask"]') === null`, 4000)
+  const titleShown = await evaluate(
+    `(document.body.textContent || '').indexOf('物理化学期中复习') >= 0`
+  )
+  check('点结果后抽屉收起', drawerGone >= 0, `${drawerGone}ms`)
+  check('主区域切到了那条会话', titleShown)
+
+  const shot2 = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+  await writeFile(join(REPO, 'screenshots', 'sider-search-tap.png'), Buffer.from(shot2.result.data, 'base64'))
 } finally {
   ws.close()
   chrome.kill()
