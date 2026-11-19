@@ -547,3 +547,4 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - **未验证**：真机点「去打开」是否进系统浏览器
 - 更新过的文件或工件：`SettingsDialog.tsx`、`_probe/update-link.mjs`、`package.json`（0.4.10）、`CHANGELOG.md`、`feature_list.json`（`update-001`）、本文件
 - 下一步最佳动作：真机验一次；之后这个功能的纸面工作就结束了
+- 已把这条判断沉淀成 **ARCHITECTURE 决策 24**（同一份产物、两种运行环境；新功能先分别判断在哪种形态成立），并在 AGENTS.md 的工作规则里加了一句提醒。顺手同步了 AGENTS.md 里过时的两处：APK 命名规则（`DS-Echo-<version>-<date>-debug.apk`）、仓库布局里漏掉的 `_probe/`

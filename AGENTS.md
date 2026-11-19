@@ -29,6 +29,7 @@ tools/scan-compat.mjs   兼容扫描：产物里有没有「用了新特性但�
 tools/measure-layout.mjs 固定 10 档尺寸量布局并断言，给适配留机器口
 tools/verify-boot-guard.mjs 真开 Chrome 验启动兜底（白屏时那页说明能不能出来）
 test/                单元测试，node:test 直跑 TS 源码
+_probe/              无头 Chrome 探针（真开页面点按钮，验 UI 行为；每个都以 0 退出码收尾）
 .github/workflows/ci.yml  CI：push / PR 时跑 type / lint / test / build / 产物 / 兼容
 docs/                使用说明、上游说明、已知设备坑（known-devices.md）
 dist/                构建产物        （gitignore，不进版本控制）
@@ -80,7 +81,7 @@ node tools/verify-boot-guard.mjs 真开 Chrome 验启动兜底页（7 个场景�
 1. 改 `package.json` 的 `version`——`versionCode` 由它折算（`major*10000 + minor*100 + patch`，见 ARCHITECTURE 决策 16），不要再手改 `build.gradle`
 2. 更新 `CHANGELOG.md`：把 `[未发布]` 换成新版本号与日期
 3. `pnpm build` → `pnpm exec cap sync android` → `cd android; .\gradlew.bat assembleDebug`
-4. 产物重命名为 `DeepSeek-APP-Replica-<version>-debug.apk`
+4. 产物重命名为 `DS-Echo-<version>-<yyyyMMdd>-debug.apk`（例：`DS-Echo-0.4.10-20261119-debug.apk`）
 5. `git commit -m "chore(release): <version>"` → `git tag -a v<version> -m "<摘要>"` → 推分支与 tag
 6. `gh release create v<version> <apk> --title "<版本> — <摘要>" --notes-file <说明>`
 
@@ -119,6 +120,7 @@ node tools/verify-boot-guard.mjs 真开 Chrome 验启动兜底页（7 个场景�
 ### 工作规则
 
 - 一次只做一个功能：`feature_list.json` 里同时只有一条 `in_progress`。
+- **新增功能先回答两句**：它在网页版成立吗？它在 APK 里成立吗？——答案不同就用 `isNativeApp()` 分开处理（见 ARCHITECTURE 决策 24；0.4.9 就是在网页版多显示了「检查更新」）。
 - 代码写完不等于功能完成；没有跑过的验证不算证据。
 - 不悄悄改弱验证规则，也不通过改写功能清单来掩盖未完成的工作。
 - 除消除当前 blocker 的窄范围修复外，不扩到其他功能。
