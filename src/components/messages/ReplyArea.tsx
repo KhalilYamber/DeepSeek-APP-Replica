@@ -32,7 +32,9 @@ import { Tooltip } from '../base/Tooltip.js'
 import { Markdown } from '../markdown/Markdown.js'
 import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
-import { shouldCollapseThinking, shouldExpandThinking } from './thinkingPanel.js'
+import { useSettings } from '../../services/settings.js'
+import { setThinkingOpen, useThinkingOpen } from '../../services/thinkingOpen.js'
+import { resolveThinkingOpen } from './thinkingPanel.js'
 import styles from './ReplyArea.module.css'
 import './thinking.markdown.css'
 
@@ -82,15 +84,16 @@ export const ReplyArea = memo(function ReplyArea({
   hasResponse: boolean
 }) {
   useTranslate()
-  // 展开与否：流式中默认展开，历史消息默认收起；touched 记住用户手动点过
-  const [open, setOpen] = useState(streaming)
-  const touched = useRef(false)
+  // 展开与否 = 手动记录 ?? (流式中 ? 展开 : 设置)。不需要收尾边沿：
+  // 流式一结束，第二项自动失效，结果就落回设置值。
+  const override = useThinkingOpen((state) => state.overrides[message.id])
+  const thinkingEnd = useSettings((state) => state.thinkingEnd)
+  const open = resolveThinkingOpen({ override, streaming, end: thinkingEnd })
   // 小窗口只在流式中出现：贴底跟随最新一行，滚离底部就不再拽回来
   const windowRef = useRef<HTMLDivElement>(null)
   const sticky = useRef(true)
   const frame = useRef(0)
   const [edges, setEdges] = useState<Edges>(EDGES_NONE)
-  const wasStreaming = useRef(streaming)
 
   const titleActive = streaming && !hasResponse
   useTicker(titleActive, 1000)
@@ -99,26 +102,6 @@ export const ReplyArea = memo(function ReplyArea({
   const title = thinking ? getAreaTitle(view, streaming, Date.now(), hasResponse) : null
   const showSteps = open || !title
   const windowed = streaming && showSteps
-
-  // 两个边沿：收尾收起、续写展开。只在 streaming 真的翻转时判一次——
-  // hasResponse 在思考与正文交错时会在流式中来回翻，不能拿它当触发源。
-  useEffect(() => {
-    const was = wasStreaming.current
-    wasStreaming.current = streaming
-    if (was === streaming) {
-      return
-    }
-    const state = { streaming, hasResponse, hasTitle: title !== null, touched: touched.current }
-    if (streaming) {
-      if (shouldExpandThinking(state)) {
-        setOpen(true)
-      }
-      return
-    }
-    if (shouldCollapseThinking(state)) {
-      setOpen(false)
-    }
-  }, [streaming, hasResponse, title])
 
   // 内容变化后更新位置与渐隐。rAF 合帧：每帧读 scrollHeight 是强制布局，
   // 流式时内容一秒变几十次，不能每次都读（0.4.1 修「滑动发黏」踩过同一个坑）。
@@ -178,8 +161,7 @@ export const ReplyArea = memo(function ReplyArea({
           className={styles.title}
           aria-expanded={open}
           onClick={() => {
-            touched.current = true
-            setOpen((value) => !value)
+            setThinkingOpen(message.id, !open)
           }}
         >
           <span className={clsx(styles.titleIcon, stopped && styles.stoppedIcon)}>

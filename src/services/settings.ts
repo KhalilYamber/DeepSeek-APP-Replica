@@ -8,7 +8,10 @@ export type Locale = 'zh-CN' | 'en-US'
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
 
-/** 本机设置，存 localStorage：API Key、模型、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态 */
+/** 思考结束后默认怎么显示；默认收起 */
+export type ThinkingEnd = 'collapse' | 'expand'
+
+/** 本机设置，存 localStorage：API Key、模型、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态、思考结束后的默认态 */
 type Settings = {
   apiKey: string | null
   model: ChatModel
@@ -19,6 +22,7 @@ type Settings = {
   thinking: boolean
   search: boolean
   siderCollapsed: boolean
+  thinkingEnd: ThinkingEnd
 }
 
 const KEYS = {
@@ -31,6 +35,7 @@ const KEYS = {
   thinking: 'chat-demo:thinking',
   search: 'chat-demo:search',
   siderCollapsed: 'chat-demo:sider-collapsed',
+  thinkingEnd: 'chat-demo:thinking-end',
 } as const
 
 const read = (key: string) => {
@@ -106,6 +111,7 @@ export const useSettings = create<Settings>(() => ({
   thinking: read(KEYS.thinking) === 'true',
   search: read(KEYS.search) === 'true',
   siderCollapsed: read(KEYS.siderCollapsed) === 'true',
+  thinkingEnd: read(KEYS.thinkingEnd) === 'expand' ? 'expand' : 'collapse',
 }))
 
 export const setLocale = (locale: Locale) => {
@@ -142,6 +148,11 @@ export const setModel = (model: ChatModel) => {
 export const setThinking = (thinking: boolean) => {
   write(KEYS.thinking, String(thinking))
   useSettings.setState({ thinking })
+}
+
+export const setThinkingEnd = (thinkingEnd: ThinkingEnd) => {
+  write(KEYS.thinkingEnd, thinkingEnd)
+  useSettings.setState({ thinkingEnd })
 }
 
 export const setSearch = (search: boolean) => {

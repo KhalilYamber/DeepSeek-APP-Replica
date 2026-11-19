@@ -741,7 +741,27 @@
         "标题从 div 改成 button 并补 aria-expanded。",
         "截图 `screenshots/thinking-collapsed.png`（收起）、`thinking-expanded.png`（展开）。"
       ],
-      "notes": "**inferred：真机未验。** 能自动验的只有「已完成消息默认收起 / 点开」；**流式中的小窗口验不了**——`streaming` 来自 store 的 AbortController 表，塞一条静态消息造不出流式态。\n\n**已知取舍**：在小窗口里往上滚不会阻止收尾时的自动收起（只有点标题才算 touched）。\n\n**待真机看**：96px 在我们字号下是不是「四行」的观感；最上面一行的渐隐是否自然；嵌套滚动会不会和消息列表打架。"
+      "notes": "**inferred：真机未验。** 能自动验的只有「已完成消息默认收起 / 点开」；**流式中的小窗口验不了**——`streaming` 来自 store 的 AbortController 表，塞一条静态消息造不出流式态。\n\n**0.4.6 起展开判定改成三级回落**（手动记录 → 是否流式 → 设置），见 `think-002`；本条的窗口、贴底、渐隐没动。\n\n**待真机看**：96px 在我们字号下是不是「四行」的观感（产物里段落各带 12px 上下边距，实际约 3 行）；最上面一行的渐隐是否自然；嵌套滚动会不会和消息列表打架。"
+    },
+    {
+      "id": "think-002",
+      "priority": 1,
+      "area": "feature",
+      "title": "设置「思考结束后」+ 按消息记住手动状态",
+      "user_visible_behavior": "设置 → 通用设置里有「思考结束后：收起思考 / 展开思考」（默认收起）。手动点过某条消息的标题后，这条的展开状态会一直保持——切到别的对话再切回来、改设置都不影响它。",
+      "status": "inferred",
+      "verification": [
+        "纯函数 6 条：默认收起／默认展开／流式中一律展开／手动收起压过设置／手动展开压过设置／手动压过流式",
+        "探针 10/10：默认收起、点标题展开、**切走再回来仍保持**、设置=展开时新消息默认展开、设置改回后手动记录不受影响",
+        "六道门全绿"
+      ],
+      "evidence": [
+        "2026-11-19：`settings.ts` 加 `thinkingEnd: 'collapse' | 'expand'`（键 `chat-demo:thinking-end`，缺省或非法值一律回落 collapse）。",
+        "2026-11-19：新增 `src/services/thinkingOpen.ts`——按消息 id 存 `{ id: boolean }`（键 `chat-demo:thinking-open`），只接受布尔值，**不设上限、不自动清理**，也不碰任何已有键。",
+        "2026-11-19：`thinkingPanel.ts` 的判据从「收尾该不该收起」改成 `resolveThinkingOpen` 三级回落；`ReplyArea` 随之删掉 `useState(open)`、`touched`、`wasStreaming` 与两个边沿 effect。",
+        "设置行 `ThinkingEndSetting` 照「语言」那行写（SettingCell + Select），插在朗读音色与头像之间；中英各 3 个词条。"
+      ],
+      "notes": "**inferred：真机未验**（探针只覆盖已完成态与设置联动，流式窗口那条仍要真机）。\n\n**取舍**：旧对话升级后默认收起（除非之前手动点过）——「升级时间点标记」那套因复杂而放弃。\n\n**代价**：手动记录只增不减；删会话不清理残留条目。"
     }
   ]
 }

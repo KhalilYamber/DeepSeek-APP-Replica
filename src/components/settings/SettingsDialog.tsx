@@ -29,6 +29,7 @@ import {
   setLocale,
   setLocation,
   setThemePreference,
+  setThinkingEnd,
   setTtsVoice,
   useSettings,
   type ThemePreference,
@@ -105,6 +106,7 @@ const SettingsContent = () => {
               <ThemeSetting />
               <LocaleSetting />
               <TtsVoiceSetting />
+              <ThinkingEndSetting />
               <AvatarSetting />
               <LocationSetting />
               <DiagnosticsSetting />
@@ -293,6 +295,29 @@ const LocaleSetting = () => {
             { value: 'en-US', label: t('settingsLocaleEnUS'), lang: 'en' },
           ]}
           onChange={setLocale}
+        />
+      }
+    />
+  )
+}
+
+/** 思考结束后：默认收起还是展开。只决定「没被手动碰过」的消息怎么显示 */
+const ThinkingEndSetting = () => {
+  const t = useTranslate()
+  const thinkingEnd = useSettings((state) => state.thinkingEnd)
+  return (
+    <SettingCell
+      label={t('settingsThinkingEnd')}
+      status={null}
+      action={
+        <Select
+          ariaLabel={t('settingsThinkingEnd')}
+          value={thinkingEnd}
+          options={[
+            { value: 'collapse', label: t('settingsThinkingEndCollapse') },
+            { value: 'expand', label: t('settingsThinkingEndExpand') },
+          ]}
+          onChange={setThinkingEnd}
         />
       }
     />

@@ -1,30 +1,30 @@
 /**
- * 「思考区」展开/收起的判据。
+ * 「思考区当前是否展开」的判据。
  *
- * 抽成纯函数，是因为这里的组合最容易出岔子：流式中要展开、收尾要收起，
- * 但用户手动点过就不能再自动改；没有标题的工具步骤区根本不归它管。
+ * 三级回落，优先级从高到低：
+ * 1. 用户手动点过这条消息 → 听用户的（切走再回来也保持）
+ * 2. 正在流式 → 展开（不然看不到小窗口）
+ * 3. 其它 → 按设置（思考结束后：收起思考 / 展开思考）
  *
- * 两个边沿分别对应「续写」（false → true）与「本轮结束」（true → false）。
- *
- * 注意 `hasResponse` 在思考与正文交错时会在流式中来回翻（正文被顶进 steps 就变 null），
- * 所以调用方只能在**收尾那一刻**取它的值，不能订阅它自己的变化。
+ * 不需要「收尾边沿」：流式一结束，第二项自动失效，结果就落回设置值。
+ * 所以组件里不再需要 touched / wasStreaming 两个 ref，也不需要那两个 effect。
  */
 
-export type ThinkingPanelState = {
-  /** 这个会话当前是否在流式输出 */
+export type ThinkingEnd = 'collapse' | 'expand'
+
+export type ThinkingOpenInput = {
+  /** 用户对这条消息的手动选择；没点过就是 undefined */
+  override: boolean | undefined
   streaming: boolean
-  /** 收尾那一刻是否已经有正文（或模板答复） */
-  hasResponse: boolean
-  /** 是否有可点的标题；没有标题的工具步骤区永远展开，不参与收起 */
-  hasTitle: boolean
-  /** 用户是否手动点过标题 */
-  touched: boolean
+  end: ThinkingEnd
 }
 
-/** 收尾边沿（streaming 由 true → false）：是否该收起 */
-export const shouldCollapseThinking = (state: ThinkingPanelState): boolean =>
-  !state.streaming && state.hasResponse && state.hasTitle && !state.touched
-
-/** 开流边沿（streaming 由 false → true）：是否该展开——续写会复用同一个组件实例 */
-export const shouldExpandThinking = (state: ThinkingPanelState): boolean =>
-  state.streaming && !state.touched
+export const resolveThinkingOpen = ({ override, streaming, end }: ThinkingOpenInput): boolean => {
+  if (override !== undefined) {
+    return override
+  }
+  if (streaming) {
+    return true
+  }
+  return end === 'expand'
+}

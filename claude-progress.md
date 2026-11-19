@@ -11,11 +11,11 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 仓库根：`D:\GitHub_place\projects\DeepSeek 复刻APP\chat-demo`（git 仓库，remote 指向 GitHub `KhalilYamber/DeepSeek-APP-Replica`）
 - 标准启动路径：`./init.ps1`（依赖同步 + 六道门：type / lint / test / build / 产物齐全 / 内核兼容）
 - 标准验证路径：`pnpm test`；完整跑 `./init.ps1`
-- 当前功能账：34 条（verified 6 / passing 8 / inferred 20，无 open）
+- 当前功能账：36 条（verified 6 / passing 8 / inferred 22，无 open）
 - 当前 blocker：无
 - 应用显示名：**DS Echo**（0.4.3 起；仓库名与 `appId` 不变，见 ARCHITECTURE 决策 23）
-- 未发布：**0.4.3**（2026-11-19，versionCode 403）。应用改名为 DS Echo（桌面名、应用内标题、网页标签页三处统一）；APK 内打开「历史对话搜索」。本地包 `release/DS-Echo-0.4.3-20261119-debug.apk`；未打 tag、未发 GitHub Release
-- 未发布（被 0.4.3 取代）：0.4.2 —— 白屏真根因修复（`var()` 兜底里的 `100dvh` 让整条 `height` 失效、根容器塌成 0），高度改由 JS 每秒写内联像素值。**已在 OPPO A58 真机复验：界面正常**
+- 未发布：**0.4.6**（2026-11-19，versionCode 406）。设置新增「思考结束后：收起思考 / 展开思考」+ 按消息 id 记住手动展开状态；本地包 `release/DS-Echo-0.4.6-20261119-debug.apk`；未打 tag、未发 GitHub Release
+- 未发布（本轮中间版本）：0.4.2–0.4.5 都只在本地构建过。依次是：白屏真根因修复（**已在 OPPO A58 真机复验**）、改名 DS Echo、APK 内历史搜索、APK 内头像、思考小窗口 + 自动收起（**已真机验收：效果符合预期**）
 - 已发布：**v0.4.1**（2026-11-18）。Release 含 `DeepSeek-APP-Replica-0.4.1-debug.apk`（6,379,811 字节，SHA256 `A6E8CA48…15AB3CF4`），CI run 44334050643 全绿。修掉 0.4.0 兜底页在正常设备上误报（量 `#root` 高度判断渲染，而 `.frame` 是 absolute 定位、`#root` 高度恒 0）；带上滑动性能与深色主题修复；网页版历史搜索与头像一并发布。**注意：这一版在「不认 dvh」的内核上仍会整屏空白，已在 0.4.2 修掉**
 - 已发布：**v0.4.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.4.0-debug.apk`（6,376,387 字节，SHA256 `CAD2EC32…80424AF`），CI run 44068960454 全绿。版本号 0.3.0 → 0.4.0（versionCode 400）。**注意：这一版的兜底页有误报缺陷，已在 0.4.1 修掉**
 - 已发布：**v0.3.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.3.0-debug.apk`（6,344,320 字节），CI run 44029554535 全绿——含「内核兼容」步的首个真实运行（日志：`error 0 / hint 0 / info 9 / 豁免 0`）
@@ -477,3 +477,23 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 已知取舍：在小窗口里往上滚**不会**阻止收尾时的自动收起（只有点标题才算用户干预）
 - 更新过的文件或工件：`src/components/messages/thinkingPanel.ts`（新）、`ReplyArea.tsx`、`ReplyArea.module.css`、`test/thinking-panel.test.ts`（新）、`_probe/thinking-collapse.mjs`（新）、`package.json`（0.4.5）、`CHANGELOG.md`、`feature_list.json`（`think-001`）、本文件
 - 下一步最佳动作：装 0.4.5，开深度思考问一个需要想一会儿的问题，看四件事——窗口高度、贴底跟随、渐隐、收尾自动收起；再把历史会话打开看是否默认收起
+
+### Session 019
+
+- 日期：2026-11-19
+- 本轮目标：给 0.4.5 的思考折叠加一个设置项「思考结束后」（收起思考 / 展开思考），并按消息 id 记住用户的手动选择；版本 → **0.4.6**
+- 对齐时定下的三条：
+  - 手动优先：手动收起过的消息，续写时也不自动展开
+  - 改设置不干扰手动记录
+  - 旧对话升级后默认收起（放弃了"升级时间点标记"那套，复杂且收益有限）
+- 已完成：
+  - `settings.ts`：加 `thinkingEnd`（键 `chat-demo:thinking-end`，非法值回落 collapse）+ `setThinkingEnd`
+  - 新增 `src/services/thinkingOpen.ts`：按消息 id 存展开状态（键 `chat-demo:thinking-open`），只收布尔值，不设上限、不清理、不碰已有键
+  - `thinkingPanel.ts`：判据从「收尾该不该收起」改成 `resolveThinkingOpen` 三级回落（手动 → 流式 → 设置）；`ReplyArea` 因此**删掉 `useState(open)`、`touched`、`wasStreaming` 与两个边沿 effect**
+  - 设置页加 `ThinkingEndSetting`（照「语言」那行：SettingCell + Select），位置在朗读音色与头像之间；中英各 3 个词条
+- 运行过的验证：
+  - 六道门全绿（**129 条测试**；`thinking-panel.test.ts` 重写成 6 条）
+  - `_probe/thinking-collapse.mjs` **10/10**：默认收起、点标题展开、**切走再回来保持**、设置=展开时新消息默认展开、设置改回后手动记录不受影响
+- **未验证**：真机（流式小窗口那几条依旧只能真机；设置行的排版也要看一眼）
+- 更新过的文件或工件：`src/services/settings.ts`、`src/services/thinkingOpen.ts`（新）、`src/components/messages/thinkingPanel.ts`、`ReplyArea.tsx`、`src/components/settings/SettingsDialog.tsx`、`src/i18n/zh.ts`、`src/i18n/en.ts`、`test/thinking-panel.test.ts`、`_probe/thinking-collapse.mjs`、`package.json`（0.4.6）、`CHANGELOG.md`、`feature_list.json`（`think-002`，`think-001` 加交叉引用）、本文件
+- 下一步最佳动作：装 0.4.6，先看设置里那行（位置/文案/下拉），再验「手动收起一条 → 切走再回来」和「设置改成展开 → 新回答是否展开」

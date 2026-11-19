@@ -1,4 +1,4 @@
-// 探针：已完成的消息里，思考默认收起；点标题能展开。
+// 探针：思考区的展开/收起——默认态、手动记忆、设置联动。
 // 用法：先 pnpm build，再 node _probe/thinking-collapse.mjs
 import { spawn } from 'node:child_process'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
@@ -101,11 +101,95 @@ const check = (name, ok, detail = '') => {
   results.push(ok)
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`)
 }
-
-const THINK = '这段是思考内容ABC'
-const ANSWER = '这是最终的回答。'
-const TITLE = '已思考'
 const bodyHas = (text) => `(document.body.textContent || '').indexOf(${JSON.stringify(text)}) >= 0`
+
+const THINK1 = '这段是思考内容ABC'
+const THINK2 = '第二段思考XYZ'
+const ANSWER1 = '这是最终的回答。'
+const ANSWER2 = '这是第二条回答。'
+const TITLE = '已思考'
+
+/** 往库里塞一条会话；id / 标题 / 思考文本 / 回答文本由调用方指定 */
+const seed = (id, title, think, answer) => `new Promise(function (resolve, reject) {
+  var req = indexedDB.open('chat-demo', 11)
+  req.onerror = function () { reject(req.error) }
+  req.onsuccess = function () {
+    var db = req.result
+    var now = Date.now()
+    var tx = db.transaction(['sessions', 'sessionSummaries'], 'readwrite')
+    tx.objectStore('sessions').put({
+      id: ${JSON.stringify(id)},
+      title: ${JSON.stringify(title)},
+      createdAt: now,
+      updatedAt: now,
+      messages: [
+        { id: ${JSON.stringify(id + '-u')}, role: 'user', content: '测试一下', files: [], createdAt: now - 3000 },
+        {
+          id: ${JSON.stringify(id + '-a')},
+          role: 'assistant',
+          createdAt: now - 2000,
+          model: 'deepseek-flash',
+          thinking: true,
+          prefix: true,
+          status: 'done',
+          blocks: [
+            { type: 'thinking', thinking: ${JSON.stringify(think)}, startedAt: now - 2000, endedAt: now - 1000 },
+            { type: 'text', text: ${JSON.stringify(answer)} }
+          ]
+        }
+      ]
+    })
+    tx.objectStore('sessionSummaries').put({
+      id: ${JSON.stringify(id)},
+      title: ${JSON.stringify(title)},
+      createdAt: now,
+      updatedAt: now
+    })
+    tx.oncomplete = function () { db.close(); resolve(true) }
+    tx.onerror = function () { reject(tx.error) }
+  }
+})`
+
+const openDrawer = `(function () {
+  var btn = document.querySelector('button[aria-label="打开边栏"]')
+  if (btn) btn.click()
+})()`
+
+/** 抽屉里按标题点会话：条目是 div，按坐标真点 */
+const clickSession = async (title) => {
+  const spot = await evaluate(`(function () {
+    var nodes = document.querySelectorAll('div')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === ${JSON.stringify(title)}) {
+        var rect = nodes[i].getBoundingClientRect()
+        return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) }
+      }
+    }
+    return null
+  })()`)
+  if (!spot) {
+    return false
+  }
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: spot.x, y: spot.y, button: 'left', clickCount: 1 })
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: spot.x, y: spot.y, button: 'left', clickCount: 1 })
+  return true
+}
+
+const clickTitle = `(function () {
+  var nodes = document.querySelectorAll('button')
+  for (var i = 0; i < nodes.length; i++) {
+    if ((nodes[i].textContent || '').indexOf(${JSON.stringify(TITLE)}) >= 0) {
+      nodes[i].click()
+      return true
+    }
+  }
+  return false
+})()`
+
+const boot = async () => {
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await sleep(200)
+}
 
 try {
   await send('Page.enable')
@@ -121,98 +205,71 @@ try {
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
 
-  const seeded = await evaluate(`new Promise(function (resolve, reject) {
-    var req = indexedDB.open('chat-demo', 11)
-    req.onerror = function () { reject(req.error) }
-    req.onsuccess = function () {
-      var db = req.result
-      var now = Date.now()
-      var tx = db.transaction(['sessions', 'sessionSummaries'], 'readwrite')
-      tx.objectStore('sessions').put({
-        id: 'probe-thinking',
-        title: '思考折叠检查',
-        createdAt: now,
-        updatedAt: now,
-        messages: [
-          { id: 't-u', role: 'user', content: '测试一下', files: [], createdAt: now - 3000 },
-          {
-            id: 't-a',
-            role: 'assistant',
-            createdAt: now - 2000,
-            model: 'deepseek-flash',
-            thinking: true,
-            prefix: true,
-            status: 'done',
-            blocks: [
-              { type: 'thinking', thinking: ${JSON.stringify(THINK)}, startedAt: now - 2000, endedAt: now - 1000 },
-              { type: 'text', text: ${JSON.stringify(ANSWER)} }
-            ]
-          }
-        ]
-      })
-      tx.objectStore('sessionSummaries').put({
-        id: 'probe-thinking',
-        title: '思考折叠检查',
-        createdAt: now,
-        updatedAt: now
-      })
-      tx.oncomplete = function () { db.close(); resolve(true) }
-      tx.onerror = function () { reject(tx.error) }
-    }
-  })`)
-  check('塞进一条带思考的已完成会话', seeded === true)
+  check('塞进两条带思考的已完成会话', (await evaluate(seed('probe-t1', '思考折叠检查', THINK1, ANSWER1))) === true)
+  check('第二条也塞好了', (await evaluate(seed('probe-t2', '设置联动检查', THINK2, ANSWER2))) === true)
 
+  // ---- 阶段 1：默认收起 + 点开 ----
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
   await sleep(400)
-  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
-  await sleep(200)
-  await evaluate(`(function () {
-    var btn = document.querySelector('button[aria-label="打开边栏"]')
-    if (btn) btn.click()
-  })()`)
+  await boot()
+  await evaluate(openDrawer)
   await waitFor(bodyHas('思考折叠检查'))
-  const spot = await evaluate(`(function () {
-    var nodes = document.querySelectorAll('div')
-    for (var i = 0; i < nodes.length; i++) {
-      if ((nodes[i].textContent || '').trim() === '思考折叠检查') {
-        var rect = nodes[i].getBoundingClientRect()
-        return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) }
-      }
-    }
-    return null
-  })()`)
-  if (spot) {
-    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: spot.x, y: spot.y, button: 'left', clickCount: 1 })
-    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: spot.x, y: spot.y, button: 'left', clickCount: 1 })
-  }
-  await waitFor(bodyHas(ANSWER))
-  check('会话打开了，回答正文可见', await evaluate(bodyHas(ANSWER)))
+  check('点开了第一条会话', await clickSession('思考折叠检查'))
+  await waitFor(bodyHas(ANSWER1))
+  check('回答正文可见', await evaluate(bodyHas(ANSWER1)))
+  check('标题「已思考…」在', (await waitFor(bodyHas(TITLE))) >= 0)
+  check('默认收起：思考内容不在正文里', !(await evaluate(bodyHas(THINK1))))
 
-  const titleThere = await waitFor(bodyHas(TITLE))
-  check('标题「已思考…」在', titleThere >= 0)
-
-  const hidden = !(await evaluate(bodyHas(THINK)))
-  check('思考内容默认收起（正文里搜不到）', hidden)
-
-  // 先拍收起态，再点开拍展开态
   const collapsedShot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
   await writeFile(SHOT, Buffer.from(collapsedShot.result.data, 'base64'))
 
-  // 点标题展开
-  await evaluate(`(function () {
-    var nodes = document.querySelectorAll('button')
-    for (var i = 0; i < nodes.length; i++) {
-      if ((nodes[i].textContent || '').indexOf(${JSON.stringify(TITLE)}) >= 0) { nodes[i].click(); return true }
-    }
-    return false
-  })()`)
-  const shown = await waitFor(bodyHas(THINK))
-  check('点标题后思考内容出现', shown >= 0)
+  await evaluate(clickTitle)
+  check('点标题后展开', (await waitFor(bodyHas(THINK1))) >= 0)
 
   const expandedShot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
   await writeFile(SHOT.replace('collapsed', 'expanded'), Buffer.from(expandedShot.result.data, 'base64'))
-  console.log(`截图：${SHOT} 与 …-expanded.png`)
+
+  // ---- 阶段 2：切到别的对话再回来，手动展开要还在 ----
+  await evaluate(openDrawer)
+  await waitFor(bodyHas('开启新对话'))
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').indexOf('开启新对话') >= 0) { nodes[i].click(); return true }
+    }
+    return false
+  })()`)
+  await sleep(600)
+  await evaluate(openDrawer)
+  await waitFor(bodyHas('思考折叠检查'))
+  await clickSession('思考折叠检查')
+  await waitFor(bodyHas(ANSWER1))
+  check('切走再回来：手动展开仍然保持', await evaluate(bodyHas(THINK1)))
+
+  // ---- 阶段 3：设置改成「展开思考」，没手动过的新消息默认展开 ----
+  await evaluate(`localStorage.setItem('chat-demo:thinking-end', 'expand')`)
+  await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
+  await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  await sleep(400)
+  await boot()
+  await evaluate(openDrawer)
+  await waitFor(bodyHas('设置联动检查'))
+  await clickSession('设置联动检查')
+  await waitFor(bodyHas(ANSWER2))
+  check('设置=展开思考：没手动过的消息默认展开', await evaluate(bodyHas(THINK2)))
+
+  // 同一个设置下，之前手动展开的那条也还是展开（设置改回不影响手动记录）
+  await evaluate(`localStorage.setItem('chat-demo:thinking-end', 'collapse')`)
+  await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
+  await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  await sleep(400)
+  await boot()
+  await evaluate(openDrawer)
+  await waitFor(bodyHas('思考折叠检查'))
+  await clickSession('思考折叠检查')
+  await waitFor(bodyHas(ANSWER1))
+  check('设置改回收起：手动展开过的那条不受影响', await evaluate(bodyHas(THINK1)))
 } finally {
   ws.close()
   chrome.kill()
