@@ -15,7 +15,9 @@ const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const PORT = 9575
 const WEB_PORT = 8141
 const PROFILE = join(tmpdir(), 'scroll-probe-profile')
-const SHOT = join(REPO, 'screenshots', 'scroll-to-bottom.png')
+const WIDTH = Number(process.env.PROBE_WIDTH ?? 390)
+const HEIGHT = Number(process.env.PROBE_HEIGHT ?? 844)
+const SHOT = join(REPO, 'screenshots', `scroll-to-bottom-${WIDTH}.png`)
 
 await rm(PROFILE, { recursive: true, force: true })
 await mkdir(join(REPO, 'screenshots'), { recursive: true })
@@ -132,12 +134,12 @@ try {
   await send('Page.enable')
   await send('Runtime.enable')
   await send('Emulation.setDeviceMetricsOverride', {
-    width: 390,
-    height: 844,
+    width: WIDTH,
+    height: HEIGHT,
     deviceScaleFactor: 2,
-    mobile: true,
-    screenWidth: 390,
-    screenHeight: 844,
+    mobile: WIDTH < 768,
+    screenWidth: WIDTH,
+    screenHeight: HEIGHT,
   })
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
