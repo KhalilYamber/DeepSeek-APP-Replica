@@ -132,6 +132,26 @@ try {
   check('切到「通用设置」', await evaluate(clickByText('通用设置')))
   await sleep(400)
 
+  // ---- 第一段：网页版（没有 androidBridge）——这一行不该出现 ----
+  const rowInWeb = await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '检查更新') { return true }
+    }
+    return false
+  })()`)
+  check('网页版里没有「检查更新」这一行', rowInWeb === false)
+
+  // ---- 第二段：伪装成 Android（Capacitor 靠 window.androidBridge 判定）----
+  await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: 'window.androidBridge = { postMessage: function () {} }',
+  })
+  await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
+  await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  await sleep(600)
+  check('（伪装环境）切到「通用设置」', await evaluate(clickByText('通用设置')))
+  await sleep(400)
+
   const version = await evaluate(
     `(function () {
       var meta = document.querySelector('meta[name="application-version"]')

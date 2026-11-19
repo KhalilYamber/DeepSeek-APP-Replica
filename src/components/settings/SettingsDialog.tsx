@@ -109,7 +109,8 @@ const SettingsContent = () => {
               <ThinkingEndSetting />
               <AvatarSetting />
               <LocationSetting />
-              <UpdateSetting />
+              {/* 只在 APK 里出现：网页版刷新就是最新，不存在"检查更新"，跳 APK 下载页更是错位 */}
+              {isNativeApp() ? <UpdateSetting /> : null}
               <DiagnosticsSetting />
             </>
           ) : (

@@ -534,3 +534,16 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - **未验证**：真机上点「去打开」是否真的进系统浏览器（源码已确认机制，但仍缺那一眼）
 - 更新过的文件或工件：`SettingsDialog.tsx`、`Settings.module.css`、`i18n/{zh,en}.ts`、`_probe/update-link.mjs`、`package.json`（0.4.9）、`CHANGELOG.md`、`feature_list.json`（`update-001`）、本文件
 - 下一步最佳动作：装 0.4.9，点「检查更新」看面板，再点「去打开」确认进浏览器
+
+### Session 022
+
+- 日期：2026-11-19
+- 本轮目标：修一个**逻辑错位**——「检查更新」不该出现在网页版；版本 → **0.4.10**
+- 问题：网页版每次打开就是服务器上最新那份（CI 自动重部署），刷新即最新，不存在"检查更新"；而它跳的还是 APK 下载页。**我在网页版上验这一行，本身就验错了对象**
+- 已完成：
+  - `<UpdateSetting />` 用 `isNativeApp()` 包住，网页版整行不渲染
+  - 探针改两段：先断言网页环境**没有**这一行；再注入 `window.androidBridge` 伪装安卓（Capacitor 的 `getPlatformId()` 就是看它），断言 APK 里行与面板都正常
+- 运行过的验证：`_probe/update-link.mjs` **14/14**；六道门全绿（122 条测试）
+- **未验证**：真机点「去打开」是否进系统浏览器
+- 更新过的文件或工件：`SettingsDialog.tsx`、`_probe/update-link.mjs`、`package.json`（0.4.10）、`CHANGELOG.md`、`feature_list.json`（`update-001`）、本文件
+- 下一步最佳动作：真机验一次；之后这个功能的纸面工作就结束了
