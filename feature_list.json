@@ -697,6 +697,27 @@
         "2026-11-19 11:40 真机复验：用户在那台 OPPO A58 上装 0.4.2，界面正常显示——本条从推理变成事实。"
       ],
       "notes": "**verified（2026-11-19 11:40 真机复验）**：用户在那台 OPPO A58 上装 0.4.2 后界面正常显示，根因确认。\n\n**改动前的证据链**：真机截图里看门狗报「界面显示异常（高度 0）」→ headless 用假单位复现同一机制 → 改法在 Chrome 157 上验过 → 真机复验通过。\n\n**残留**：iOS Safari 工具栏展开时高度会跟着 innerHeight 走，与 dvh 可能有细微差别——未在 iOS 真机验证。"
+    },
+    {
+      "id": "brand-001",
+      "priority": 3,
+      "area": "feature",
+      "title": "应用显示名统一为 DS Echo",
+      "user_visible_behavior": "安卓桌面图标下、应用内侧栏标题、网页版标签页都显示 DS Echo；模型与 API 仍叫 DeepSeek（那是服务方，不是这个客户端）。",
+      "status": "passing",
+      "verification": [
+        "产物检查：aapt2 dump badging 读到 application-label: 'DS Echo'，versionName 0.4.3 / versionCode 403",
+        "产物检查：APK 内 assets/public/index.html 的 <title> 是 DS Echo",
+        "源码检查：i18n 的 appName（中英）都是 DS Echo，源码里不再有「API 使用 demo」",
+        "静态门与构建全绿"
+      ],
+      "evidence": [
+        "2026-11-19 用户定名：从 0.4.3 起不再叫「DeepSeek」「API 使用 demo」，正式叫 DS Echo。",
+        "改了三处：android/app/src/main/res/values/strings.xml（app_name / title_activity_main）、src/i18n/zh.ts 与 en.ts 的 appName、src/index.html 的 <title>；同时把 capacitor.config.ts 的 appName 改成 DS Echo，供将来重建工程用。",
+        "strings.xml 是 cap sync 不会重写的文件（只在 cap add 时生成一次），故属决策 8 的手改例外，已登记 ARCHITECTURE 决策 23。",
+        "没改 appId（com.yang.adeepseek）——改了就是另一个应用；模型名、api.deepseek.com、SYSTEM_PROMPT 里那句「该助手为 DeepSeek」也没动。"
+      ],
+      "notes": "**passing 的依据**：桌面名由 APK 的 application-label 决定，这条从构建产物里读出来就是事实，不依赖设备。\n\n**已知未做**：桌面图标仍是 Capacitor 默认素材——用户看到的是「DS Echo + 默认图标」。换图标要出多套尺寸的 PNG，属另一件事。"
     }
   ]
 }

@@ -1,5 +1,7 @@
 # DeepSeek APP Replica
 
+> **应用显示名：DS Echo**（2026-11-19 起）。仓库名沿用旧称，`appId` 不变——改 `appId` 等于换一个应用，覆盖安装会变成两个并存。
+
 把 DeepSeek 官方 App 的对话体验搬到安卓上，用**自己的 API Key** 跑，不受官方免费额度的各种限制。
 
 界面不是仿的，是**官方自己开源的**前端 —— 来自 [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo)（MIT 许可，2026-11-12 随「全家桶应用 API」一起发布）。外面套一层 [Capacitor 8](https://capacitorjs.com/) 安卓壳。

@@ -331,6 +331,25 @@ APK（使用者拿自己的 API Key 运行）
 
 **2026-11-19 真机复验**：OPPO A58 装 0.4.2 后界面正常显示——根因确认，修法有效。
 
+## 决策 23：应用显示名定为「DS Echo」，`strings.xml` 是决策 8 的第二处例外
+
+**来源**：2026-11-19 用户要求——从 0.4.3 起不再叫「DeepSeek」「API 使用 demo」，正式定名 **DS Echo**。
+
+**为什么必须动生成目录**：`android/app/src/main/res/values/strings.xml` 的 `app_name` 决定桌面图标下显示什么，而 `cap sync` **不会**重写它（那份文件只在 `cap add` 时由 `appName` 生成一次）。所以只改 `capacitor.config.ts` 对已存在的工程没有任何效果。
+
+**规则**：
+
+1. 改名的真源头是 `capacitor.config.ts` 的 `appName`（下次重建工程时用）；
+2. 现有工程的 `strings.xml` 手工改，并在此登记——这是决策 8 的第二处例外（第一处是 `app/build.gradle` 的版本号，见决策 16）；
+3. **三处必须同时改**：`strings.xml`（桌面名）、`i18n` 的 `appName`（应用内侧栏标题）、`src/index.html` 的 `<title>`（网页版标签页）。少一处就会出现「桌面叫 DS Echo、里面叫别的」。
+
+**不改的部分**：
+
+- `appId`（`com.yang.adeepseek`）不动——改了就是另一个应用，覆盖安装会变成两个并存。
+- 模型名、`api.deepseek.com`、`SYSTEM_PROMPT` 里那句「该助手为 DeepSeek…」都不动：那是被调用模型的身份，不是这个客户端 App 的名字。
+
+**代价**：桌面图标仍是 Capacitor 默认素材（未替换），所以用户看到的是「DS Echo + 默认图标」。换图标是另一件事，需要出多套尺寸的 PNG，未做。
+
 ## 尚未决策（悬空）
 
 - **项目命名**：目录 `DeepSeek 复刻APP` / remote `DeepSeek-APP-Replica` / `package.json` name `chat-demo` / README 标题 `DeepSeek APP Replica`。四处不统一，`package.json` 未改。改不改、改成什么，待定。

@@ -4,6 +4,12 @@
 
 ## [0.4.3] - 2026-11-19
 
+### 变更 — 应用改名为 DS Echo
+
+- 三处统一：桌面图标下的名字（`strings.xml`）、应用内侧栏标题（`i18n` 的 `appName`）、网页版标签页（`index.html` 的 `<title>`）；原先分别是「DeepSeek」与「API 使用 demo」
+- `capacitor.config.ts` 的 `appName` 同步改，供将来重建工程时用；`app/build.gradle` 之外，`strings.xml` 是决策 8 的第二处手改例外，已登记在 ARCHITECTURE 决策 23
+- **没动**：`appId`（改了就是另一个应用）、模型名、API 域名、系统提示里那句「该助手为 DeepSeek…」——那是被调用模型的身份，不是这个客户端 App 的名字
+
 ### 新增 — APK 里的历史对话搜索
 
 - 侧栏「开启新对话」下方的搜索框原先只在网页版渲染（`isNativeApp()` 运行时判断），现在 **APK 也有**：抽屉里点开即用，输入关键词列出命中的对话、命中片段高亮；点结果切到该对话，手机端自动收起抽屉

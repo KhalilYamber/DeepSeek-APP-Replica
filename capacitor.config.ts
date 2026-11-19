@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
   appId: 'com.yang.adeepseek',
-  appName: 'DeepSeek',
+  appName: 'DS Echo',
   webDir: 'dist',
   // 不要在这里写 webContentsDebuggingEnabled: true。
   // Capacitor 的默认行为是 debug 构建自动开启、release 构建关闭；
