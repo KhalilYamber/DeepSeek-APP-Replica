@@ -42,7 +42,7 @@
 - 导出全部对话为 ZIP（安卓端走「写文件 + 系统分享」）
 - **网络超时与自动重试**：连接 5 秒 / 首字节 30 秒 / 流式空闲 60 秒，超时给中文提示，不再无限转圈
 - **启动兜底与兼容性自检**：打不开时显示一页说明（内核版本、怎么更新 WebView、可复制的诊断信息），并可进入 `check.html` 逐项检测设备能力
-- **仅网页版有**：历史对话搜索、自定义头像（APK 里不显示这两个入口，因为它们是 `isNativeApp()` 判断后排除的）
+- **历史对话搜索、自定义头像**：网页版与 APK 都有（搜索 0.4.3 起、头像 0.4.4 起进了 APK）
 
 ## 两种用法
 
@@ -50,7 +50,6 @@
 |---|---|---|
 | 怎么用 | 装到手机 | 浏览器直接打开 |
 | 数据存在哪 | App 私有目录 | 浏览器 localStorage / IndexedDB |
-| 历史搜索、头像 | ❌ 不显示 | ✅ 有 |
 | 语音输入、文件导出 | ✅ 原生能力 | 受浏览器限制 |
 
 网页版地址：<https://khalilyamber.github.io/DeepSeek-APP-Replica/>
@@ -70,7 +69,7 @@
 `release/` 目录下有已构建好的 debug APK：
 
 ```
-release/DeepSeek-APP-Replica-0.4.0-debug.apk
+release/DS-Echo-0.4.4-debug.apk
 ```
 
 也可以直接从 [Releases](https://github.com/KhalilYamber/DeepSeek-APP-Replica/releases) 下载对应版本。
