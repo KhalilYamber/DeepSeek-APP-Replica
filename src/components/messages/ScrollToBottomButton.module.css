@@ -1,0 +1,38 @@
+/* 「回到底部」浮标：贴在输入框容器上方右侧，不跟着消息滚 */
+.button {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 50%;
+  background-color: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+  cursor: pointer;
+  transition: color 0.15s var(--ds-ease-in-out);
+
+  &:hover {
+    color: var(--dsw-alias-label-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dsw-alias-button-primary-fill);
+    outline-offset: 2px;
+  }
+}
+
+@media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
+  .button {
+    right: 4px;
+    width: 40px;
+    height: 40px;
+  }
+}

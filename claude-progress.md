@@ -548,3 +548,20 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 更新过的文件或工件：`SettingsDialog.tsx`、`_probe/update-link.mjs`、`package.json`（0.4.10）、`CHANGELOG.md`、`feature_list.json`（`update-001`）、本文件
 - 下一步最佳动作：真机验一次；之后这个功能的纸面工作就结束了
 - 已把这条判断沉淀成 **ARCHITECTURE 决策 24**（同一份产物、两种运行环境；新功能先分别判断在哪种形态成立），并在 AGENTS.md 的工作规则里加了一句提醒。顺手同步了 AGENTS.md 里过时的两处：APK 命名规则（`DS-Echo-<version>-<date>-debug.apk`）、仓库布局里漏掉的 `_probe/`
+
+### Session 023
+
+- 日期：2026-11-19
+- 本轮目标：0.4.11 流畅度（用户把范围收窄成"小修、见效"），并加一个「回到底部」浮标；版本 → **0.4.11**
+- 判断依据：读代码后发现「廉价胜利」基本已被前几轮吃掉——滚动回调不读布局、视口写样式有变更检测、消息组件已 memo、流式滚底已 rAF 合帧。剩下唯一的大头是**长会话全量 DOM 在每次全局重排时的代价**
+- 已完成：
+  - **回到底部浮标**：`scrollContext` 从 `() => void` 扩成 `{ scrollToBottom, jumpToBottom, atBottom }`（`scrollToBottom` 保持"只在跟随时才滚"，Markdown 在用它）；`atBottom` 只在真假切换时 `setState`；浮标渲染在 `SessionView` 的 `.inputContainer` 里，绝对定位到底部上方，不跟消息滚
+  - **长会话渲染**：超过 200 条时给消息列挂 `longColumn`，CSS 里用**两层 @supports**（`content-visibility` + `contain-intrinsic-size: auto`）才启用
+  - **图片懒加载**：`MessageFile` 的 `<img>` 加 `loading="lazy" decoding="async"`
+- 运行过的验证：
+  - 六道门全绿（122 条测试）
+  - 新探针 `_probe/scroll-to-bottom.mjs` **7/7**（210 条会话）
+  - **五条探针并行回归 52 条断言全过**（avatar 11 / sider 8 / thinking 10 / update 16 / scroll 7）
+- **未验证**：真机——浮标手感、`content-visibility` 在 A58 上会不会跳（WebView 版本未知，85–97 时规则自动不生效）
+- **本轮刻意停在打包前**：用户要求先不打包、不发 Release。代码与文档已在本地提交，**没有 push、没有 tag、没有 APK**
+- 更新过的文件或工件：`scrollContext.ts`、`ScrollToBottomButton.tsx`（新）+ 样式、`MessageList.tsx`、`MessageList.module.css`、`SessionView.tsx`、`MessageFile.tsx`、`Markdown.tsx`、`i18n/{zh,en}.ts`、`_probe/scroll-to-bottom.mjs`（新）、`package.json`（0.4.11）、`CHANGELOG.md`、`feature_list.json`（`ux-001` / `perf-001`）、本文件

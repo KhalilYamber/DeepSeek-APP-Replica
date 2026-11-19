@@ -2,6 +2,22 @@
 
 本项目的显著变更记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.4.11] - 2026-11-19
+
+### 新增 — 「回到底部」浮标
+
+- 往上翻超过一屏的 1/4 后，输入框上方右侧出现一个圆形箭头；点一下回到最新一条，并**恢复自动跟随**（之后流式回答会继续跟住）
+- 回到底部后自动消失；小幅往上翻不出现；网页版与 APK 都有
+- `scrollContext` 从一个函数扩成 `{ scrollToBottom, jumpToBottom, atBottom }`：`scrollToBottom` 仍然只在跟随开着时才滚（Markdown 渲染完在调它，不能把正在往上读的人拽回底部），浮标用的是强制版本
+
+### 性能 — 长会话
+
+- 会话超过 **200 条**时，消息列挂上 `content-visibility: auto` + `contain-intrinsic-size: auto 320px`，屏幕外的消息跳过渲染与布局
+- **刻意做成两层 `@supports`**：只有两个特性都支持才启用。缺了 `contain-intrinsic-size: auto`（Chrome 98+）时，未渲染的消息会按 0 高算，滚动位置会乱跳
+- 消息里的图片加 `loading="lazy"` / `decoding="async"`
+
+验收：`_probe/scroll-to-bottom.mjs` **7/7**（210 条会话：长列类名生效、底部不显示浮标、往上滚出现、点击回底、回底后消失）；截图 `screenshots/scroll-to-bottom.png`。**真机未验**：浮标手感与 `content-visibility` 在 A58 上是否会跳。
+
 ## [0.4.10] - 2026-11-19
 
 ### 修复 — 「检查更新」不该出现在网页版

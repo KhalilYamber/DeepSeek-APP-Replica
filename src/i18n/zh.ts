@@ -213,6 +213,7 @@ export const zh = {
   renderFailedTitleCompact: '这一条没能显示出来',
   renderFailedUnknown: '未知错误',
   reload: '重新加载',
+  scrollToBottom: '回到底部',
   settingsVersion: '版本',
   settingsCheckUpdate: '检查更新',
   settingsUpdateIntro: '接下来会用浏览器打开 GitHub 的下载页，那里能看到最新版和下载按钮。',

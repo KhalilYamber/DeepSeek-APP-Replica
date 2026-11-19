@@ -76,7 +76,7 @@ export const MessageFile = ({
           <IconPhotoErrorFill20 />
         </span>
       ) : (
-        <img src={url} alt={file.name} onError={() => setFailedUrl(url)} />
+        <img src={url} alt={file.name} loading="lazy" decoding="async" onError={() => setFailedUrl(url)} />
       )
     ) : null
 

@@ -26,7 +26,7 @@ export const Markdown = memo(function Markdown({
   disableLink: boolean
   sources?: Source[]
 }) {
-  const scrollToBottom = useScrollToBottom()
+  const { scrollToBottom } = useScrollToBottom()
   const throttledMarkdown = useThrottleMarkdownRender(content, loading)
   const ast = useMemo(
     () => (throttledMarkdown ? toMdAst(throttledMarkdown, { sources, disableLink }) : null),

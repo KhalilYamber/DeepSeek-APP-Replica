@@ -35,3 +35,15 @@
   margin: 0 auto;
   padding-bottom: 24px;
 }
+
+/* 长会话（>200 条）：屏幕外的消息跳过渲染与布局。
+   两层 @supports 是故意的——只有同时支持 content-visibility 和 contain-intrinsic-size: auto
+   才启用；否则没有「量过一次就记住」的机制，未渲染的消息会按 0 高算，滚动位置会跳。 */
+@supports (content-visibility: auto) {
+  @supports (contain-intrinsic-size: auto 320px) {
+    .longColumn > * {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 320px;
+    }
+  }
+}
