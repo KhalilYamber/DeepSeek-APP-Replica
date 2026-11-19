@@ -79,7 +79,7 @@ release/DS-Echo-<版本>-<日期>-debug.apk     例：DS-Echo-0.4.10-20261119-de
 
 也可以直接从 [Releases](https://github.com/KhalilYamber/DeepSeek-APP-Replica/releases) 下载对应版本。
 
-传到手机安装即可。要求 Android 8.0+。**系统 WebView 需要 Chrome 84 以上**：构建目标（语法）仍是 70，所以 70–83 的设备多数还能打开，但界面会错位（间距塌掉）；低于 84 并且确实没渲染出来时，会看到一页中文说明而不是白屏（见下）。
+传到手机安装即可。**要求 Android 7.0 及以上**（安装包 `minSdkVersion` 24）。**系统 WebView 需要 Chrome 84 以上**：构建目标（语法）仍是 70，所以 70–83 的设备多数还能打开，但界面会错位（间距塌掉）；低于 84 并且确实没渲染出来时，会看到一页中文说明而不是白屏（见下）。
 
 **第一次打开会要求填 API Key**（在 <https://platform.deepseek.com/api_keys> 创建）。
 
