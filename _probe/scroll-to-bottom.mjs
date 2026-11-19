@@ -143,6 +143,15 @@ try {
   })
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  // 首启「使用前须知」盖在最上面：先点掉，否则后面点不到任何东西
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '我知道了') { nodes[i].click(); return true }
+    }
+    return false
+  })()`)
+  await sleep(400)
   const count = await evaluate(seed)
   check('塞进一条 210 条的会话', count === 210, `${count} 条`)
 

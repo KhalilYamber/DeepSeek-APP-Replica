@@ -1,0 +1,14 @@
+/* base Modal 不滚动（内容多高就多高），所以正文自己限高；
+   系统字体被放大时最坏是这里出现滚动条，按钮在 footer 里点得到 */
+.body {
+  max-height: 60vh;
+  overflow-y: auto;
+
+  & p {
+    margin: 0 0 12px;
+  }
+
+  & p:last-child {
+    margin-bottom: 0;
+  }
+}

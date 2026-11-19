@@ -36,6 +36,7 @@ import {
 } from '../../services/settings.js'
 import { useTranslate, type TranslationKey, type TranslationMessage } from '../../i18n/index.js'
 import { Button } from '../base/Button.js'
+import { DisclaimerDialog } from '../disclaimer/DisclaimerDialog.js'
 import { Modal } from '../base/Modal.js'
 import { Select } from '../base/Select.js'
 import { showToast } from '../base/toastState.js'
@@ -111,6 +112,7 @@ const SettingsContent = () => {
               <LocationSetting />
               {/* 只在 APK 里出现：网页版刷新就是最新，不存在"检查更新"，跳 APK 下载页更是错位 */}
               {isNativeApp() ? <UpdateSetting /> : null}
+              <DisclaimerSetting />
               <DiagnosticsSetting />
             </>
           ) : (
@@ -786,6 +788,27 @@ const UpdateSetting = () => {
           <div className={styles.updateUrl}>{RELEASES_URL}</div>
         </Modal>
       ) : null}
+    </>
+  )
+}
+
+/** 使用前须知：首次启动展示过的内容，可随时重看 */
+const DisclaimerSetting = () => {
+  const t = useTranslate()
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <SettingCell
+        label={t('disclaimerTitle')}
+        description={t('settingsDisclaimerDescription')}
+        status={null}
+        action={
+          <Button size="m" variant="outlined" className={styles.cellButton} onClick={() => setOpen(true)}>
+            {t('settingsDisclaimerOpen')}
+          </Button>
+        }
+      />
+      {open ? <DisclaimerDialog onClose={() => setOpen(false)} /> : null}
     </>
   )
 }

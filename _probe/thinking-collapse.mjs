@@ -204,6 +204,15 @@ try {
   })
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  // 首启「使用前须知」盖在最上面：先点掉，否则后面点不到任何东西
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '我知道了') { nodes[i].click(); return true }
+    }
+    return false
+  })()`)
+  await sleep(400)
 
   check('塞进两条带思考的已完成会话', (await evaluate(seed('probe-t1', '思考折叠检查', THINK1, ANSWER1))) === true)
   check('第二条也塞好了', (await evaluate(seed('probe-t2', '设置联动检查', THINK2, ANSWER2))) === true)

@@ -116,7 +116,16 @@ try {
   const mounted = await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
   check('手机视口下界面挂载', mounted >= 0, `${mounted}ms`)
 
-  // 首次打开会自动弹出「填 API Key」的设置弹窗，先按 Esc 关掉，否则点不到抽屉
+  // 首次打开会先弹「使用前须知」，点掉它之后才会接着弹「填 API Key」的设置弹窗
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '我知道了') { nodes[i].click(); return true }
+    }
+    return false
+  })()`)
+  await sleep(500)
+  // 再把「填 API Key」的设置弹窗按 Esc 关掉，否则点不到抽屉
   await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
   await sleep(300)
   const modal = await evaluate(`document.querySelector('[role="dialog"]') !== null`)

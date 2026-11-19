@@ -127,6 +127,16 @@ try {
   })
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
 
+  // 首启「使用前须知」先盖在最上面：点掉它之后，填 Key 的设置弹窗才会自动出现
+  await waitFor(`document.querySelector('[role="dialog"]')`)
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '我知道了') { nodes[i].click(); return true }
+    }
+    return false
+  })()`)
+
   // 首次打开没有 API Key，设置弹窗会自动弹出，但停在「数据管理」——头像在「通用设置」里，先切过去
   const dialog = await waitFor(`document.querySelector('[role="dialog"]')`)
   check('设置弹窗自动打开', dialog >= 0, `${dialog}ms`)
@@ -224,6 +234,15 @@ try {
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
   await sleep(400)
+  // 首启「使用前须知」盖在最上面：先点掉，随后「填 API Key」的设置弹窗才会自动出现
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '我知道了') { nodes[i].click(); return true }
+    }
+    return false
+  })()`)
+  await sleep(600)
   await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
   await sleep(200)
   await evaluate(`(function () {

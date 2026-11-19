@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslate } from '../i18n/index.js'
 import { setSiderCollapsed, useSettings } from '../services/settings.js'
 import {
@@ -21,6 +21,8 @@ import { MobileHeader } from '../components/session/MobileHeader.js'
 import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey } from '../components/settings/settingsDialogState.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
+import { DisclaimerDialog } from '../components/disclaimer/DisclaimerDialog.js'
+import { acknowledgeDisclaimer, isDisclaimerAcknowledged } from '../services/disclaimer.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
@@ -88,11 +90,18 @@ export const App = () => {
   // 移动端选中会话、切换布局后收起抽屉
   useEffect(closeMobileSider, [activeId, isMobile])
 
+  const [disclaimerOpen, setDisclaimerOpen] = useState(() => !isDisclaimerAcknowledged())
+
   useEffect(() => {
     void initChat()
-    // 首次打开先在设置里输入 API Key
-    ensureApiKey()
   }, [])
+
+  useEffect(() => {
+    // 首次打开先在设置里输入 API Key；须知没关掉之前先不弹，免得两层遮罩叠在一起
+    if (!disclaimerOpen) {
+      ensureApiKey()
+    }
+  }, [disclaimerOpen])
 
   return (
     <>
@@ -156,6 +165,14 @@ export const App = () => {
         <SearchPanel />
       </div>
       <SettingsDialog />
+      {disclaimerOpen ? (
+        <DisclaimerDialog
+          onClose={() => {
+            acknowledgeDisclaimer()
+            setDisclaimerOpen(false)
+          }}
+        />
+      ) : null}
       <Toast />
     </>
   )

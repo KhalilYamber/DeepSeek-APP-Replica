@@ -565,3 +565,25 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - **未验证**：真机——浮标手感、`content-visibility` 在 A58 上会不会跳（WebView 版本未知，85–97 时规则自动不生效）
 - **本轮刻意停在打包前**：用户要求先不打包、不发 Release。代码与文档已在本地提交，**没有 push、没有 tag、没有 APK**
 - 更新过的文件或工件：`scrollContext.ts`、`ScrollToBottomButton.tsx`（新）+ 样式、`MessageList.tsx`、`MessageList.module.css`、`SessionView.tsx`、`MessageFile.tsx`、`Markdown.tsx`、`i18n/{zh,en}.ts`、`_probe/scroll-to-bottom.mjs`（新）、`package.json`（0.4.11）、`CHANGELOG.md`、`feature_list.json`（`ux-001` / `perf-001`）、本文件
+
+### Session 024
+
+- 日期：2026-11-19
+- 本轮目标：0.4.12 —— 首启「使用前须知」+ 设置里可重看；用户逐句定稿了文案
+- 已完成：
+  - `services/disclaimer.ts`：`chat-demo:disclaimer-ack`，**按设备记不按版本**（老用户升级后会看到一次）
+  - `components/disclaimer/DisclaimerDialog.tsx` + 样式：四段文案，正文 `max-height: 60vh` + 滚动
+  - `App.tsx`：首启状态；`ensureApiKey()` 从 `useEffect([])` 挪到须知关掉之后再跑，避免两层遮罩叠加；须知渲染在 `SettingsDialog` 之后（后渲染在上）
+  - `SettingsDialog.tsx`：加「使用前须知」行（查看 → 重开），位置在版本/检查更新之下、诊断信息之上
+  - 中英各 8 个词条
+- 运行过的验证：
+  - 新探针 `_probe/disclaimer.mjs` **11/11**，跑了 **390×844** 与 **360×800（A58 那档）**
+  - 五条老探针回归：avatar 11 / sider 8 / thinking 10 / update 16 / scroll 7 —— 全过
+  - 六道门全绿（122 条测试）
+- **踩到的坑**：
+  1. **base `Modal` 不滚动**（`.content`/`.main` 没有 max-height/overflow）——之前以为它滚，实际只有诊断信息自己加了 `max-height`。须知正文因此自己限高
+  2. **英文词条里 `DeepSeek's` 的撇号把单引号字符串截断**，tsc 报在几十行之后；改写成 "the open-source chat-demo published by DeepSeek"
+  3. **头像探针第一段 `waitFor('[role="dialog"]')` 先匹配到了须知弹窗**，导致「设置弹窗自动打开」假通过、后面点不到「通用设置」；修法：先点掉须知，再等设置弹窗
+  4. **同时开 6 个 Chrome 会抖**：disclaimer 探针在 6 路并行时失败一次，单独跑 11/11 —— 以后并行别超过 5 条
+- **未验证**：真机（A58 字体放大到最大时正文要滑动一下）
+- 更新过的文件或工件：`services/disclaimer.ts`（新）、`components/disclaimer/`（新）、`App.tsx`、`SettingsDialog.tsx`、`i18n/{zh,en}.ts`、`_probe/disclaimer.mjs`（新）、五个老探针头部、`package.json`（0.4.12）、`CHANGELOG.md`、`feature_list.json`（`notice-001`）、本文件

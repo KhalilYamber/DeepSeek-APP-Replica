@@ -128,6 +128,15 @@ try {
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
   await sleep(600)
+  // 首启「使用前须知」盖在最上面：先点掉，随后「填 API Key」的设置弹窗才会自动出现
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '我知道了') { nodes[i].click(); return true }
+    }
+    return false
+  })()`)
+  await sleep(600)
 
   check('切到「通用设置」', await evaluate(clickByText('通用设置')))
   await sleep(400)
