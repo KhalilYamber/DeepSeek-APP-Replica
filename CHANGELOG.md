@@ -2,6 +2,16 @@
 
 本项目的显著变更记在这里。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.4.4] - 2026-11-19
+
+### 新增 — APK 里的头像
+
+- 头像原先只在网页版：设置 → 通用设置里的头像区不渲染，消息列表里的圆形头像也不显示（三处都靠 `isNativeApp()` 判断）。**只放设置会造成「设了不显示」**，所以三处一并打开
+- 现在 APK 也有：设置里可上传自己的照片（自动居中裁方、压到 160px、JPEG 0.85）或恢复默认；消息左右两侧显示头像
+- 上传链路没改（`avatar.ts` 用 Image + canvas，不用 `createImageBitmap`，旧 Safari 也能跑），只是拆掉原生壳的判断
+
+验收：`_probe/avatar-apk.mjs` 在 390×844 下切到「通用设置」，头像两行与两个上传入口都在；CDP 真塞一张 PNG 后存下 1239 字符的 `data:image/jpeg` 并出现「恢复默认」（`screenshots/avatar-apk.png`）。**真机相册选择器仍未验。**
+
 ## [0.4.3] - 2026-11-19
 
 ### 变更 — 应用改名为 DS Echo

@@ -105,7 +105,7 @@ const SettingsContent = () => {
               <ThemeSetting />
               <LocaleSetting />
               <TtsVoiceSetting />
-              {isNativeApp() ? null : <AvatarSetting />}
+              <AvatarSetting />
               <LocationSetting />
               <DiagnosticsSetting />
             </>
@@ -621,7 +621,7 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
   )
 }
 
-/** 头像设置（仅网页版）：用户可上传自己的照片，AI 头像也可换或恢复默认。 */
+/** 头像设置：用户可上传自己的照片，AI 头像也可换或恢复默认。网页版与 APK 都有。 */
 const AvatarSetting = () => {
   const t = useTranslate()
   return (

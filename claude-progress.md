@@ -433,3 +433,24 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - 模型名、`api.deepseek.com`、`SYSTEM_PROMPT` 里那句「该助手为 DeepSeek」都没动——那是被调用模型的身份
 - 更新过的文件或工件：`android/app/src/main/res/values/strings.xml`、`capacitor.config.ts`、`src/i18n/zh.ts`、`src/i18n/en.ts`、`src/index.html`、`README.md`、`docs/使用说明.md`、`ARCHITECTURE.md`、`CHANGELOG.md`、`feature_list.json`（`brand-001`）、本文件
 - 下一步最佳动作：装 0.4.3 到 A58，确认桌面名变成 DS Echo、搜索能用；**A58x 仍未复验**
+
+### Session 017
+
+- 日期：2026-11-19
+- 本轮目标：按需求把头像搬进 APK，版本 0.4.3 → **0.4.4**
+- 关键判断：头像被**三处** `isNativeApp()` 挡着——设置里的头像区、`UserMessage`、`AssistantMessage`。只打开设置会造成「设了不显示」，所以三处一并去掉
+- 已完成：
+  - `SettingsDialog.tsx`：去掉 `isNativeApp() ? null : <AvatarSetting />`
+  - `UserMessage.tsx` / `AssistantMessage.tsx`：`showAvatar` 常量与 `isNativeApp` 导入一并删除，头像和 `.withAvatar` 内边距无条件生效
+  - 新增 `_probe/avatar-apk.mjs`：手机视口下切「通用设置」→ 断言头像两行与两个上传入口 → CDP 真塞一张 PNG → 断言存成 JPEG dataURL 并出现「恢复默认」
+- 运行过的验证：
+  - 六道门全绿（115 条测试）
+  - `_probe/avatar-apk.mjs` **6/6**；截图 `screenshots/avatar-apk.png`（手机宽度下排版正常，上传后预览立刻变照片）
+  - APK 0.4.4（versionCode 404）重新打包
+  - 写探针时踩了一下：首次启动的设置弹窗默认停在「数据管理」，头像在「通用设置」，得先切页签——不是产品问题
+- **未验证（必须记清）**：
+  - **真机相册选择器**：WebView 里 `<input type="file">` 要经 Capacitor 的 `onShowFileChooser`，这条路径只在桌面 Chrome 上验过
+  - **HEIC 照片**：安卓相机/相册导出的 HEIC 能否被 WebView 的 Image 解码，未知；失败会走 toast「这张图片处理失败」
+  - iOS Safari 的 canvas 编码差异未验
+- 更新过的文件或工件：`src/components/settings/SettingsDialog.tsx`、`src/components/messages/UserMessage.tsx`、`src/components/messages/AssistantMessage.tsx`、`_probe/avatar-apk.mjs`（新）、`package.json`（0.4.4）、`CHANGELOG.md`、`feature_list.json`（`web-002` 改为「网页版 + APK」）、本文件
+- 下一步最佳动作：装 0.4.4，走一遍「设置 → 通用设置 → 上传照片 → 回会话看头像」；顺带把 A58x 一起验了

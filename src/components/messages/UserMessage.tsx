@@ -4,7 +4,6 @@ import { memo, useLayoutEffect, useRef, useState } from 'react'
 import { useIsMobile } from '../../app/viewport.js'
 import { IconEditOutline16 } from '../base/icons.js'
 import { editMessage, retryUpload } from '../../services/chat/store.js'
-import { isNativeApp } from '../../services/native/platform.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
 import type { UserMessage as UserMessageType } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
@@ -45,8 +44,7 @@ export const UserMessage = memo(function UserMessage({
   const [draft, setDraft] = useState(message.content)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isMobile = useIsMobile()
-  // 头像只在网页版出现（APK 不渲染），与历史搜索同一套运行时判断
-  const showAvatar = !isNativeApp()
+  // 头像网页版与 APK 都显示（原先按「只给网页版」用 isNativeApp() 挡掉，2026-11-19 打开）
   const canSend = !busy && (draft.trim() !== '' || message.files.length > 0)
   // 图片与文档混排时缩略图只有 64px
   const withDocuments = message.files.some((file) => !file.isImage)
@@ -68,9 +66,9 @@ export const UserMessage = memo(function UserMessage({
 
   return (
     <div
-      className={clsx(styles.container, isFirst && styles.isFirst, showAvatar && styles.withAvatar)}
+      className={clsx(styles.container, isFirst && styles.isFirst, styles.withAvatar)}
     >
-      {showAvatar ? <MessageAvatar role="user" /> : null}
+      <MessageAvatar role="user" />
       {message.files.length > 0 ? (
         <div className={clsx(styles.files, withDocuments && styles.filesWithDocuments)}>
           {message.files.map((file) => (

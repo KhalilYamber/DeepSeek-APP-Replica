@@ -400,8 +400,8 @@
       "id": "web-002",
       "priority": 1,
       "area": "feature",
-      "title": "网页版头像：用户可上传自己的照片",
-      "user_visible_behavior": "网页版的消息按气泡对话显示，用户消息右侧、AI 消息左侧各有一个圆形头像。默认显示「我」与「AI」，在设置 → 通用设置里可上传照片（自动居中裁成方形、压到 160px）或恢复默认。APK 里没有头像。",
+      "title": "头像：用户可上传自己的照片（网页版 + APK）",
+      "user_visible_behavior": "消息按气泡对话显示，用户消息右侧、AI 消息左侧各有一个圆形头像。默认显示「我」与「AI」，在设置 → 通用设置里可上传照片（自动居中裁成方形、压到 160px）或恢复默认。网页版与 APK 都显示。",
       "status": "inferred",
       "verification": [
         "真浏览器（headless Chrome 157，1280×800）里默认头像渲染出 2 个",
@@ -414,9 +414,10 @@
         "2026-11-18：`src/services/avatar.ts`——头像存 localStorage（两条 key），`fileToAvatar` 用 Image + canvas 居中裁正方形、压到 160px、编码 JPEG 0.85（不用 createImageBitmap：旧 Safari 没有）。",
         "2026-11-18：`MessageAvatar.tsx` 绝对定位（左/右），给消息容器加 `.withAvatar` 的左右内边距，不改原有气泡流式布局。",
         "2026-11-18 真浏览器验证（`_probe/avatar-probe.mjs`）：默认头像 `{count:2, marks:['我','AI']}`；设置里 `{hasAvatarRow:true, uploads:2}`；用 `DOM.setFileInputFiles` 喂一张脚本手搓的 200×200 PNG 后 `{stored:2495, isJpeg:true, previewImg:true}`；回会话 `{total:2, imgs:1}`。截图 `screenshots/avatar-01-default.png`、`avatar-02-settings.png`、`avatar-03-after-upload.png`、`avatar-04-chat.png`。",
-        "2026-11-18：`./init.ps1` 六道门全绿（type / lint / 97 tests / build / 产物 / scan-compat error 0）。"
+        "2026-11-18：`./init.ps1` 六道门全绿（type / lint / 97 tests / build / 产物 / scan-compat error 0）。",
+        "2026-11-19：APK 侧打开头像。原先三处用 `isNativeApp()` 挡着——设置里不渲染头像区、`UserMessage` 与 `AssistantMessage` 都不显示头像（只放设置会造成「设了不显示」）。三处一并删掉判断。`_probe/avatar-apk.mjs`（headless Chrome 390×844）：切到「通用设置」→ 头像两行都在、两个上传入口 → 用 CDP 真塞一张 PNG → localStorage 存下 1239 字符的 `data:image/jpeg` → 出现「恢复默认」；截图 `screenshots/avatar-apk.png`。"
       ],
-      "notes": "**inferred：真机上传路径未验**。桌面 headless Chrome 上验证了「真上传文件 → 真存下 → 真显示」，但手机相册选择器、iOS 的 HEIC 照片、iPad Safari 的 canvas 编码差异都没验。HEIC 需要确认：iOS 相册选出的 HEIC 在 Safari 里能通过 Image 解码，若不能会走失败 toast。\n\n只在网页版：`isNativeApp()` 运行时判断，APK 不渲染头像也不显示设置项。\n\n代价：界面从此与官方 demo 不同（ARCHITECTURE 决策 1 的推翻条件之一），以后同步上游时这块要单独处理。\n\n存储边界：头像存 localStorage（不是 IndexedDB），因为两条小图没必要为它升数据库版本；若 localStorage 不可用（隐私模式）只在内存生效，刷新后回到默认。"
+      "notes": "**inferred：真机上传路径未验**。桌面 headless Chrome 上验证了「真上传文件 → 真存下 → 真显示」，但手机相册选择器、iOS 的 HEIC 照片、iPad Safari 的 canvas 编码差异都没验。HEIC 需要确认：iOS 相册选出的 HEIC 在 Safari 里能通过 Image 解码，若不能会走失败 toast。\n\n**2026-11-19 起 APK 也有头像**：原先用 `isNativeApp()` 在原生壳里挡掉（设置项与消息里的头像都不渲染），现按需求打开；三个判断一并删掉。真机相册选择器仍未验。\n\n代价：界面从此与官方 demo 不同（ARCHITECTURE 决策 1 的推翻条件之一），以后同步上游时这块要单独处理。\n\n存储边界：头像存 localStorage（不是 IndexedDB），因为两条小图没必要为它升数据库版本；若 localStorage 不可用（隐私模式）只在内存生效，刷新后回到默认。"
     },
     {
       "id": "web-003",

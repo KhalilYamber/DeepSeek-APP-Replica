@@ -13,6 +13,8 @@ tmp/
 # 构建与打包产物：可从源码重建，不进版本控制
 release/
 screenshots/
+# 探针运行时生成的小夹具（_probe/avatar-apk.mjs 每次自己写一个 1×1 PNG）
+_probe/fixtures/
 
 # 安卓构建中间物与生成工程（Capacitor sync 覆盖）
 android/.gradle/
