@@ -415,7 +415,8 @@
         "2026-11-18：`MessageAvatar.tsx` 绝对定位（左/右），给消息容器加 `.withAvatar` 的左右内边距，不改原有气泡流式布局。",
         "2026-11-18 真浏览器验证（`_probe/avatar-probe.mjs`）：默认头像 `{count:2, marks:['我','AI']}`；设置里 `{hasAvatarRow:true, uploads:2}`；用 `DOM.setFileInputFiles` 喂一张脚本手搓的 200×200 PNG 后 `{stored:2495, isJpeg:true, previewImg:true}`；回会话 `{total:2, imgs:1}`。截图 `screenshots/avatar-01-default.png`、`avatar-02-settings.png`、`avatar-03-after-upload.png`、`avatar-04-chat.png`。",
         "2026-11-18：`./init.ps1` 六道门全绿（type / lint / 97 tests / build / 产物 / scan-compat error 0）。",
-        "2026-11-19：APK 侧打开头像。原先三处用 `isNativeApp()` 挡着——设置里不渲染头像区、`UserMessage` 与 `AssistantMessage` 都不显示头像（只放设置会造成「设了不显示」）。三处一并删掉判断。`_probe/avatar-apk.mjs`（headless Chrome 390×844）：切到「通用设置」→ 头像两行都在、两个上传入口 → 用 CDP 真塞一张 PNG → localStorage 存下 1239 字符的 `data:image/jpeg` → 出现「恢复默认」；截图 `screenshots/avatar-apk.png`。"
+        "2026-11-19：APK 侧打开头像。原先三处用 `isNativeApp()` 挡着——设置里不渲染头像区、`UserMessage` 与 `AssistantMessage` 都不显示头像（只放设置会造成「设了不显示」）。三处一并删掉判断。`_probe/avatar-apk.mjs`（headless Chrome 390×844）：切到「通用设置」→ 头像两行都在、两个上传入口 → 用 CDP 真塞一张 PNG → localStorage 存下 1239 字符的 `data:image/jpeg` → 出现「恢复默认」；截图 `screenshots/avatar-apk.png`。",
+        "2026-11-19 复审补验（同一条探针第二阶段）：塞一条带两条消息的会话，在 390×844 下真点开会话——两个头像都在、用户头像是刚上传的那张图（`img` 而不是「我」兜底）、页面无横向溢出；截图 `screenshots/avatar-apk-chat.png`。写这段时踩了两个**探针**坑（不是产品问题）：会话条目根元素是 `div` 不是 `button`，得按坐标点；抓类名的正则要求「avatar 前面必须有字符」，把 `.avatar-xxx` 这种以它开头的类漏掉了。"
       ],
       "notes": "**inferred：真机上传路径未验**。桌面 headless Chrome 上验证了「真上传文件 → 真存下 → 真显示」，但手机相册选择器、iOS 的 HEIC 照片、iPad Safari 的 canvas 编码差异都没验。HEIC 需要确认：iOS 相册选出的 HEIC 在 Safari 里能通过 Image 解码，若不能会走失败 toast。\n\n**2026-11-19 起 APK 也有头像**：原先用 `isNativeApp()` 在原生壳里挡掉（设置项与消息里的头像都不渲染），现按需求打开；三个判断一并删掉。真机相册选择器仍未验。\n\n代价：界面从此与官方 demo 不同（ARCHITECTURE 决策 1 的推翻条件之一），以后同步上游时这块要单独处理。\n\n存储边界：头像存 localStorage（不是 IndexedDB），因为两条小图没必要为它升数据库版本；若 localStorage 不可用（隐私模式）只在内存生效，刷新后回到默认。"
     },

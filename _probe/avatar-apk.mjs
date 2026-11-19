@@ -176,6 +176,104 @@ try {
   const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
   await writeFile(SHOT, Buffer.from(shot.result.data, 'base64'))
   console.log(`截图：${SHOT}`)
+
+  // ---- 第二阶段：造一条对话，看在手机宽度下头像与气泡排得对不对 ----
+  const seeded = await evaluate(`new Promise(function (resolve, reject) {
+    var req = indexedDB.open('chat-demo', 11)
+    req.onerror = function () { reject(req.error) }
+    req.onsuccess = function () {
+      var db = req.result
+      var now = Date.now()
+      var tx = db.transaction(['sessions', 'sessionSummaries'], 'readwrite')
+      tx.objectStore('sessions').put({
+        id: 'probe-avatar-layout',
+        title: '头像排版检查',
+        createdAt: now,
+        updatedAt: now,
+        messages: [
+          {
+            id: 'm-user',
+            role: 'user',
+            content: '这是一条用户消息，用来检查手机上气泡会不会被头像挤到。',
+            files: [],
+            createdAt: now - 2000
+          },
+          {
+            id: 'm-assistant',
+            role: 'assistant',
+            createdAt: now - 1000,
+            model: 'deepseek-flash',
+            prefix: true,
+            status: 'done',
+            blocks: [{ type: 'text', text: '这是回复。同样是一条不短的消息，看两边留白是否对称。' }]
+          }
+        ]
+      })
+      tx.objectStore('sessionSummaries').put({
+        id: 'probe-avatar-layout',
+        title: '头像排版检查',
+        createdAt: now,
+        updatedAt: now
+      })
+      tx.oncomplete = function () { db.close(); resolve(true) }
+      tx.onerror = function () { reject(tx.error) }
+    }
+  })`)
+  check('塞进一条带两条消息的会话', seeded === true)
+
+  await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
+  await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  await sleep(400)
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await sleep(200)
+  await evaluate(`(function () {
+    var btn = document.querySelector('button[aria-label="打开边栏"]')
+    if (btn) btn.click()
+  })()`)
+  const listed = await waitFor(`(document.body.textContent || '').indexOf('头像排版检查') >= 0`)
+  // 会话条目的根元素是 div（不是 button），所以按坐标真点一次，而不是找按钮
+  const spot = await evaluate(`(function () {
+    var nodes = document.querySelectorAll('div')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '头像排版检查') {
+        var rect = nodes[i].getBoundingClientRect()
+        return { x: Math.round(rect.x + rect.width / 2), y: Math.round(rect.y + rect.height / 2) }
+      }
+    }
+    return null
+  })()`)
+  check('列表里能找到那条会话', listed >= 0 && spot !== null)
+  if (spot) {
+    await send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x: spot.x,
+      y: spot.y,
+      button: 'left',
+      clickCount: 1,
+    })
+    await send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x: spot.x,
+      y: spot.y,
+      button: 'left',
+      clickCount: 1,
+    })
+  }
+  const avatars = await waitFor(
+    `document.querySelectorAll('[class*="avatar-"]').length >= 2`
+  )
+  const count = await evaluate(`document.querySelectorAll('[class*="avatar-"]').length`)
+  check('会话里出现两个头像', avatars >= 0, `找到 ${count} 个`)
+
+  // 上传过的用户头像应该以 <img> 形式出现（而不是「我」那个兜底字）
+  const imageAvatar = await evaluate(`document.querySelector('img[class*="avatar-"]') !== null`)
+  check('用户头像用的是刚上传的照片', imageAvatar)
+
+  const overflow = await evaluate(`document.documentElement.scrollWidth - document.documentElement.clientWidth`)
+  check('手机宽度下没有横向溢出', overflow <= 0, `溢出 ${overflow}px`)
+
+  const shot2 = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+  await writeFile(join(REPO, 'screenshots', 'avatar-apk-chat.png'), Buffer.from(shot2.result.data, 'base64'))
 } finally {
   ws.close()
   chrome.kill()
