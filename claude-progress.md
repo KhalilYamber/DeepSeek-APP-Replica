@@ -454,3 +454,26 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - iOS Safari 的 canvas 编码差异未验
 - 更新过的文件或工件：`src/components/settings/SettingsDialog.tsx`、`src/components/messages/UserMessage.tsx`、`src/components/messages/AssistantMessage.tsx`、`_probe/avatar-apk.mjs`（新）、`package.json`（0.4.4）、`CHANGELOG.md`、`feature_list.json`（`web-002` 改为「网页版 + APK」）、本文件
 - 下一步最佳动作：装 0.4.4，走一遍「设置 → 通用设置 → 上传照片 → 回会话看头像」；顺带把 A58x 一起验了
+
+### Session 018
+
+- 日期：2026-11-19
+- 本轮目标：仿官方 App——思考过程流式时收进小窗口，回答完自动收起；版本 0.4.4 → **0.4.5**
+- 开工前的分析（四轮，结论写进了 feature_list 的 `think-001`）：
+  - 官方截图确认：**限高 + 内部滚动**（不是文本截断）、工具行**混在窗口里一起滚**、上下缘**渐隐**
+  - 我们已有的骨架：左侧竖线、小圆点、chevron、shimmer、14px/24px 的思考字号 —— 缺的只是"窗口"这一层
+  - 四个边界：无标题的工具区不能被收、空块不能露白框、续写要反向展开、内层滚动不能拽人
+  - `hasResponse` 会在流式中来回翻（正文被顶进 steps 就变 null），所以判据只能取收尾那一刻
+- 已完成：
+  - 新增 `src/components/messages/thinkingPanel.ts`（`shouldCollapseThinking` / `shouldExpandThinking`），8 条单测
+  - `ReplyArea.tsx`：`open` 初值改成 `streaming`（历史默认收起）、`touched` 用 ref、两个边沿 effect；小窗口（96px、贴底跟随、rAF 合帧）；上下渐隐用伪元素（`pointer-events: none`）；标题改 `<button>` + `aria-expanded`
+  - `ReplyArea.module.css`：`.windowBox` / `.window` / `.fade*`，`.title` 补 button 复位样式
+- 运行过的验证：
+  - 六道门全绿（**123 条测试**）
+  - 新探针 `_probe/thinking-collapse.mjs`（390×844）：已完成消息默认收起、标题显示「已思考（用时 1 秒）」、点标题展开 —— **5/5**；截图 `thinking-collapsed.png` / `thinking-expanded.png`
+- **未验证（必须记清）**：
+  - **流式中的小窗口验不了**：`streaming` 来自 store 的 AbortController 表，塞静态消息造不出流式态；只能真机跑一次真实的深度思考
+  - 96px 的观感、渐隐是否自然、嵌套滚动与消息列表是否打架 —— 都要真机
+- 已知取舍：在小窗口里往上滚**不会**阻止收尾时的自动收起（只有点标题才算用户干预）
+- 更新过的文件或工件：`src/components/messages/thinkingPanel.ts`（新）、`ReplyArea.tsx`、`ReplyArea.module.css`、`test/thinking-panel.test.ts`（新）、`_probe/thinking-collapse.mjs`（新）、`package.json`（0.4.5）、`CHANGELOG.md`、`feature_list.json`（`think-001`）、本文件
+- 下一步最佳动作：装 0.4.5，开深度思考问一个需要想一会儿的问题，看四件事——窗口高度、贴底跟随、渐隐、收尾自动收起；再把历史会话打开看是否默认收起

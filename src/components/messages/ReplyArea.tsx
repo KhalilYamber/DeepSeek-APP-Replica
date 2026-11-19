@@ -1,6 +1,6 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
-import { memo, useEffect, useState, type ReactNode } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   IconBrowseOutline16,
   IconBrowseWarningOutline16,
@@ -32,6 +32,7 @@ import { Tooltip } from '../base/Tooltip.js'
 import { Markdown } from '../markdown/Markdown.js'
 import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
+import { shouldCollapseThinking, shouldExpandThinking } from './thinkingPanel.js'
 import styles from './ReplyArea.module.css'
 import './thinking.markdown.css'
 
@@ -46,6 +47,22 @@ const useTicker = (active: boolean, interval: number) => {
     return () => clearInterval(timer)
   }, [active, interval])
   return tick
+}
+
+/** 流式的思考区：限高的小窗口，贴底跟随最新内容，收尾自动收起 */
+
+type Edges = { top: boolean; bottom: boolean }
+const EDGES_NONE: Edges = { top: false, bottom: false }
+/** 判定「贴底」的容差：内容高度抖动时不要反复切换跟随状态 */
+const STICKY_GAP = 4
+
+/** 上下缘要不要淡出：只有真的还有内容在视口外时才画渐隐，否则一行内容也会被弄淡 */
+const syncEdges = (el: HTMLDivElement, setEdges: (update: (prev: Edges) => Edges) => void) => {
+  const atTop = el.scrollTop > 2
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight > 2
+  setEdges((prev) =>
+    prev.top === atTop && prev.bottom === atBottom ? prev : { top: atTop, bottom: atBottom }
+  )
 }
 
 /**
@@ -65,40 +82,125 @@ export const ReplyArea = memo(function ReplyArea({
   hasResponse: boolean
 }) {
   useTranslate()
-  const [open, setOpen] = useState(true)
+  // 展开与否：流式中默认展开，历史消息默认收起；touched 记住用户手动点过
+  const [open, setOpen] = useState(streaming)
+  const touched = useRef(false)
+  // 小窗口只在流式中出现：贴底跟随最新一行，滚离底部就不再拽回来
+  const windowRef = useRef<HTMLDivElement>(null)
+  const sticky = useRef(true)
+  const frame = useRef(0)
+  const [edges, setEdges] = useState<Edges>(EDGES_NONE)
+  const wasStreaming = useRef(streaming)
+
   const titleActive = streaming && !hasResponse
   useTicker(titleActive, 1000)
-  if (view.steps.length === 0 && !(message.thinking && streaming)) {
-    return null
-  }
   // 未记录请求开关时，按是否有思考内容显示标题。
   const thinking = message.thinking ?? view.steps.some((step) => step.type === 'thinking')
   const title = thinking ? getAreaTitle(view, streaming, Date.now(), hasResponse) : null
+  const showSteps = open || !title
+  const windowed = streaming && showSteps
+
+  // 两个边沿：收尾收起、续写展开。只在 streaming 真的翻转时判一次——
+  // hasResponse 在思考与正文交错时会在流式中来回翻，不能拿它当触发源。
+  useEffect(() => {
+    const was = wasStreaming.current
+    wasStreaming.current = streaming
+    if (was === streaming) {
+      return
+    }
+    const state = { streaming, hasResponse, hasTitle: title !== null, touched: touched.current }
+    if (streaming) {
+      if (shouldExpandThinking(state)) {
+        setOpen(true)
+      }
+      return
+    }
+    if (shouldCollapseThinking(state)) {
+      setOpen(false)
+    }
+  }, [streaming, hasResponse, title])
+
+  // 内容变化后更新位置与渐隐。rAF 合帧：每帧读 scrollHeight 是强制布局，
+  // 流式时内容一秒变几十次，不能每次都读（0.4.1 修「滑动发黏」踩过同一个坑）。
+  useLayoutEffect(() => {
+    if (!windowed) {
+      return
+    }
+    const el = windowRef.current
+    if (!el) {
+      return
+    }
+    cancelAnimationFrame(frame.current)
+    frame.current = requestAnimationFrame(() => {
+      if (sticky.current) {
+        el.scrollTop = el.scrollHeight
+      }
+      syncEdges(el, setEdges)
+    })
+    return () => cancelAnimationFrame(frame.current)
+  }, [windowed, view.steps])
+
+  useEffect(() => {
+    if (!windowed) {
+      return
+    }
+    const el = windowRef.current
+    if (!el) {
+      return
+    }
+    const onScroll = () => {
+      sticky.current = el.scrollHeight - el.scrollTop - el.clientHeight <= STICKY_GAP
+      syncEdges(el, setEdges)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [windowed])
+
+  if (view.steps.length === 0 && !(message.thinking && streaming)) {
+    return null
+  }
   const stopped = !streaming && !hasResponse
+  const steps = view.steps.map((step, index) => (
+    <StepItem
+      key={stepKey(step, index)}
+      step={step}
+      message={message}
+      sources={view.sources}
+      streaming={streaming}
+      isLast={index === view.steps.length - 1}
+    />
+  ))
   return (
     <div className={styles.area}>
       {title ? (
-        <div className={styles.title} onClick={() => setOpen((value) => !value)}>
+        <button
+          type="button"
+          className={styles.title}
+          aria-expanded={open}
+          onClick={() => {
+            touched.current = true
+            setOpen((value) => !value)
+          }}
+        >
           <span className={clsx(styles.titleIcon, stopped && styles.stoppedIcon)}>
             <IconThinkOutline16 />
           </span>
           <span className={clsx(styles.titleText, titleActive && styles.shimmer)}>{title}</span>
           {open ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
-        </div>
+        </button>
       ) : null}
-      {open || !title ? (
-        <div className={styles.steps}>
-          {view.steps.map((step, index) => (
-            <StepItem
-              key={stepKey(step, index)}
-              step={step}
-              message={message}
-              sources={view.sources}
-              streaming={streaming}
-              isLast={index === view.steps.length - 1}
-            />
-          ))}
-        </div>
+      {showSteps ? (
+        windowed ? (
+          <div className={styles.windowBox}>
+            <div ref={windowRef} className={clsx(styles.steps, styles.window)}>
+              {steps}
+            </div>
+            {edges.top ? <span className={clsx(styles.fade, styles.fadeTop)} /> : null}
+            {edges.bottom ? <span className={clsx(styles.fade, styles.fadeBottom)} /> : null}
+          </div>
+        ) : (
+          <div className={styles.steps}>{steps}</div>
+        )
       ) : null}
     </div>
   )

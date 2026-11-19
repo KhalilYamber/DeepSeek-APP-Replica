@@ -2,12 +2,56 @@
   margin-bottom: 10px;
 }
 
+/* 流式中的思考窗口：限高（4 行 × 24px），超出内部滚动，靠 JS 贴底跟随。
+   只在流式时挂这个类，收尾后要么展开成全高、要么整个收起。 */
+.windowBox {
+  position: relative;
+}
+
+.window {
+  max-height: 96px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.window::-webkit-scrollbar {
+  display: none;
+}
+
+/* 上下渐隐：只有还有内容在视口外时才画，否则只有一行的内容也会被弄淡。
+   pointer-events 必须关掉，否则会挡住「已浏览 N 个网页」这类可点行。 */
+.fade {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 16px;
+  pointer-events: none;
+}
+
+.fadeTop {
+  top: 0;
+  background: linear-gradient(to bottom, var(--dsw-alias-bg-base), transparent);
+}
+
+.fadeBottom {
+  bottom: 0;
+  background: linear-gradient(to top, var(--dsw-alias-bg-base), transparent);
+}
+
 .title {
   display: flex;
   align-items: center;
+  width: 100%;
   height: 34px;
   margin-bottom: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   user-select: none;
   transition: color 0.2s;

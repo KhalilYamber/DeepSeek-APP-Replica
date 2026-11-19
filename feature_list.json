@@ -720,6 +720,28 @@
         "没改 appId（com.yang.adeepseek）——改了就是另一个应用；模型名、api.deepseek.com、SYSTEM_PROMPT 里那句「该助手为 DeepSeek」也没动。"
       ],
       "notes": "**passing 的依据**：桌面名由 APK 的 application-label 决定，这条从构建产物里读出来就是事实，不依赖设备。\n\n**已知未做**：桌面图标仍是 Capacitor 默认素材——用户看到的是「DS Echo + 默认图标」。换图标要出多套尺寸的 PNG，属另一件事。"
+    },
+    {
+      "id": "think-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "思考过程：流式收进小窗口，回答完自动收起",
+      "user_visible_behavior": "深度思考时，思考与工具步骤显示在一个约四行高的小窗口里，并自动跟到最新一行；回答结束后自动收起，只留「已思考（用时 N 秒）」一行，点一下能展开。历史对话默认收起。",
+      "status": "inferred",
+      "verification": [
+        "纯函数 8 条：收尾收起／用户点过不收／无正文不收／无标题不收／仍在流式不收；开流展开／点过不展开／无标题也展开",
+        "探针（390×844）：已完成消息默认收起、标题显示用时、点标题后思考出现 —— 5/5",
+        "六道门全绿（123 条测试）"
+      ],
+      "evidence": [
+        "2026-11-19：新增 `src/components/messages/thinkingPanel.ts`，把判据抽成纯函数 shouldCollapseThinking / shouldExpandThinking；`ReplyArea.tsx` 接状态机（open + touched），两个边沿只在 streaming 翻转时判一次。",
+        "为什么不能订阅 hasResponse：思考与正文交错时，正文会被顶进 steps、answer 变回 null，hasResponse 在流式中会来回翻。",
+        "小窗口：max-height 96px（4 行 × 24px）+ overflow-y auto + overscroll-behavior contain，rAF 合帧后贴底跟随；上下缘淡出用伪元素渐变（pointer-events: none），不用 mask——mask 会引入合成层，这个项目在老 GPU 上吃过亏。",
+        "无标题的工具步骤区永远展开：title 为 null 时 steps 不参与收起，否则「没开深度思考但有搜索」的回答会把工具行藏起来。",
+        "标题从 div 改成 button 并补 aria-expanded。",
+        "截图 `screenshots/thinking-collapsed.png`（收起）、`thinking-expanded.png`（展开）。"
+      ],
+      "notes": "**inferred：真机未验。** 能自动验的只有「已完成消息默认收起 / 点开」；**流式中的小窗口验不了**——`streaming` 来自 store 的 AbortController 表，塞一条静态消息造不出流式态。\n\n**已知取舍**：在小窗口里往上滚不会阻止收尾时的自动收起（只有点标题才算 touched）。\n\n**待真机看**：96px 在我们字号下是不是「四行」的观感；最上面一行的渐隐是否自然；嵌套滚动会不会和消息列表打架。"
     }
   ]
 }
