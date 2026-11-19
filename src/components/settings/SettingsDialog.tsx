@@ -727,21 +727,65 @@ const RELEASES_URL = 'https://github.com/KhalilYamber/DeepSeek-APP-Replica/relea
 
 /**
  * 版本号 + 检查更新。
- * 点了交给系统浏览器（Capacitor 对 target=_blank 的默认处理），由用户自己下载安装；
- * 不做应用内下载——那要多申请安装权限，还要自己的可达下载源，两样都还没有。
+ *
+ * 点「检查更新」先弹说明，再把用户交给浏览器：跳过去之后成没成、有没有浏览器，
+ * App 一律看不见（Capacitor 连 ActivityNotFoundException 都自己吞了），
+ * 所以只能事前讲清楚，并留「复制链接」这条退路。
  */
 const UpdateSetting = () => {
   const t = useTranslate()
+  const [open, setOpen] = useState(false)
+
+  const copy = () => {
+    const finish = (ok: boolean) => {
+      showToast(ok ? { key: 'settingsUpdateCopied' } : { key: 'settingsUpdateCopyFailed', type: 'error' })
+    }
+    if (navigator.clipboard?.writeText) {
+      void navigator.clipboard
+        .writeText(RELEASES_URL)
+        .then(() => finish(true))
+        .catch(() => finish(copyBySelection(RELEASES_URL)))
+      return
+    }
+    finish(copyBySelection(RELEASES_URL))
+  }
+
   return (
-    <SettingCell
-      label={`${t('settingsVersion')} ${appVersion()}`}
-      status={null}
-      action={
-        <a className={styles.updateLink} href={RELEASES_URL} target="_blank" rel="noreferrer">
-          {t('settingsCheckUpdate')}
-        </a>
-      }
-    />
+    <>
+      <SettingCell
+        label={`${t('settingsVersion')} ${appVersion()}`}
+        status={null}
+        action={
+          <button type="button" className={styles.updateLink} onClick={() => setOpen(true)}>
+            {t('settingsCheckUpdate')}
+          </button>
+        }
+      />
+      {open ? (
+        <Modal
+          title={t('settingsCheckUpdate')}
+          closable
+          onClose={() => setOpen(false)}
+          footer={
+            <>
+              <Button variant="outlined" onClick={copy}>
+                {t('settingsUpdateCopy')}
+              </Button>
+              <a className={styles.updatePrimary} href={RELEASES_URL} target="_blank" rel="noreferrer">
+                {t('settingsUpdateOpen')}
+              </a>
+            </>
+          }
+        >
+          <div className={styles.updatePanel}>
+            <p>{t('settingsUpdateIntro')}</p>
+            <p>{t('settingsUpdateNetwork')}</p>
+            <p>{t('settingsUpdateFallback')}</p>
+          </div>
+          <div className={styles.updateUrl}>{RELEASES_URL}</div>
+        </Modal>
+      ) : null}
+    </>
   )
 }
 

@@ -228,6 +228,16 @@ export const en = {
   reload: 'Reload',
   settingsVersion: 'Version',
   settingsCheckUpdate: 'Check for updates',
+  settingsUpdateIntro:
+    'This opens the GitHub download page in your browser — that page shows the latest version and the download button.',
+  settingsUpdateNetwork:
+    'GitHub is sometimes unreachable from mainland China. If nothing happens, it is usually the network, not the app.',
+  settingsUpdateFallback:
+    'If it will not open, tap "Copy link" and send the address to another device instead.',
+  settingsUpdateCopy: 'Copy link',
+  settingsUpdateOpen: 'Open',
+  settingsUpdateCopied: 'Link copied',
+  settingsUpdateCopyFailed: 'Copy failed — long-press the link below',
   settingsThinkingEnd: 'Thinking after reply',
   settingsThinkingEndCollapse: 'Collapse thinking',
   settingsThinkingEndExpand: 'Expand thinking',

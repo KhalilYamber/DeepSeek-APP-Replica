@@ -768,20 +768,21 @@
       "priority": 2,
       "area": "feature",
       "title": "设置里的版本号与「检查更新」",
-      "user_visible_behavior": "通用设置最底部有一行「版本 0.4.8」和「检查更新」；点了用系统浏览器打开 GitHub 的 Releases 页面，用户自己在浏览器里下载安装包。",
+      "user_visible_behavior": "通用设置最底部有一行「版本 0.4.9」和「检查更新」；点了先弹一个说明面板（会用浏览器打开 GitHub、打不开不是 App 坏了、给了复制链接这条退路），面板里再选「复制链接」或「去打开」。",
       "status": "inferred",
       "verification": [
-        "探针（390×844）7/7：链接存在且 href 指向 releases/latest、文案「检查更新」、target=_blank + rel=noreferrer、同行显示版本号、点击后当前页面没被导航走",
+        "探针（390×844）12/12：行上有按钮、同行显示版本号、面板文案齐全（含「不是 App 坏了」）、链接可见、「去打开」是 target=_blank + noreferrer 的链接、复制后有轻提示",
         "源码确认（Capacitor 8）：`Bridge.launchIntent()` 对任何非 App 域名、且不在 allowNavigation 里的 URL 直接 `Intent.ACTION_VIEW` 并吞掉导航；本项目没配 allowNavigation，所以 APK 里必然交给系统浏览器",
         "六道门全绿（122 条测试）"
       ],
       "evidence": [
-        "2026-11-19：`diagnostics.ts` 的 `appVersion()` 改成导出，设置页复用它——版本号与诊断信息同源，不会两处不一致。",
-        "2026-11-19：新增 `UpdateSetting`（SettingCell + 普通 `<a>`），放在位置信息之下、诊断信息之上；`.updateLink` 样式照 outlined 按钮写，避免多引一个组件。",
-        "选 `<a target=\"_blank\">` 而不是 Capacitor 的 Browser 插件：Capacitor 默认把外部链接交给系统浏览器，项目里 markdown 链接本来就这么开。",
-        "截图 `screenshots/settings-update-row-scrolled.png`（滚到最底部的那一屏）。"
+        "2026-11-19：`diagnostics.ts` 的 `appVersion()` 改成导出，设置页复用它——版本号与诊断信息同源。",
+        "2026-11-19（0.4.9）：行内控件从 `<a>` 改成 `<button>`，点击先开 `Modal` 说明面板；面板 footer 是「复制链接」（`Button` outlined）+「去打开」（`<a>` 走 primary 按钮的样式，仍是 target=_blank）。",
+        "为什么不能「事后报错」：跳转之后的事发生在浏览器里，App 看不见；Capacitor 把 `ActivityNotFoundException` 吞了（`// TODO - trigger an event`）。所以只能事前讲清楚 + 给退路。",
+        "复制走 `navigator.clipboard.writeText`，失败回落到文件里已有的 `copyBySelection`，两种都有轻提示；面板里同时显示完整链接（`user-select: all`），复制失败也能手动拿。",
+        "截图 `screenshots/settings-update-row-scrolled.png`（行）与 `settings-update-panel.png`（面板）。"
       ],
-      "notes": "**源码层面已确认**：Capacitor 的 `launchIntent()` 会把非 App 域名一律交给系统浏览器（`Intent.ACTION_VIEW`），本项目没配 `allowNavigation`，所以不会出现「困在没有地址栏的 WebView 里」。**仍缺真机那一眼**，但风险已经很低。\n\n**已知局限**：无代理用户大概率打不开 GitHub（页面可能转出来，但资产下载常被重置）。文案里刻意没写这一点，保持界面干净。\n\n**依赖**：`releases/latest` 指向的版本要跟得上发版节奏，否则用户点进去看到的是旧版。"
+      "notes": "**源码层面已确认**：Capacitor 的 `launchIntent()` 会把非 App 域名一律交给系统浏览器（`Intent.ACTION_VIEW`），本项目没配 `allowNavigation`，所以不会出现「困在没有地址栏的 WebView 里」。**仍缺真机那一眼**。\n\n**已知局限**：无代理用户大概率打不开 GitHub。0.4.9 起这一点写进了面板文案（写在这里比写在设置行合适——恰在用户要遇到困难的时候）。\n\n**依赖**：`releases/latest` 指向的版本要跟得上发版节奏，否则用户点进去看到的是旧版。"
     }
   ]
 }

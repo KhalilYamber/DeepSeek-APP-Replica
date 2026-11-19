@@ -593,3 +593,62 @@
     background-color: var(--dsw-alias-interactive-bg-hover);
   }
 }
+
+/* 同一个外观给 <button> 和 <a> 用：行内那是个按钮（先弹说明），面板里那个是链接（真去打开） */
+.updateLink {
+  background-color: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* 「去打开」：照 primary 按钮的样子写，但它是链接 */
+.updatePrimary {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 72px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 4096px;
+  background-color: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--ds-transition-duration) var(--ds-ease-in-out);
+
+  &:hover {
+    background-color: var(--dsw-alias-button-primary-hover);
+  }
+}
+
+.updatePanel {
+  & p {
+    margin: 0 0 12px;
+  }
+
+  & p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.updateUrl {
+  margin-top: 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: var(--dsw-alias-bg-layer-3);
+  color: var(--dsw-alias-label-secondary);
+  font:
+    12px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  word-break: break-all;
+  user-select: all;
+}

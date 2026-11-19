@@ -516,3 +516,21 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 已知局限：无代理用户大概率打不开 GitHub；文案里刻意没写
 - 更新过的文件或工件：`src/components/settings/SettingsDialog.tsx`、`Settings.module.css`、`src/services/diagnostics.ts`、`src/i18n/{zh,en}.ts`、`_probe/update-link.mjs`（新）、`package.json`（0.4.8）、`CHANGELOG.md`、`feature_list.json`（`update-001`）、本文件
 - 下一步最佳动作：真机点一次「检查更新」；然后按需改 release 说明或补发后续版本
+
+### Session 021
+
+- 日期：2026-11-19
+- 本轮目标：给「检查更新」加出错防御——先弹说明面板再跳转；版本 → **0.4.9**
+- 用户定的口径：放进 0.4.9；**不做**「点完再弹一个已交给浏览器」的二次打扰；文案说白话
+- 已完成：
+  - 行内控件 `<a>` → `<button>`，点击开 `Modal` 说明面板（复用诊断信息那套弹窗，`closable`）
+  - 面板文案三段：会打开 GitHub 下载页 / 国内有时打不开、不是 App 坏了 / 打不开就复制链接去别处下
+  - footer：「复制链接」（outlined Button，clipboard 失败回落 `copyBySelection`，两种都给轻提示）+「去打开」（`<a>` 套 primary 按钮样式，`target=_blank`）
+  - 面板里显示完整链接（`user-select: all`），复制失败也能手动拿
+  - CSS：`.updateLink` 兼容 button、新增 `.updatePrimary` / `.updatePanel` / `.updateUrl`
+- 运行过的验证：
+  - 新探针 `_probe/update-link.mjs` **12/12**（行、面板文案、链接可见、target、复制提示）；截图 `settings-update-row-scrolled.png`、`settings-update-panel.png`
+  - 六道门全绿（122 条测试）
+- **未验证**：真机上点「去打开」是否真的进系统浏览器（源码已确认机制，但仍缺那一眼）
+- 更新过的文件或工件：`SettingsDialog.tsx`、`Settings.module.css`、`i18n/{zh,en}.ts`、`_probe/update-link.mjs`、`package.json`（0.4.9）、`CHANGELOG.md`、`feature_list.json`（`update-001`）、本文件
+- 下一步最佳动作：装 0.4.9，点「检查更新」看面板，再点「去打开」确认进浏览器

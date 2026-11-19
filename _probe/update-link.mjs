@@ -1,4 +1,4 @@
-// 探针：设置里的「版本 + 检查更新」有没有正确渲染、链接指向对不对。
+// 探针：设置里的「版本 + 检查更新」——行、说明面板、复制链接、去打开的链接。
 // 用法：先 pnpm build，再 node _probe/update-link.mjs
 import { spawn } from 'node:child_process'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
@@ -15,11 +15,11 @@ const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const PORT = 9574
 const WEB_PORT = 8140
 const PROFILE = join(tmpdir(), 'update-probe-profile')
-const SHOT = join(REPO, 'screenshots', 'settings-update-row.png')
+const SHOTS = join(REPO, 'screenshots')
 const RELEASES = 'https://github.com/KhalilYamber/DeepSeek-APP-Replica/releases/latest'
 
 await rm(PROFILE, { recursive: true, force: true })
-await mkdir(join(REPO, 'screenshots'), { recursive: true })
+await mkdir(SHOTS, { recursive: true })
 
 const server = spawn(process.execPath, [join(REPO, 'tools/serve.mjs'), join(REPO, 'dist'), String(WEB_PORT)], {
   cwd: REPO,
@@ -95,12 +95,24 @@ const waitFor = async (expression, timeoutMs = 10000) => {
   }
   return -1
 }
+const shot = async (name) => {
+  const res = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+  await writeFile(join(SHOTS, name), Buffer.from(res.result.data, 'base64'))
+}
 
 const results = []
 const check = (name, ok, detail = '') => {
   results.push(ok)
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`)
 }
+const bodyHas = (text) => `(document.body.textContent || '').indexOf(${JSON.stringify(text)}) >= 0`
+const clickByText = (text) => `(function () {
+  var nodes = document.querySelectorAll('button')
+  for (var i = 0; i < nodes.length; i++) {
+    if ((nodes[i].textContent || '').trim() === ${JSON.stringify(text)}) { nodes[i].click(); return true }
+  }
+  return false
+})()`
 
 try {
   await send('Page.enable')
@@ -117,15 +129,7 @@ try {
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
   await sleep(600)
 
-  // 没填过 Key 时设置弹窗会自动打开；切到「通用设置」
-  const tabbed = await evaluate(`(function () {
-    var nodes = document.querySelectorAll('button')
-    for (var i = 0; i < nodes.length; i++) {
-      if ((nodes[i].textContent || '').trim() === '通用设置') { nodes[i].click(); return true }
-    }
-    return false
-  })()`)
-  check('切到「通用设置」', tabbed)
+  check('切到「通用设置」', await evaluate(clickByText('通用设置')))
   await sleep(400)
 
   const version = await evaluate(
@@ -136,56 +140,55 @@ try {
   )
   check('页面里能读到版本号', typeof version === 'string' && version.length > 0, version)
 
-  const info = await evaluate(`(function () {
-    var links = document.querySelectorAll('a')
-    for (var i = 0; i < links.length; i++) {
-      if (links[i].getAttribute('href') === ${JSON.stringify(RELEASES)}) {
-        return {
-          text: (links[i].textContent || '').trim(),
-          target: links[i].getAttribute('target'),
-          rel: links[i].getAttribute('rel'),
-          row: (links[i].closest('div') || {}).textContent || ''
-        }
+  const row = await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '检查更新') {
+        return { row: (nodes[i].closest('div') || {}).textContent || '' }
       }
     }
     return null
   })()`)
-  check('「检查更新」链接存在且指向 releases/latest', info !== null)
-  check('链接文案是「检查更新」', info?.text === '检查更新', info?.text)
-  check('在新窗口打开（交给系统浏览器）', info?.target === '_blank' && (info?.rel || '').includes('noreferrer'))
-  check('同一行显示了版本号', (info?.row || '').includes(version || 'x'), info?.row?.slice(0, 40))
+  check('行上有「检查更新」按钮', row !== null)
+  check('同一行显示版本号', (row?.row || '').includes(version || 'x'), (row?.row || '').slice(0, 30))
 
-  // 点一下：网页版会新开标签页，这里只确认点击没把当前页导航走
-  const before = await evaluate('location.pathname')
+  // 滚到底拍一张：这一行在设置页最底部
   await evaluate(`(function () {
-    var links = document.querySelectorAll('a')
-    for (var i = 0; i < links.length; i++) {
-      if (links[i].getAttribute('href') === ${JSON.stringify(RELEASES)}) { links[i].click(); return true }
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '检查更新') { nodes[i].scrollIntoView({ block: 'center' }); return }
     }
-    return false
   })()`)
-  await sleep(800)
-  const after = await evaluate('location.pathname')
-  check('点击后当前页面没有被导航走', before === after, `${before} → ${after}`)
+  await sleep(400)
+  await shot('settings-update-row-scrolled.png')
 
-  const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
-  await writeFile(SHOT, Buffer.from(shot.result.data, 'base64'))
-  console.log(`截图：${SHOT}`)
+  // 点开说明面板
+  check('点了「检查更新」', await evaluate(clickByText('检查更新')))
+  const panel = await waitFor(bodyHas('接下来会用浏览器打开 GitHub 的下载页'))
+  check('弹出说明面板（讲了会发生什么）', panel >= 0)
+  check('提到了打不开不是 App 坏了', await evaluate(bodyHas('不是 App 坏了')))
+  check('给了「复制链接」这条退路', await evaluate(bodyHas('复制链接')))
+  check('面板里能看到链接本身', await evaluate(bodyHas(RELEASES)))
 
-  // 再滚到「检查更新」那一行拍一张：它在设置页最底部
-  await evaluate(`(function () {
+  const openLink = await evaluate(`(function () {
     var links = document.querySelectorAll('a')
     for (var i = 0; i < links.length; i++) {
       if (links[i].getAttribute('href') === ${JSON.stringify(RELEASES)}) {
-        links[i].scrollIntoView({ block: 'center' })
-        return true
+        return { text: (links[i].textContent || '').trim(), target: links[i].getAttribute('target'), rel: links[i].getAttribute('rel') }
       }
     }
-    return false
+    return null
   })()`)
-  await sleep(500)
-  const shot2 = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
-  await writeFile(SHOT.replace('.png', '-scrolled.png'), Buffer.from(shot2.result.data, 'base64'))
+  check('「去打开」是链接且指向 releases/latest', openLink !== null, openLink?.text)
+  check('「去打开」在新窗口打开', openLink?.target === '_blank' && (openLink?.rel || '').includes('noreferrer'))
+  await shot('settings-update-panel.png')
+
+  // 复制链接：剪贴板不通也要有提示
+  await evaluate(clickByText('复制链接'))
+  const toast = await waitFor(
+    `(document.body.textContent || '').indexOf('链接已复制') >= 0 || (document.body.textContent || '').indexOf('复制失败') >= 0`
+  )
+  check('复制后给了提示（成功或失败都有话说）', toast >= 0)
 } finally {
   ws.close()
   chrome.kill()
