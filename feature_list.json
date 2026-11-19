@@ -772,6 +772,7 @@
       "status": "inferred",
       "verification": [
         "探针（390×844）7/7：链接存在且 href 指向 releases/latest、文案「检查更新」、target=_blank + rel=noreferrer、同行显示版本号、点击后当前页面没被导航走",
+        "源码确认（Capacitor 8）：`Bridge.launchIntent()` 对任何非 App 域名、且不在 allowNavigation 里的 URL 直接 `Intent.ACTION_VIEW` 并吞掉导航；本项目没配 allowNavigation，所以 APK 里必然交给系统浏览器",
         "六道门全绿（122 条测试）"
       ],
       "evidence": [
@@ -780,7 +781,7 @@
         "选 `<a target=\"_blank\">` 而不是 Capacitor 的 Browser 插件：Capacitor 默认把外部链接交给系统浏览器，项目里 markdown 链接本来就这么开。",
         "截图 `screenshots/settings-update-row-scrolled.png`（滚到最底部的那一屏）。"
       ],
-      "notes": "**inferred：真机未验点击行为。** 要装 0.4.8 点一下确认真的进系统浏览器；若变成 WebView 内导航，用户会困在没有地址栏的页面里，那时要改接 `@capacitor/browser`。\n\n**已知局限**：无代理用户大概率打不开 GitHub（页面可能转出来，但资产下载常被重置）。文案里刻意没写这一点，保持界面干净。\n\n**依赖**：`releases/latest` 指向的版本要跟得上发版节奏，否则用户点进去看到的是旧版。"
+      "notes": "**源码层面已确认**：Capacitor 的 `launchIntent()` 会把非 App 域名一律交给系统浏览器（`Intent.ACTION_VIEW`），本项目没配 `allowNavigation`，所以不会出现「困在没有地址栏的 WebView 里」。**仍缺真机那一眼**，但风险已经很低。\n\n**已知局限**：无代理用户大概率打不开 GitHub（页面可能转出来，但资产下载常被重置）。文案里刻意没写这一点，保持界面干净。\n\n**依赖**：`releases/latest` 指向的版本要跟得上发版节奏，否则用户点进去看到的是旧版。"
     }
   ]
 }
