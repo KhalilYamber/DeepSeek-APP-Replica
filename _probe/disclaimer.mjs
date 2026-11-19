@@ -180,6 +180,17 @@ try {
   await sleep(500)
   await evaluate(clickText('通用设置'))
   await sleep(400)
+  // 把「使用前须知」那行滚进视野拍一张，人眼确认位置与文案
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '查看') { nodes[i].scrollIntoView({ block: 'center' }); return true }
+    }
+    return false
+  })()`)
+  await sleep(400)
+  const rowShot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+  await writeFile(join(REPO, 'screenshots', 'disclaimer-settings-row.png'), Buffer.from(rowShot.result.data, 'base64'))
   const row = await evaluate(`(function () {
     var nodes = document.querySelectorAll('button')
     for (var i = 0; i < nodes.length; i++) {
@@ -190,6 +201,33 @@ try {
   check('设置里有「使用前须知」的查看按钮', row)
   const reopened = await waitFor(bodyHas('不是官方 App'))
   check('点「查看」能重新打开须知', reopened >= 0)
+
+  // ---- 老用户路径：已经有 API Key，点掉须知后不该再弹设置 ----
+  await evaluate(`(function () {
+    localStorage.setItem('chat-demo:api-key', 'sk-probe-not-real')
+    localStorage.removeItem('chat-demo:disclaimer-ack')
+  })()`)
+  await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
+  await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  check('（老用户）升级后仍然弹一次须知', (await waitFor(bodyHas('不是官方 App'))) >= 0)
+  await evaluate(clickText('我知道了'))
+  await sleep(700)
+  const dialogAfter = await evaluate(`document.querySelector('[role="dialog"]') !== null`)
+  check('（老用户）已经有 Key，点掉后不再弹设置', dialogAfter === false)
+
+  // ---- 英文界面：同一个弹窗要跟着语言走 ----
+  await evaluate(`(function () {
+    localStorage.removeItem('chat-demo:api-key')
+    localStorage.removeItem('chat-demo:disclaimer-ack')
+    localStorage.setItem('chat-demo:locale', 'en-US')
+  })()`)
+  await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
+  await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  check('（英文）弹出 Before you start', (await waitFor(bodyHas('Before you start'))) >= 0)
+  check('（英文）文案是英文', await evaluate(bodyHas('Not an official app')))
+  check('（英文）按钮是 Got it', await evaluate(bodyHas('Got it')))
+  const enShot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+  await writeFile(join(REPO, 'screenshots', 'disclaimer-en.png'), Buffer.from(enShot.result.data, 'base64'))
 } finally {
   ws.close()
   chrome.kill()
