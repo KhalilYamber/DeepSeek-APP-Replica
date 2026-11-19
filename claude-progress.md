@@ -11,12 +11,13 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 仓库根：`D:\GitHub_place\projects\DeepSeek 复刻APP\chat-demo`（git 仓库，remote 指向 GitHub `KhalilYamber/DeepSeek-APP-Replica`）
 - 标准启动路径：`./init.ps1`（依赖同步 + 六道门：type / lint / test / build / 产物齐全 / 内核兼容）
 - 标准验证路径：`pnpm test`；完整跑 `./init.ps1`
-- 当前最高优先级未完成功能：无（12 条：7 条 passing、5 条 inferred，无 open）
+- 当前功能账：33 条（verified 6 / passing 7 / inferred 20，无 open）
 - 当前 blocker：无
-- 已发布：**v0.4.1**（2026-11-18）。Release 含 `DeepSeek-APP-Replica-0.4.1-debug.apk`（6,379,811 字节，SHA256 `A6E8CA48…15AB3CF4`），CI run 44334050643 全绿。修掉 0.4.0 兜底页在正常设备上误报（量 `#root` 高度判断渲染，而 `.frame` 是 absolute 定位、`#root` 高度恒 0）；带上滑动性能与深色主题修复；网页版历史搜索与头像一并发布
+- 未发布：**0.4.2**（2026-11-19，versionCode 402）。修掉真机白屏的根因——`var()` 兜底里的 `100dvh` 在旧内核上让整条 `height` 失效、根容器塌成 0；高度改由 JS 每秒写内联像素值。**已在 OPPO A58 真机复验：界面正常**。本地包 `release/DeepSeek-APP-Replica-0.4.2-defense-20261119-debug.apk`；未打 tag、未发 GitHub Release
+- 已发布：**v0.4.1**（2026-11-18）。Release 含 `DeepSeek-APP-Replica-0.4.1-debug.apk`（6,379,811 字节，SHA256 `A6E8CA48…15AB3CF4`），CI run 44334050643 全绿。修掉 0.4.0 兜底页在正常设备上误报（量 `#root` 高度判断渲染，而 `.frame` 是 absolute 定位、`#root` 高度恒 0）；带上滑动性能与深色主题修复；网页版历史搜索与头像一并发布。**注意：这一版在「不认 dvh」的内核上仍会整屏空白，已在 0.4.2 修掉**
 - 已发布：**v0.4.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.4.0-debug.apk`（6,376,387 字节，SHA256 `CAD2EC32…80424AF`），CI run 44068960454 全绿。版本号 0.3.0 → 0.4.0（versionCode 400）。**注意：这一版的兜底页有误报缺陷，已在 0.4.1 修掉**
 - 已发布：**v0.3.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.3.0-debug.apk`（6,344,320 字节），CI run 44029554535 全绿——含「内核兼容」步的首个真实运行（日志：`error 0 / hint 0 / info 9 / 豁免 0`）
-- CI：GitHub Actions 已生效，push 到 `main` 即跑，链路已含「内核兼容」一步（最近一次全绿 run 43841705481 早于本轮新增的 scan 步，下次 push 才是首个含它的 run）
+- CI：push 到 `main` 即跑六道门（与本地 `./init.ps1` 同一条链路），通过后把同一份 `dist` 发布到 Pages；本机验证仍以 `./init.ps1` 为准
 
 ## 会话记录
 
