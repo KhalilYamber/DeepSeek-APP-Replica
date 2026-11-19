@@ -11,9 +11,11 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 仓库根：`D:\GitHub_place\projects\DeepSeek 复刻APP\chat-demo`（git 仓库，remote 指向 GitHub `KhalilYamber/DeepSeek-APP-Replica`）
 - 标准启动路径：`./init.ps1`（依赖同步 + 六道门：type / lint / test / build / 产物齐全 / 内核兼容）
 - 标准验证路径：`pnpm test`；完整跑 `./init.ps1`
-- 当前功能账：33 条（verified 6 / passing 7 / inferred 20，无 open）
+- 当前功能账：34 条（verified 6 / passing 8 / inferred 20，无 open）
 - 当前 blocker：无
-- 未发布：**0.4.2**（2026-11-19，versionCode 402）。修掉真机白屏的根因——`var()` 兜底里的 `100dvh` 在旧内核上让整条 `height` 失效、根容器塌成 0；高度改由 JS 每秒写内联像素值。**已在 OPPO A58 真机复验：界面正常**。本地包 `release/DeepSeek-APP-Replica-0.4.2-defense-20261119-debug.apk`；未打 tag、未发 GitHub Release
+- 应用显示名：**DS Echo**（0.4.3 起；仓库名与 `appId` 不变，见 ARCHITECTURE 决策 23）
+- 未发布：**0.4.3**（2026-11-19，versionCode 403）。应用改名为 DS Echo（桌面名、应用内标题、网页标签页三处统一）；APK 内打开「历史对话搜索」。本地包 `release/DS-Echo-0.4.3-20261119-debug.apk`；未打 tag、未发 GitHub Release
+- 未发布（被 0.4.3 取代）：0.4.2 —— 白屏真根因修复（`var()` 兜底里的 `100dvh` 让整条 `height` 失效、根容器塌成 0），高度改由 JS 每秒写内联像素值。**已在 OPPO A58 真机复验：界面正常**
 - 已发布：**v0.4.1**（2026-11-18）。Release 含 `DeepSeek-APP-Replica-0.4.1-debug.apk`（6,379,811 字节，SHA256 `A6E8CA48…15AB3CF4`），CI run 44334050643 全绿。修掉 0.4.0 兜底页在正常设备上误报（量 `#root` 高度判断渲染，而 `.frame` 是 absolute 定位、`#root` 高度恒 0）；带上滑动性能与深色主题修复；网页版历史搜索与头像一并发布。**注意：这一版在「不认 dvh」的内核上仍会整屏空白，已在 0.4.2 修掉**
 - 已发布：**v0.4.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.4.0-debug.apk`（6,376,387 字节，SHA256 `CAD2EC32…80424AF`），CI run 44068960454 全绿。版本号 0.3.0 → 0.4.0（versionCode 400）。**注意：这一版的兜底页有误报缺陷，已在 0.4.1 修掉**
 - 已发布：**v0.3.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.3.0-debug.apk`（6,344,320 字节），CI run 44029554535 全绿——含「内核兼容」步的首个真实运行（日志：`error 0 / hint 0 / info 9 / 豁免 0`）
@@ -409,3 +411,25 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - iOS Safari 未验
 - 更新过的文件或工件：`src/components/sider/Sider.tsx`、`src/components/sider/SearchBox.tsx`、`test/sider-search.test.ts`（新）、`_probe/sider-search.mjs`（新）、`package.json`（0.4.3）、`CHANGELOG.md`、`feature_list.json`（`web-001` 改为「网页版 + APK」）、本文件
 - 下一步最佳动作：把 0.4.3 装到 A58 上，走一遍「打开抽屉 → 搜一个以前聊过的词 → 点结果」，确认抽屉会收起、会话能切过去
+
+### Session 016
+
+- 日期：2026-11-19
+- 本轮目标：应用改名——从 0.4.3 起不再叫「DeepSeek」「API 使用 demo」，正式叫 **DS Echo**
+- 已完成：
+  - 三处同步：`android/app/src/main/res/values/strings.xml`（`app_name` / `title_activity_main`）、`i18n` 的 `appName`（中英）、`src/index.html` 的 `<title>`
+  - `capacitor.config.ts` 的 `appName` 同步改，供将来重建工程用
+  - `strings.xml` 是 `cap sync` **不会重写**的文件（只在 `cap add` 时生成一次），属决策 8 的手改例外 → 登记 `ARCHITECTURE.md` 决策 23
+  - README 顶部加一行：应用显示名 DS Echo，仓库名与 `appId` 不变
+  - APK 文件名与桌面交付名改为 `DS-Echo-0.4.3-20261119-debug.apk`
+- 运行过的验证：
+  - `aapt2 dump badging` → `application-label: 'DS Echo'`，versionCode 403 / versionName 0.4.3
+  - APK 内 `assets/public/index.html` 的 `<title>` 也是 DS Echo
+  - 六道门全绿（115 条测试）；CI run 44456899754 success
+- 复审（同一轮内）发现并修掉：`docs/使用说明.md` 被改名弄出四处事实错误（标题、更新日期、APK 文件名、「桌面出现 DeepSeek 图标」），并把商标那段改写成现状（名字已避开商标、图标仍是默认素材）
+- **未做**：
+  - 桌面图标仍是 Capacitor 默认素材，用户看到的是「DS Echo + 默认图标」
+  - 导出文件名仍是 `deepseek_data-*.zip`（沿用官方导出格式命名，导入不看文件名）
+  - 模型名、`api.deepseek.com`、`SYSTEM_PROMPT` 里那句「该助手为 DeepSeek」都没动——那是被调用模型的身份
+- 更新过的文件或工件：`android/app/src/main/res/values/strings.xml`、`capacitor.config.ts`、`src/i18n/zh.ts`、`src/i18n/en.ts`、`src/index.html`、`README.md`、`docs/使用说明.md`、`ARCHITECTURE.md`、`CHANGELOG.md`、`feature_list.json`（`brand-001`）、本文件
+- 下一步最佳动作：装 0.4.3 到 A58，确认桌面名变成 DS Echo、搜索能用；**A58x 仍未复验**
