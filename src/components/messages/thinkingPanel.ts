@@ -16,14 +16,22 @@ export type ThinkingOpenInput = {
   /** 用户对这条消息的手动选择；没点过就是 undefined */
   override: boolean | undefined
   streaming: boolean
+  /** 这一轮是否已经有正文；用户点停止或出错时没有——那时不该把思考收起来 */
+  hasResponse: boolean
   end: ThinkingEnd
 }
 
-export const resolveThinkingOpen = ({ override, streaming, end }: ThinkingOpenInput): boolean => {
+export const resolveThinkingOpen = ({
+  override,
+  streaming,
+  hasResponse,
+  end,
+}: ThinkingOpenInput): boolean => {
   if (override !== undefined) {
     return override
   }
-  if (streaming) {
+  // 没有正文（用户停止、请求出错、或只产生了思考）：收起来就什么都不剩了
+  if (streaming || !hasResponse) {
     return true
   }
   return end === 'expand'

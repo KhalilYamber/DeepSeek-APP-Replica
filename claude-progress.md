@@ -14,7 +14,7 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 当前功能账：36 条（verified 6 / passing 8 / inferred 22，无 open）
 - 当前 blocker：无
 - 应用显示名：**DS Echo**（0.4.3 起；仓库名与 `appId` 不变，见 ARCHITECTURE 决策 23）
-- 未发布：**0.4.6**（2026-11-19，versionCode 406）。设置新增「思考结束后：收起思考 / 展开思考」+ 按消息 id 记住手动展开状态；本地包 `release/DS-Echo-0.4.6-20261119-debug.apk`；未打 tag、未发 GitHub Release
+- 未发布：**0.4.7**（2026-11-19，versionCode 407）。设置新增「思考结束后：收起思考 / 展开思考」+ 按消息 id 记住手动展开状态；本地包 `release/DS-Echo-0.4.7-20261119-debug.apk`；未打 tag、未发 GitHub Release
 - 未发布（本轮中间版本）：0.4.2–0.4.5 都只在本地构建过。依次是：白屏真根因修复（**已在 OPPO A58 真机复验**）、改名 DS Echo、APK 内历史搜索、APK 内头像、思考小窗口 + 自动收起（**已真机验收：效果符合预期**）
 - 已发布：**v0.4.1**（2026-11-18）。Release 含 `DeepSeek-APP-Replica-0.4.1-debug.apk`（6,379,811 字节，SHA256 `A6E8CA48…15AB3CF4`），CI run 44334050643 全绿。修掉 0.4.0 兜底页在正常设备上误报（量 `#root` 高度判断渲染，而 `.frame` 是 absolute 定位、`#root` 高度恒 0）；带上滑动性能与深色主题修复；网页版历史搜索与头像一并发布。**注意：这一版在「不认 dvh」的内核上仍会整屏空白，已在 0.4.2 修掉**
 - 已发布：**v0.4.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.4.0-debug.apk`（6,376,387 字节，SHA256 `CAD2EC32…80424AF`），CI run 44068960454 全绿。版本号 0.3.0 → 0.4.0（versionCode 400）。**注意：这一版的兜底页有误报缺陷，已在 0.4.1 修掉**
@@ -492,8 +492,9 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - `thinkingPanel.ts`：判据从「收尾该不该收起」改成 `resolveThinkingOpen` 三级回落（手动 → 流式 → 设置）；`ReplyArea` 因此**删掉 `useState(open)`、`touched`、`wasStreaming` 与两个边沿 effect**
   - 设置页加 `ThinkingEndSetting`（照「语言」那行：SettingCell + Select），位置在朗读音色与头像之间；中英各 3 个词条
 - 运行过的验证：
-  - 六道门全绿（**129 条测试**；`thinking-panel.test.ts` 重写成 6 条）
+  - 六道门全绿（**121 条测试**；`thinking-panel.test.ts` 重写成 6 条）
   - `_probe/thinking-collapse.mjs` **10/10**：默认收起、点标题展开、**切走再回来保持**、设置=展开时新消息默认展开、设置改回后手动记录不受影响
 - **未验证**：真机（流式小窗口那几条依旧只能真机；设置行的排版也要看一眼）
 - 更新过的文件或工件：`src/services/settings.ts`、`src/services/thinkingOpen.ts`（新）、`src/components/messages/thinkingPanel.ts`、`ReplyArea.tsx`、`src/components/settings/SettingsDialog.tsx`、`src/i18n/zh.ts`、`src/i18n/en.ts`、`test/thinking-panel.test.ts`、`_probe/thinking-collapse.mjs`、`package.json`（0.4.6）、`CHANGELOG.md`、`feature_list.json`（`think-002`，`think-001` 加交叉引用）、本文件
-- 下一步最佳动作：装 0.4.6，先看设置里那行（位置/文案/下拉），再验「手动收起一条 → 切走再回来」和「设置改成展开 → 新回答是否展开」
+- 复审（同日，→ 0.4.7）：查出 0.4.6 丢了 0.4.5 的一条规则——**没有正文时不收起**（用户点停止 / 请求出错时）。简化成三级回落时把 `hasResponse` 这一项漏了，导致默认收起下"一点停止，思考立刻被收起来"。已在 0.4.7 补回，测试 6→7 条（总 **122**）。顺带修正：上一轮我记成"129 条"，实际是 121 条
+- 下一步最佳动作：装 0.4.7，先看设置里那行（位置/文案/下拉），再验「手动收起一条 → 切走再回来」和「设置改成展开 → 新回答是否展开」

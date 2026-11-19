@@ -88,7 +88,12 @@ export const ReplyArea = memo(function ReplyArea({
   // 流式一结束，第二项自动失效，结果就落回设置值。
   const override = useThinkingOpen((state) => state.overrides[message.id])
   const thinkingEnd = useSettings((state) => state.thinkingEnd)
-  const open = resolveThinkingOpen({ override, streaming, end: thinkingEnd })
+  const open = resolveThinkingOpen({
+    override,
+    streaming,
+    hasResponse,
+    end: thinkingEnd,
+  })
   // 小窗口只在流式中出现：贴底跟随最新一行，滚离底部就不再拽回来
   const windowRef = useRef<HTMLDivElement>(null)
   const sticky = useRef(true)
