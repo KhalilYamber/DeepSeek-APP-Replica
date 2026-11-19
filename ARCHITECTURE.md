@@ -329,6 +329,8 @@ APK（使用者拿自己的 API Key 运行）
 
 **为什么值得写下来**：这个 bug 连过两轮「修复」都没被发现，因为**验证环境永远是支持 `dvh` 的 Chrome 157**。以后凡是「单位 / 特性的兜底」，都要问一句：在不支持它的环境里，这条声明的最终结果是什么？并且在 headless 里用一个假单位把机制验掉。
 
+**2026-11-19 真机复验**：OPPO A58 装 0.4.2 后界面正常显示——根因确认，修法有效。
+
 ## 尚未决策（悬空）
 
 - **项目命名**：目录 `DeepSeek 复刻APP` / remote `DeepSeek-APP-Replica` / `package.json` name `chat-demo` / README 标题 `DeepSeek APP Replica`。四处不统一，`package.json` 未改。改不改、改成什么，待定。
