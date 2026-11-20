@@ -161,6 +161,8 @@ cd android
 | `src/components/session/SessionView.tsx` / `Welcome.tsx` | 挂状态栏（0.4.13） |
 | `src/services/api/client.ts` | `verifyApiKey` 带回 `/models` 数据（0.4.13） |
 | `src/services/chat/reply.ts` | usage 两段合并，后到的 0 不覆盖先到的输入（0.4.13） |
+| `src/components/settings/SettingsDialog.tsx` | 导出按钮在导出期间显示「导出中...」（0.4.14） |
+| `src/services/balance.ts` | 余额请求加 8 秒超时，加载态不再永挂（0.4.14） |
 
 ### 工具
 

@@ -619,3 +619,21 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   5. **`measure-layout` 基线是旧版工具写的**（缺 800x480、1024x600 两档），重存后才一致
 - 更新过的文件或工件：见提交 `feat: 裸 LaTeX 识别…` 与 `feat: 标题栏下新增状态栏…`；`package.json`（0.4.13）、`CHANGELOG.md`、`feature_list.json`（math-001/002、code-001、usage-001）、`tools/layout-baseline.json`、本文件
 - 下一步最佳动作：打 0.4.13 debug 包，装 A58 看状态栏与公式；旧会话圆环显示 `--` 是预期
+
+### Session 026
+
+- 日期：2026-11-20
+- 本轮目标：0.4.14 —— 加载态收敛（余额超时、上限加载态、导出反馈）
+- 已完成：
+  - `services/balance.ts`：`fetchBalance` 加 8 秒 `AbortController` 超时，`clearTimeout` 放在 `finally`，覆盖到 `response.json()` 读完
+  - `components/session/UsageBar.tsx`：新增 `limitLoading`；没有用量时优先 `--`，加载中才 `…`；余额与百分比加 `data-role` 供探针定位
+  - `components/settings/SettingsDialog.tsx`：导出按钮 `busy` 时文案变「导出中...」
+  - `i18n/{zh,en}.ts`：新增 `exportAllExporting`
+- 运行过的验证：
+  - `pnpm type` / `pnpm lint` / `pnpm build` 全绿
+  - `_probe/usage-bar.mjs` **8/8**：新增阶段 2，用 CDP 的 Fetch 域挂起 `api.deepseek.com`，9 秒后断言余额与圆环都收敛到 `--`
+  - `./init.ps1` 六道门 error 0 / hint 1 / info 9
+- **未验证**：真机（A58 上超时期间的观感）
+- 取舍：**图片骨架底色不做**——本地 blob 解码通常 <50ms，骨架看不见；给容器加底色会让透明 PNG 透出灰底
+- 更新过的文件或工件：`balance.ts`、`UsageBar.tsx`、`SettingsDialog.tsx`、`i18n/{zh,en}.ts`、`_probe/usage-bar.mjs`、`package.json`（0.4.14）、`CHANGELOG.md`、`feature_list.json`（`loading-001`）、本文件
+- 下一步最佳动作：真机验一眼；再往后只剩「首屏骨架」与「附件上传进度」两个大件，都属于要单独评估性能的范畴

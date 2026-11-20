@@ -912,6 +912,24 @@
         "2026-11-20：`GET /models` 的 `context_window` 按当前模型 id 匹配，缓存 24 小时；拿不到就只显示已用 token，不猜上限。"
       ],
       "notes": "**inferred：真机未验**（A58 上状态栏高度与余额请求的实际观感未看）。\n\n旧会话（0.4.12 及之前）没有 usage，圆环显示 `--`，发一条新消息后才有数字。\n\n**布局基线重存**：新增 32px 固定栏改变了 10 档几何基线，这是预期变化；基线取自 2026-11-20T09:48Z。"
+    },
+    {
+      "id": "loading-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "加载态能收敛：余额超时、上限加载态、导出反馈",
+      "user_visible_behavior": "网络不通时余额最多 8 秒从 … 变成 --，不会永久转圈；上下文上限拉取期间圆环显示 …；导出全部对话时按钮文字变「导出中...」。",
+      "status": "passing",
+      "verification": [
+        "探针 `_probe/usage-bar.mjs` 8/8，其中两条用 CDP Fetch 域挂起 api.deepseek.com 的请求，9 秒后断言余额与圆环都收敛到 --",
+        "六道门全绿（156 条测试）"
+      ],
+      "evidence": [
+        "2026-11-20：`fetchBalance` 加 8 秒 AbortController 超时，`clearTimeout` 放在 finally，覆盖到 response.json() 读完。",
+        "2026-11-20：`UsageBar` 新增 limitLoading；没有用量时优先显示 --，加载中才显示 …。",
+        "2026-11-20：导出按钮 busy 时文字改「导出中...」，新增 exportAllExporting 词条。"
+      ],
+      "notes": "**图片骨架底色刻意不做**：图片来自本地 IndexedDB 的 blob，解码通常 <50ms，骨架看不见；给容器加底色还会让透明 PNG 透出灰底。"
     }
   ]
 }
