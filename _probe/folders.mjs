@@ -203,19 +203,6 @@ try {
     return true
   })()`)
   await sleep(500)
-  const menuInfo = await evaluate(`(function () {
-    var menu = document.querySelector('[role="menu"]')
-    if (!menu) return null
-    var rect = menu.getBoundingClientRect()
-    return {
-      styleTop: menu.style.top,
-      styleLeft: menu.style.left,
-      rectTop: Math.round(rect.top),
-      rectLeft: Math.round(rect.left),
-      height: Math.round(rect.height),
-    }
-  })()`)
-  console.log('菜单定位：', JSON.stringify(menuInfo))
   check('会话菜单里有「归到文件夹」', await evaluate(bodyHas('归到文件夹')))
 
   await evaluate(`(function () {

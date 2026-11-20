@@ -23,7 +23,7 @@ import {
   renameFolder,
   useChatStore,
 } from '../../services/chat/store.js'
-import type { Folder, SessionSummary } from '../../services/chat/types.js'
+import type { SessionSummary } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
 import { Menu } from '../base/Menu.js'
@@ -90,7 +90,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const toggleFolder = (key: string) =>
     setCollapsed((current) => ({ ...current, [key]: current[key] !== true }))
 
-  const openFolderEditor = (folder: Folder | null) =>
+  const openFolderEditor = (folder: { id: string; name: string } | null) =>
     setFolderEditor({ id: folder?.id ?? null, name: folder?.name ?? '' })
 
   const submitFolder = async () => {
@@ -198,7 +198,6 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
                               openFolderEditor({
                                 id: folderGroup.folderId as string,
                                 name: folderGroup.label,
-                                createdAt: 0,
                               }),
                           },
                           {
