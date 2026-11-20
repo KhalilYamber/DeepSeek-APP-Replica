@@ -552,11 +552,18 @@ export const renameFolder = (id: string, name: string) => {
 
 /** 把会话归到文件夹；null 表示未分类 */
 export const moveSessionToFolder = (id: string, folderId: string | null) => {
-  set((state) => ({
-    sessions: state.sessions.map((session) =>
-      session.id === id ? { ...session, folderId } : session
-    ),
-  }))
+  set((state) => {
+    // 已打开的会话也同步改缓存：保存时用的是缓存里的对象，不同步会把 folderId 冲回未分类
+    const cached = state.sessionCache[id]
+    return {
+      sessions: state.sessions.map((session) =>
+        session.id === id ? { ...session, folderId } : session
+      ),
+      sessionCache: cached
+        ? { ...state.sessionCache, [id]: { ...cached, folderId } }
+        : state.sessionCache,
+    }
+  })
   void db.moveSessionFolder(id, folderId).catch(db.reportStorageError('move session'))
 }
 
