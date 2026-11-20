@@ -208,27 +208,9 @@ export const saveFolder = async (folder: Folder): Promise<void> => {
   await db.put('folders', folder)
 }
 
-/** 只删文件夹：里面的会话逐个回到未分类，最后删文件夹本身 */
-export const deleteFolderOnly = async (id: string): Promise<void> => {
+/** 只删文件夹记录；里面的会话由调用方处理（移回未分类或一起删） */
+export const deleteFolderRecord = async (id: string): Promise<void> => {
   const db = await getDB()
-  const summaries = await db.getAll('sessionSummaries')
-  for (const summary of summaries) {
-    if (summary.folderId === id) {
-      await moveSessionFolder(summary.id, null)
-    }
-  }
-  await db.delete('folders', id)
-}
-
-/** 连会话一起删：先逐个删会话（复用文件清理），最后删文件夹 */
-export const deleteFolderWithSessions = async (id: string): Promise<void> => {
-  const db = await getDB()
-  const summaries = await db.getAll('sessionSummaries')
-  for (const summary of summaries) {
-    if (summary.folderId === id) {
-      await deleteSession(summary.id)
-    }
-  }
   await db.delete('folders', id)
 }
 

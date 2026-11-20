@@ -569,28 +569,40 @@ export const moveSessionToFolder = (id: string, folderId: string | null) => {
 
 /** 删除文件夹；withSessions 为 true 时连里面的会话一起删 */
 export const deleteFolder = async (id: string, withSessions: boolean): Promise<void> => {
-  if (!withSessions) {
-    set((state) => ({
+  if (withSessions) {
+    // 走 removeSession：它会先停流、等收尾、清缓存，避免删完又被收尾保存写回来
+    const ids = get()
+      .sessions.filter((session) => session.folderId === id)
+      .map((session) => session.id)
+    for (const sessionId of ids) {
+      await removeSession(sessionId)
+    }
+    await db.deleteFolderRecord(id)
+    set((state) => ({ folders: state.folders.filter((item) => item.id !== id) }))
+    return
+  }
+
+  const affected = get().sessions.filter((session) => session.folderId === id)
+  set((state) => {
+    // 已打开的会话也要同步缓存，否则之后保存会把失效的 folderId 写回去
+    const sessionCache = { ...state.sessionCache }
+    for (const [key, session] of Object.entries(sessionCache)) {
+      if (session.folderId === id) {
+        sessionCache[key] = { ...session, folderId: null }
+      }
+    }
+    return {
       folders: state.folders.filter((item) => item.id !== id),
       sessions: state.sessions.map((session) =>
         session.folderId === id ? { ...session, folderId: null } : session
       ),
-    }))
-    await db.deleteFolderOnly(id)
-    return
+      sessionCache,
+    }
+  })
+  for (const session of affected) {
+    await db.moveSessionFolder(session.id, null)
   }
-  const ids = get()
-    .sessions.filter((session) => session.folderId === id)
-    .map((session) => session.id)
-  await db.deleteFolderWithSessions(id)
-  set((state) => ({
-    folders: state.folders.filter((item) => item.id !== id),
-    sessions: state.sessions.filter((session) => !ids.includes(session.id)),
-    sessionCache: Object.fromEntries(
-      Object.entries(state.sessionCache).filter(([key]) => !ids.includes(key))
-    ),
-    activeId: state.activeId !== null && ids.includes(state.activeId) ? null : state.activeId,
-  }))
+  await db.deleteFolderRecord(id)
 }
 
 const removeSessionData = async (id: string): Promise<boolean> => {
