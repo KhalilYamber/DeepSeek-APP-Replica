@@ -51,6 +51,7 @@
 - **裸 LaTeX 自动识别（0.4.13 起）**：整段消息恰好是一个裸 LaTeX 片段（不带 `$`）时按公式渲染；普通句子里夹带的 LaTeX 保持原文，代码块里的不动
 - **公式失败降级（0.4.13 起）**：公式里有 KaTeX 不认识的命令时，认识的部分照常渲染、只把不认识的标红；文本命令里的 `·` 会自动转成 `⋅`（KaTeX 不认前者）
 - **代码高亮 40+ 种语言**：0.4.13 补了 Julia、Zig、Elixir、OCaml、Fortran、Verilog/VHDL、Solidity、Terraform、Nix、Lisp、Scheme、Clojure、Erlang、VB.NET、Groovy、Pascal、Less、GLSL、Regex
+- **会话分类文件夹（0.4.16 起）**：侧栏可新建文件夹，会话的「⋯」里能把它归到某个文件夹；文件夹可折叠、可重命名、可删除（删除时可选是否连会话一起删）。搜索仍然跨文件夹
 
 ## 两种用法
 

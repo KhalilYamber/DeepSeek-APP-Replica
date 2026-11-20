@@ -948,6 +948,26 @@
         "2026-11-20：起因是用户截图里模型用 `<span style=\"...\">` 模拟橙色加粗，客户端把标签原样显示成源码；同一张截图里 `$\\color{#ff4500}{\\textbf{...}}$` 是渲染成功的。"
       ],
       "notes": "系统提示是软约束，不保证 100% 遵守；但能消掉「主动用 HTML」这个高频行为。刻意没写「整段裸 LaTeX 也支持」（会诱导模型输出我们只部分支持的形式），也没罗列表格/Mermaid（不解决问题）。"
+    },
+    {
+      "id": "folder-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "会话分类文件夹",
+      "user_visible_behavior": "侧栏可新建、重命名、删除文件夹；会话的「⋯」里新增「归到文件夹」，弹窗列出未分类与所有文件夹；侧栏按文件夹→时间组→会话三层展示，文件夹可折叠；搜索跨文件夹；删除文件夹可选只删文件夹或连会话一起删。",
+      "status": "inferred",
+      "verification": [
+        "单测 `test/folder-groups.test.ts` 7 条：排序、未分类兜底、空文件夹、无效 folderId、文件夹内时间分组",
+        "探针 `_probe/folders.mjs` 11/11：渲染、折叠展开、会话菜单、归到文件夹弹窗",
+        "六道门全绿（163 条测试）"
+      ],
+      "evidence": [
+        "2026-11-20：IndexedDB 11 → 12，只加 `folders` 表；会话不写迁移，缺 `folderId` 按未分类读。",
+        "2026-11-20：`groupSessionsByFolder` 在 `sessionGroups.ts`，文件夹按 createdAt 升序、未分类固定最后、未知 folderId 归未分类。",
+        "2026-11-20：导出 ZIP 不带文件夹；导入的会话统一落未分类。",
+        "2026-11-20：探针补 `hover: none` 模拟——真机上会话行「⋯」常显，桌面端 hover 才出现。"
+      ],
+      "notes": "**inferred：真机未验**（折叠手感、文件夹多了之后的滚动）。\n\n**没做的**：拖拽排序会话、文件夹嵌套、自定义图标。\n\n**测试的偏差**：`sessionGroups.ts` 带运行时本地 import，Node 的类型剥离不认 `.js → .ts`；`test/folder-groups.test.ts` 用 `module.registerHooks` 补了一层解析，这是仓库里第一次这么干。"
     }
   ]
 }

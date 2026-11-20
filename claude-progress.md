@@ -653,3 +653,29 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - **未验证**：提示的实际效果（只能真机真 Key 验）
 - 更新过的文件或工件：`store.ts`、`package.json`（0.4.15）、`CHANGELOG.md`、`README.md`、`feature_list.json`（`prompt-001`）、本文件
 - 下一步最佳动作：用户真机测一句，看模型是否改用 `$\textcolor{...}$`；若仍用 HTML，再把提示写具体（给正反例）
+
+### Session 028
+
+- 日期：2026-11-20
+- 本轮目标：0.4.16 —— 会话分类文件夹
+- 已完成：
+  - `types.ts`：新增 `Folder`；`Session` / `SessionSummary` 带 `folderId`（缺省按未分类读）
+  - `db.ts`：DB 11 → 12，只加 `folders` 表；`loadFolders` / `saveFolder` / `moveSessionFolder` / `deleteFolderOnly` / `deleteFolderWithSessions`
+  - `store.ts`：`folders` 状态、`createFolder` / `renameFolder` / `moveSessionToFolder` / `deleteFolder`；`sameSummary` 纳入 `folderId`
+  - `sessionGroups.ts`：`groupSessionsByFolder`（子代理写，文件夹升序、未分类最后、无效 folderId 兜底）
+  - `test/folder-groups.test.ts`：7 条（子代理写）
+  - `Sider.tsx`：文件夹分组、折叠、新建入口、新建/重命名/删除/移动四个弹窗
+  - `SessionItem.tsx`：菜单加「归到文件夹」；`icons.tsx`：新增文件夹图标
+  - `Sider.module.css`：文件夹相关样式
+  - 中英词条 15 个（子代理写）
+  - `_probe/folders.mjs`：11 条
+- 运行过的验证：
+  - `pnpm type` / `lint` / `test` 全绿（163 条）
+  - 探针 `folders.mjs` **11/11**
+  - `./init.ps1` 六道门全绿
+- **未验证**：真机（折叠手感、文件夹多了以后的滚动）
+- 踩到的坑：
+  1. **会话行的「⋯」默认 `display:none`**，只在 `@media (hover: hover)` 的 hover 或 `@media (hover: none)` 下显示——探针没模拟触摸时锚点矩形为 0，菜单跑到左上角；补 `Emulation.setTouchEmulationEnabled` + `setEmulatedMedia({ hover: none })` 后定位正常
+  2. **`sessionGroups.ts` 带运行时本地 import**，Node 的类型剥离不认 `.js → .ts`；`test/folder-groups.test.ts` 用 `module.registerHooks` 补了解析，这是仓库里第一次这么干
+- 更新过的文件或工件：`types.ts`、`db.ts`、`store.ts`、`sessionGroups.ts`、`Sider.tsx`、`SessionItem.tsx`、`icons.tsx`、`Sider.module.css`、`i18n/{zh,en}.ts`、`test/folder-groups.test.ts`（新）、`_probe/folders.mjs`（新）、`package.json`（0.4.16）、`CHANGELOG.md`、`README.md`、`feature_list.json`（`folder-001`）、本文件
+- 下一步最佳动作：真机试折叠与「归到文件夹」；再往后若要文件夹排序/拖拽，另开一条
