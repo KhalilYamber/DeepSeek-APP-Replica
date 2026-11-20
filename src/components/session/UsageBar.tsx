@@ -37,6 +37,10 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
   const [balance, setBalance] = useState<UserBalance | null>(null)
   const [loading, setLoading] = useState(false)
   const [limit, setLimit] = useState<number | null>(() => readCachedContextWindow(model))
+  // 没缓存又有 Key 时，首次渲染就算「还在拿上限」，避免先闪一下 `--`
+  const [limitLoading, setLimitLoading] = useState(
+    () => readCachedContextWindow(model) === null && apiKey !== null
+  )
   const lastFetch = useRef(0)
 
   const refreshBalance = useCallback(
@@ -69,25 +73,39 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
   // 上下文上限不常变：先读缓存，没有才请一次 /models
   useEffect(() => {
     const cached = readCachedContextWindow(model)
-    if (cached) {
+    if (cached !== null) {
       setLimit(cached)
+      setLimitLoading(false)
       return
     }
     if (!apiKey) {
       setLimit(null)
+      setLimitLoading(false)
       return
     }
     let cancelled = false
+    setLimitLoading(true)
     verifyApiKey(apiKey)
       .then((models) => {
+        if (cancelled) {
+          return
+        }
         const value = pickContextWindow(models.data, model)
-        if (value !== null && !cancelled) {
-          setLimit(value)
+        setLimit(value)
+        if (value !== null) {
           writeCachedContextWindow(model, value)
         }
       })
       .catch(() => {
-        // 拿不到上限就只显示已用 token
+        // 拿不到上限就只显示已用 token，不猜一个假上限
+        if (!cancelled) {
+          setLimit(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLimitLoading(false)
+        }
       })
     return () => {
       cancelled = true
@@ -101,7 +119,8 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
   const low = balance !== null && !balance.is_available
 
   const balanceText = !apiKey ? '--' : loading ? '…' : info ? formatMoney(info) : '--'
-  const percentText = percent === null ? '--' : `${percent}%`
+  // 没有用量时不谈百分比；有用量但上限还在路上，显示 …；拿不到才 --
+  const percentText = !usage ? '--' : limitLoading ? '…' : percent === null ? '--' : `${percent}%`
   const tone = percent !== null && percent > 80 ? styles.danger : percent !== null && percent >= 50 ? styles.warn : undefined
 
   const onBalanceClick = () => {
@@ -130,7 +149,11 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
   return (
     <div className={styles.bar}>
       <button type="button" className={styles.item} onClick={onBalanceClick}>
-        <span className={clsx(styles.balance, low && styles.danger)} title={low ? t('usageBalanceLow') : undefined}>
+        <span
+          className={clsx(styles.balance, low && styles.danger)}
+          data-role="usage-balance"
+          title={low ? t('usageBalanceLow') : undefined}
+        >
           {balanceText}
         </span>
       </button>
@@ -158,7 +181,9 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
             />
           )}
         </svg>
-        <span className={clsx(styles.percent, tone)}>{percentText}</span>
+        <span className={clsx(styles.percent, tone)} data-role="usage-percent">
+          {percentText}
+        </span>
       </button>
     </div>
   )

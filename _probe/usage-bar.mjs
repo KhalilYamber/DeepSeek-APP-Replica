@@ -225,6 +225,24 @@ try {
   await sleep(400)
   check('点圆环提示先填 API Key', await evaluate(bodyHas('先在设置里填 API Key')))
 
+  // ---- 阶段 2：网络挂起时，加载态必须收敛，不能永远停在 … ----
+  await evaluate(`localStorage.setItem('chat-demo:api-key', 'sk-probe-not-real')`)
+  await evaluate(`localStorage.removeItem('chat-demo:context-window')`)
+  await send('Fetch.enable', { patterns: [{ urlPattern: '*api.deepseek.com*' }] })
+  await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
+  await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
+  // 余额 8 秒超时、/models 5 秒超时；留 9 秒余量
+  await sleep(9000)
+  const balanceText = await evaluate(
+    `(document.querySelector('[data-role="usage-balance"]') || {}).textContent || ''`
+  )
+  const percentText = await evaluate(
+    `(document.querySelector('[data-role="usage-percent"]') || {}).textContent || ''`
+  )
+  check('网络挂起 9 秒后余额不再是 …（超时收敛）', balanceText !== '…', balanceText)
+  check('网络挂起 9 秒后圆环不再是 …（超时收敛）', percentText !== '…', percentText)
+  await send('Fetch.disable')
+
   const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
   await writeFile(SHOT, Buffer.from(shot.result.data, 'base64'))
 

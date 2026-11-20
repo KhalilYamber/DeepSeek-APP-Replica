@@ -643,7 +643,7 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
           onClick={() => void onExport()}
         >
           <IconDownloadOutline16 />
-          {t('exportAllDownload')}
+          {t(busy ? 'exportAllExporting' : 'exportAllDownload')}
         </Button>
       }
     />
