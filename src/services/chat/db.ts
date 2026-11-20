@@ -1,9 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { findInSession, sortHits, type SearchHit } from './search.js'
-import { toSessionSummary, type Session, type SessionSummary } from './types.js'
+import { toSessionSummary, type Folder, type Session, type SessionSummary } from './types.js'
 
 /** IndexedDB 存储结构版本；新增或调整存储、索引时递增。 */
-const DB_VERSION = 11
+const DB_VERSION = 12
 
 /** 文件原件按附件的本地 id 存储，所有引用同一 id 的消息共用一份；用于缩略图、打开查看，以及没有 serverId 时补传。 */
 export type StoredFile = {
@@ -30,6 +30,8 @@ interface ChatDB extends DBSchema {
    */
   sessionsStaging: { key: string; value: Session }
   filesStaging: { key: string; value: StoredFile }
+  /** 会话分类文件夹；只加表，不改已有会话，老数据的 folderId 读取时兜底成未分类 */
+  folders: { key: string; value: Folder }
 }
 
 let dbPromise: Promise<IDBPDatabase<ChatDB>> | null = null
@@ -62,6 +64,10 @@ const getDB = () =>
         if (!db.objectStoreNames.contains(name)) {
           db.createObjectStore(name, { keyPath: 'id' })
         }
+      }
+      // 12：只新增文件夹表；不给已有会话写迁移，缺 folderId 的按未分类读
+      if (!db.objectStoreNames.contains('folders')) {
+        db.createObjectStore('folders', { keyPath: 'id' })
       }
       const summaries = db.objectStoreNames.contains('sessionSummaries')
         ? tx.objectStore('sessionSummaries')
@@ -141,6 +147,31 @@ export const renameSession = async (id: string, title: string): Promise<void> =>
   ])
 }
 
+/** 把会话归到某个文件夹（null = 未分类），原子更新详情和列表。 */
+export const moveSessionFolder = async (
+  id: string,
+  folderId: string | null
+): Promise<void> => {
+  const tx = (await getDB()).transaction(['sessions', 'sessionSummaries'], 'readwrite')
+  await Promise.all([
+    (async () => {
+      try {
+        const sessions = tx.objectStore('sessions')
+        const session = await sessions.get(id)
+        if (session) {
+          session.folderId = folderId
+          await sessions.put(session)
+          await tx.objectStore('sessionSummaries').put(storedSummary(session))
+        }
+      } catch (error) {
+        abortTransaction(tx)
+        throw error
+      }
+    })(),
+    tx.done,
+  ])
+}
+
 /** 删除会话，仅清理已无会话引用的本地原件；远端文件不删。 */
 export const deleteSession = async (sessionId: string): Promise<void> => {
   const tx = (await getDB()).transaction(['sessions', 'sessionSummaries', 'files'], 'readwrite')
@@ -165,8 +196,43 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
   ])
 }
 
-const putFiles = async (store: 'files' | 'filesStaging', files: StoredFile[]) => {
-  const tx = (await getDB()).transaction(store, 'readwrite')
+/** 读取全部文件夹，按创建时间升序 */
+export const loadFolders = async (): Promise<Folder[]> => {
+  const folders = await (await getDB()).getAll('folders')
+  return folders.sort((a, b) => a.createdAt - b.createdAt)
+}
+
+/** 新建或重命名文件夹（按 id 覆盖） */
+export const saveFolder = async (folder: Folder): Promise<void> => {
+  const db = await getDB()
+  await db.put('folders', folder)
+}
+
+/** 只删文件夹：里面的会话逐个回到未分类，最后删文件夹本身 */
+export const deleteFolderOnly = async (id: string): Promise<void> => {
+  const db = await getDB()
+  const summaries = await db.getAll('sessionSummaries')
+  for (const summary of summaries) {
+    if (summary.folderId === id) {
+      await moveSessionFolder(summary.id, null)
+    }
+  }
+  await db.delete('folders', id)
+}
+
+/** 连会话一起删：先逐个删会话（复用文件清理），最后删文件夹 */
+export const deleteFolderWithSessions = async (id: string): Promise<void> => {
+  const db = await getDB()
+  const summaries = await db.getAll('sessionSummaries')
+  for (const summary of summaries) {
+    if (summary.folderId === id) {
+      await deleteSession(summary.id)
+    }
+  }
+  await db.delete('folders', id)
+}
+
+const putFiles = async (store: 'files' | 'filesStaging', files: StoredFile[]) => {  const tx = (await getDB()).transaction(store, 'readwrite')
   await Promise.all([...files.map((file) => tx.store.put(file)), tx.done])
 }
 

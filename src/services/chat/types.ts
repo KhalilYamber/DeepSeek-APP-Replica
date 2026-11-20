@@ -114,15 +114,32 @@ export type Session = {
   messages: Message[]
   /** undefined 表示线性消息列表；null 表示空会话。 */
   rootMessageId?: string | null
+  /** 所属分类文件夹；null / undefined 都表示未分类 */
+  folderId?: string | null
+}
+
+/** 会话分类文件夹；按 createdAt 升序展示 */
+export type Folder = {
+  id: string
+  name: string
+  createdAt: number
 }
 
 /** 会话列表元数据；消息只在打开会话时加载。 */
-export type SessionSummary = Pick<Session, 'id' | 'title' | 'createdAt' | 'updatedAt'>
+export type SessionSummary = Pick<Session, 'id' | 'title' | 'createdAt' | 'updatedAt'> & {
+  folderId?: string | null
+}
+
+/** 会话与摘要都满足的最小形状；folderId 缺省按未分类处理 */
+type SessionSummarySource = Pick<Session, 'id' | 'title' | 'createdAt' | 'updatedAt'> & {
+  folderId?: string | null
+}
 
 /** 显式提取字段，避免将完整会话的消息带进列表。 */
-export const toSessionSummary = (session: SessionSummary): SessionSummary => ({
+export const toSessionSummary = (session: SessionSummarySource): SessionSummary => ({
   id: session.id,
   title: session.title,
   createdAt: session.createdAt,
   updatedAt: session.updatedAt,
+  folderId: session.folderId ?? null,
 })

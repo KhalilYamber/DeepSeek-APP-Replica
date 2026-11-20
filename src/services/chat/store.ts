@@ -32,6 +32,7 @@ import {
   toSessionSummary,
   type AssistantMessage,
   type FileAttachment,
+  type Folder,
   type Message,
   type Session,
   type SessionSummary,
@@ -79,6 +80,8 @@ type ChatState = {
   importingHistory: boolean
   /** 仅列表元数据，按 updatedAt 降序；流式消息更新不会改变此数组。 */
   sessions: SessionSummary[]
+  /** 分类文件夹，按 createdAt 升序 */
+  folders: Folder[]
   sessionCache: Record<string, Session>
   sessionLoadErrors: Record<string, boolean>
   sessionSaveErrors: Record<string, boolean>
@@ -93,6 +96,7 @@ export const useChatStore = create<ChatState>(() => ({
   initError: false,
   importingHistory: false,
   sessions: [],
+  folders: [],
   sessionCache: {},
   sessionLoadErrors: {},
   sessionSaveErrors: {},
@@ -116,7 +120,10 @@ const getStreamController = (id: string) => {
 }
 
 const sameSummary = (a: SessionSummary, b: SessionSummary) =>
-  a.title === b.title && a.createdAt === b.createdAt && a.updatedAt === b.updatedAt
+  a.title === b.title &&
+  a.createdAt === b.createdAt &&
+  a.updatedAt === b.updatedAt &&
+  (a.folderId ?? null) === (b.folderId ?? null)
 
 const sessionAccess = new Map<string, number>()
 const unsavedSessions = new Set<string>()
@@ -312,9 +319,12 @@ export const initChat = (): Promise<void> => {
   set({ initError: false })
   initTask = (async () => {
     try {
-      const summaries = await db.loadSessionSummaries()
+      const [summaries, folders] = await Promise.all([
+        db.loadSessionSummaries(),
+        db.loadFolders(),
+      ])
       if (epoch === historyEpoch) {
-        set({ ready: true, sessions: sortSessions(summaries) })
+        set({ ready: true, sessions: sortSessions(summaries), folders })
       }
     } catch (error) {
       if (epoch === historyEpoch) {
@@ -518,6 +528,62 @@ export const removeSession = (id: string): Promise<boolean> => {
   const task = removeSessionData(id).finally(() => deletionTasks.delete(task))
   deletionTasks.add(task)
   return task
+}
+
+/** 新建文件夹；同名允许，列表按创建时间升序 */
+export const createFolder = (name: string): Folder => {
+  const folder: Folder = { id: createId(), name, createdAt: Date.now() }
+  set((state) => ({ folders: [...state.folders, folder] }))
+  void db.saveFolder(folder).catch(db.reportStorageError('save folder'))
+  return folder
+}
+
+export const renameFolder = (id: string, name: string) => {
+  const folder = get().folders.find((item) => item.id === id)
+  if (!folder || folder.name === name) {
+    return
+  }
+  const next = { ...folder, name }
+  set((state) => ({
+    folders: state.folders.map((item) => (item.id === id ? next : item)),
+  }))
+  void db.saveFolder(next).catch(db.reportStorageError('save folder'))
+}
+
+/** 把会话归到文件夹；null 表示未分类 */
+export const moveSessionToFolder = (id: string, folderId: string | null) => {
+  set((state) => ({
+    sessions: state.sessions.map((session) =>
+      session.id === id ? { ...session, folderId } : session
+    ),
+  }))
+  void db.moveSessionFolder(id, folderId).catch(db.reportStorageError('move session'))
+}
+
+/** 删除文件夹；withSessions 为 true 时连里面的会话一起删 */
+export const deleteFolder = async (id: string, withSessions: boolean): Promise<void> => {
+  if (!withSessions) {
+    set((state) => ({
+      folders: state.folders.filter((item) => item.id !== id),
+      sessions: state.sessions.map((session) =>
+        session.folderId === id ? { ...session, folderId: null } : session
+      ),
+    }))
+    await db.deleteFolderOnly(id)
+    return
+  }
+  const ids = get()
+    .sessions.filter((session) => session.folderId === id)
+    .map((session) => session.id)
+  await db.deleteFolderWithSessions(id)
+  set((state) => ({
+    folders: state.folders.filter((item) => item.id !== id),
+    sessions: state.sessions.filter((session) => !ids.includes(session.id)),
+    sessionCache: Object.fromEntries(
+      Object.entries(state.sessionCache).filter(([key]) => !ids.includes(key))
+    ),
+    activeId: state.activeId !== null && ids.includes(state.activeId) ? null : state.activeId,
+  }))
 }
 
 const removeSessionData = async (id: string): Promise<boolean> => {
