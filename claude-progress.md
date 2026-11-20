@@ -11,11 +11,11 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 仓库根：`D:\GitHub_place\projects\DeepSeek 复刻APP\chat-demo`（git 仓库，remote 指向 GitHub `KhalilYamber/DeepSeek-APP-Replica`）
 - 标准启动路径：`./init.ps1`（依赖同步 + 六道门：type / lint / test / build / 产物齐全 / 内核兼容）
 - 标准验证路径：`pnpm test`；完整跑 `./init.ps1`
-- 当前功能账：36 条（verified 6 / passing 8 / inferred 22，无 open）
+- 当前功能账：47 条（verified 6 / passing 12 / inferred 29，无 open）
 - 当前 blocker：无
 - 应用显示名：**DS Echo**（0.4.3 起；仓库名与 `appId` 不变，见 ARCHITECTURE 决策 23）
-- 未发布：**0.4.7**（2026-11-19，versionCode 407）。设置新增「思考结束后：收起思考 / 展开思考」+ 按消息 id 记住手动展开状态；本地包 `release/DS-Echo-0.4.7-20261119-debug.apk`；未打 tag、未发 GitHub Release
-- 未发布（本轮中间版本）：0.4.2–0.4.5 都只在本地构建过。依次是：白屏真根因修复（**已在 OPPO A58 真机复验**）、改名 DS Echo、APK 内历史搜索、APK 内头像、思考小窗口 + 自动收起（**已真机验收：效果符合预期**）
+- 最近发布：**v0.4.16**（2026-11-20，Latest）——会话分类文件夹。Release 含 `DS-Echo-0.4.16-20261120-debug.apk`（6,418,294 字节，SHA256 `21F669B8…2820D`），CI run 44746267665 全绿（含 Pages 发布）。**升级后不能装回 0.4.15 及更早**——本地数据库已从 11 升到 12，旧版本打不开
+- 只在本地构建、从未发过 Release 的版本：0.4.2、0.4.3、0.4.5、0.4.6、0.4.7、0.4.11（`release/` 里有包，无 tag、无 Release）。完整发布历史见 GitHub Releases
 - 已发布：**v0.4.1**（2026-11-18）。Release 含 `DeepSeek-APP-Replica-0.4.1-debug.apk`（6,379,811 字节，SHA256 `A6E8CA48…15AB3CF4`），CI run 44334050643 全绿。修掉 0.4.0 兜底页在正常设备上误报（量 `#root` 高度判断渲染，而 `.frame` 是 absolute 定位、`#root` 高度恒 0）；带上滑动性能与深色主题修复；网页版历史搜索与头像一并发布。**注意：这一版在「不认 dvh」的内核上仍会整屏空白，已在 0.4.2 修掉**
 - 已发布：**v0.4.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.4.0-debug.apk`（6,376,387 字节，SHA256 `CAD2EC32…80424AF`），CI run 44068960454 全绿。版本号 0.3.0 → 0.4.0（versionCode 400）。**注意：这一版的兜底页有误报缺陷，已在 0.4.1 修掉**
 - 已发布：**v0.3.0**（2026-11-17）。Release 含 `DeepSeek-APP-Replica-0.3.0-debug.apk`（6,344,320 字节），CI run 44029554535 全绿——含「内核兼容」步的首个真实运行（日志：`error 0 / hint 0 / info 9 / 豁免 0`）
@@ -679,3 +679,26 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   2. **`sessionGroups.ts` 带运行时本地 import**，Node 的类型剥离不认 `.js → .ts`；`test/folder-groups.test.ts` 用 `module.registerHooks` 补了解析，这是仓库里第一次这么干
 - 更新过的文件或工件：`types.ts`、`db.ts`、`store.ts`、`sessionGroups.ts`、`Sider.tsx`、`SessionItem.tsx`、`icons.tsx`、`Sider.module.css`、`i18n/{zh,en}.ts`、`test/folder-groups.test.ts`（新）、`_probe/folders.mjs`（新）、`package.json`（0.4.16）、`CHANGELOG.md`、`README.md`、`feature_list.json`（`folder-001`）、本文件
 - 下一步最佳动作：真机试折叠与「归到文件夹」；再往后若要文件夹排序/拖拽，另开一条
+
+### Session 029
+
+- 日期：2026-11-20
+- 本轮目标：把 0.4.16 发布出去（用户授权「补推送、打 tag、发 Release」）
+- 开工前核实（决定这次能不能直接发的那一条）：本地 APK 构建时间 21:25:28，晚于两个数据一致性 fix 的提交时间（21:18:26 / 21:21:04）→ 包内含这两条修复；`package.json` 0.4.16，`release/` 里 APK 6,418,294 字节
+- 已完成：
+  - 补齐 `CHANGELOG.md` 缺失的 0.4.12～0.4.15 四个版本标题（内容早就在，标题在历次「未发布 → 版本号」替换中被吃掉，导致 0.4.16 之后直接跳到 0.4.11）
+  - `ARCHITECTURE.md` 决策 10 的「`git rm --cached` 尚未执行」改为「已执行（commit `166fe23`）」，与 `products-001` 的 passing 对齐
+  - `feature_list.json`：`last_updated` 与 `note` 更新为 47 条（compat 16 / feature 22 / harness 6 / performance 2 / repo 1），去掉容易腐坏的按状态计数
+  - `claude-progress.md` 顶部状态块：功能账条数、最近发布版本、从未发布的版本清单三处同步
+  - commit `821cd27` → tag `v0.4.16` → push main 与 tag → `gh release create v0.4.16`（APK 已上传）
+- 运行过的验证：
+  - `./init.ps1` 六道门全绿：type / lint（0 warning）/ test 163 / build / 产物齐全 / 内核兼容 `error 0 / hint 1 / info 9`
+  - CI run 44746267665 全绿，含「发布到 GitHub Pages」作业
+  - 线上网页版首页 200，主 chunk `static/js/main.189460bf.js` 与本地重建产物同名 → 部署的就是这份源码
+  - Release 资产核对：非草稿、非预发布、tag `v0.4.16`、APK 6,418,294 字节、sha256 `21f669b8…2820d`
+- 环境坑（会复现，记下来）：
+  1. 本会话 pwsh 在 workspace-write 下跑 `pnpm build` 会在 `scripts/build.mjs:17` 的 `rmSync(dist)` 处 EPERM；文件策略切到 danger-full-access 后同一命令通过——与 Session 023 记的是同一个坑
+  2. `pwsh -File .\init.ps1` 必须把工作目录设在仓库根，否则报「参数 '.\init.ps1' 无法识别为脚本文件名」
+- 未验证（仍是 inferred）：
+  - 0.4.16 的两个数据修复、文件夹折叠手感、文件夹多时的滚动——全部只在 headless 探针里验过，真机还没装
+- 下一步最佳动作：装 0.4.16 覆盖升级，验「移动会话后不弹回未分类」「删文件夹后正在生成的会话不被写回」
