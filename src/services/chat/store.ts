@@ -40,8 +40,15 @@ import {
 
 /** 当前选中的模型，来自设置；每次请求现读，切换后立即生效 */
 const currentModel = (): ChatModel => useSettings.getState().model
-/** 所有生成请求统一携带的助手身份说明 */
-const SYSTEM_PROMPT = '该助手为DeepSeek，由深度求索公司创造。'
+/** 所有生成请求统一携带的助手身份说明与输出格式约定 */
+const SYSTEM_PROMPT = [
+  '该助手为DeepSeek，由深度求索公司创造。',
+  '',
+  '输出格式约定：',
+  '- 数学公式用 KaTeX：行内 $...$，块级 $$...$$。',
+  '- 不要用 HTML 标签（如 <span style="...">）模拟颜色、字号或加粗——本客户端会把标签原样显示成源码。',
+  '- 需要颜色时用 KaTeX 的 \\textcolor{颜色}{文字}（写在 $...$ 里面）；中文强调优先用 Markdown 的 **加粗**，KaTeX 对中文加粗支持有限。',
+].join('\n')
 /** 保留最近打开的详情；当前会话、生成中及尚未成功保存的会话不淘汰。 */
 const SESSION_CACHE_LIMIT = 5
 /** 安全审核固定开启，所有请求都走扩展模式 */
