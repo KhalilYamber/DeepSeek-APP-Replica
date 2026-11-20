@@ -152,13 +152,22 @@ const anthropicHeaders = (apiKey: string, beta: boolean): Record<string, string>
   ...(beta ? { 'anthropic-beta': FILES_BETA } : {}),
 })
 
-/** 用 GET /models 校验 API Key（不产生费用） */
-export const verifyApiKey = async (apiKey: string, signal?: AbortSignal): Promise<void> => {
-  await request(`${API_ORIGIN}/models`, {
+/** 用 GET /models 校验 API Key（不产生费用），并把模型清单带回来（含 context_window） */
+export const verifyApiKey = async (
+  apiKey: string,
+  signal?: AbortSignal
+): Promise<{ data: Array<{ id: string; context_window?: number }> }> => {
+  const response = await request(`${API_ORIGIN}/models`, {
     method: 'GET',
     headers: { Authorization: `Bearer ${apiKey}` },
     signal,
   })
+  try {
+    return (await response.json()) as { data: Array<{ id: string; context_window?: number }> }
+  } catch {
+    // 状态码已经通过，body 解析不出来不影响「Key 有效」这个结论
+    return { data: [] }
+  }
 }
 
 /**
