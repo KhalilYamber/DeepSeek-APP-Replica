@@ -967,7 +967,7 @@
         "2026-11-20：导出 ZIP 不带文件夹；导入的会话统一落未分类。",
         "2026-11-20：探针补 `hover: none` 模拟——真机上会话行「⋯」常显，桌面端 hover 才出现。"
       ],
-      "notes": "**inferred：真机未验**（折叠手感、文件夹多了之后的滚动）。\n\n**没做的**：拖拽排序会话、文件夹嵌套、自定义图标。\n\n**测试的偏差**：`sessionGroups.ts` 带运行时本地 import，Node 的类型剥离不认 `.js → .ts`；`test/folder-groups.test.ts` 用 `module.registerHooks` 补了一层解析，这是仓库里第一次这么干。"
+      "notes": "**形态判断（决策 24）**：网页版与 APK 都成立，不需要 `isNativeApp()` 分支——纯数据 + UI，不碰原生 API。唯一与设备有关的是会话行「⋯」的显示方式，按 `hover` 能力区分（触摸屏常显、鼠标 hover 才出现），不是按平台区分，iOS / 鸿蒙 / 安卓手机走的是同一条。\n\n**inferred：真机未验**（折叠手感、文件夹多了之后的滚动）。\n\n**没做的**：拖拽排序会话、文件夹嵌套、自定义图标。\n\n**测试的偏差**：`sessionGroups.ts` 带运行时本地 import，Node 的类型剥离不认 `.js → .ts`；`test/folder-groups.test.ts` 用 `module.registerHooks` 补了一层解析，这是仓库里第一次这么干。"
     }
   ]
 }
