@@ -125,7 +125,7 @@ APK（使用者拿自己的 API Key 运行）
 
 **规则**：产物一律 gitignore。验收需要的截图，放在交付目录或 issue 里，不进仓库。
 
-**未完成**：历史上它们已被跟踪，`git rm --cached` 尚未执行（见 `feature_list.json` 的 `products-001`）。撤出索引后历史里的 blob 仍在，真要瘦身得另做 `filter-repo`，那是独立决策。
+**已执行**（2026-11-16，commit `166fe23`）：历史上它们曾被跟踪，已用 `git rm --cached` 撤出索引，工作区文件一个没丢（`feature_list.json` 的 `products-001` 已 passing）。历史里的 blob 仍在，真要瘦身得另做 `filter-repo`，那是独立决策。
 
 ## 决策 11：CI 只跑能给出明确对错的门，不跑格式与打包
 
