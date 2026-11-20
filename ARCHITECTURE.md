@@ -379,6 +379,26 @@ APK（使用者拿自己的 API Key 运行）
 
 **代价**：凡带 `isNativeApp()` 的分支都要维护两条路径，探针也要跑两种环境。
 
+## 决策 25：裸 LaTeX 只在「整段匹配」时识别
+
+**取舍**：行内识别（消息里任何位置出现 `\textcolor{...}` 就渲染）覆盖更广，但会把「讲解 LaTeX 用法」的正常句子渲染掉——用户反而看不到命令原文，属于负向优化。
+
+**选择**：只处理「整段去掉首尾空白、单行、恰好等于一个片段」的纯文本节点。判据在 `services/markdown/bareTex.ts`，解析层只对 text 节点生效，所以代码块与行内代码天然排除。命令白名单 + 括号配平 + 至少一个 `{}` 参数 + 未闭合不匹配。
+
+**代价**：「标签：\small…」这种前缀混排不识别。用户反馈的那条消息整段就是 LaTeX，能覆盖。
+
+**什么时候该推翻**：如果混排场景变常见，再考虑放宽到「行首片段」，而不是直接行内识别。
+
+## 决策 26：状态栏的数据口径
+
+**取舍**：余额直接显示 `total_balance`；上下文占用有几种算法（只算输入、输入+输出、按字符估算）。
+
+**选择**：已用 = 输入（含缓存读写）+ 本轮输出；上限取 `GET /models` 的 `context_window`，按当前模型 id 匹配，缓存 24 小时。不用字符估算——那是猜，且会和真实 token 越差越远。
+
+**代价**：`/models` 拿不到上限时只显示已用 token；旧消息没有 usage 时显示 `--`。
+
+**跨域**：实测余额接口对任意 Origin 回显 CORS 头（含 APK 的 `https://localhost` 与 `capacitor://localhost`），所以网页版与 APK 都直接 `fetch`，**不启用 CapacitorHttp 补丁**——那条补丁会重写 `window.fetch`，有碰坏 SSE 流式的风险。
+
 ## 尚未决策（悬空）
 
 - **项目命名**：目录 `DeepSeek 复刻APP` / remote `DeepSeek-APP-Replica` / `package.json` name `chat-demo` / README 标题 `DeepSeek APP Replica`。四处不统一，`package.json` 未改。改不改、改成什么，待定。

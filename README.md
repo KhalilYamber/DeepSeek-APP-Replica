@@ -136,6 +136,10 @@ cd android
 | `src/check.html` | 兼容性自检页（单独一份老语法的样式，因为它要跑在更老的机器上） |
 | `scripts/build.mjs` | 跨平台构建脚本（官方的是 `rm -rf`，Windows 上不可用） |
 | `capacitor.config.ts` | Capacitor 配置 |
+| `src/services/markdown/bareTex.ts` | 整段裸 LaTeX 识别（0.4.13） |
+| `src/components/markdown/mathLoading.tsx` | 公式是否在流式中的 Context（0.4.13） |
+| `src/components/session/UsageBar.tsx` | 标题栏下的余额与上下文状态栏（0.4.13） |
+| `src/services/contextUsage.ts` / `balance.ts` / `contextWindow.ts` | 用量合并、余额请求、上下文上限缓存（0.4.13） |
 
 ### 修改
 
@@ -150,6 +154,13 @@ cd android
 | `android/app/src/main/AndroidManifest.xml` | 加 `RECORD_AUDIO` 权限 |
 | `android/build.gradle` | Maven 换阿里云镜像（国内直连 Central 会失败） |
 | `android/gradle.properties` | 允许含非 ASCII 字符的项目路径 |
+| `src/services/markdown/parse.ts` | 纯文本节点里识别整段裸 LaTeX（0.4.13） |
+| `src/services/markdown/katex.ts` | 中点 U+00B7 归一化为 U+22C5（0.4.13） |
+| `src/components/markdown/MathFormula.tsx` | 公式失败降级：局部标红替代整条退回（0.4.13） |
+| `src/services/markdown/highlight.ts` | 补 20 门语言与别名（0.4.13） |
+| `src/components/session/SessionView.tsx` / `Welcome.tsx` | 挂状态栏（0.4.13） |
+| `src/services/api/client.ts` | `verifyApiKey` 带回 `/models` 数据（0.4.13） |
+| `src/services/chat/reply.ts` | usage 两段合并，后到的 0 不覆盖先到的输入（0.4.13） |
 
 ### 工具
 

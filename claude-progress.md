@@ -587,3 +587,35 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   4. **同时开 6 个 Chrome 会抖**：disclaimer 探针在 6 路并行时失败一次，单独跑 11/11 —— 以后并行别超过 5 条
 - **未验证**：真机（A58 字体放大到最大时正文要滑动一下）
 - 更新过的文件或工件：`services/disclaimer.ts`（新）、`components/disclaimer/`（新）、`App.tsx`、`SettingsDialog.tsx`、`i18n/{zh,en}.ts`、`_probe/disclaimer.mjs`（新）、五个老探针头部、`package.json`（0.4.12）、`CHANGELOG.md`、`feature_list.json`（`notice-001`）、本文件
+
+### Session 025
+
+- 日期：2026-11-20
+- 本轮目标：0.4.13 —— 裸 LaTeX 识别、公式失败降级、20 门代码语言、标题栏下状态栏（余额 + 上下文圆环）
+- 已完成：
+  - `services/markdown/bareTex.ts`（新）：整段匹配的裸 LaTeX 识别；`parse.ts` 只对 text 节点生效，代码块天然排除
+  - `services/markdown/katex.ts`：`normalizeFormula` 把 U+00B7 换成 U+22C5
+  - `components/markdown/MathFormula.tsx` + `mathLoading.tsx`（新）：流式中严格、结束后宽松降级，诊断记一条去重原因
+  - `services/markdown/highlight.ts`：补 20 门语言与别名，按 components.json 的依赖补齐
+  - `services/contextUsage.ts`（新）：usage 两段合并、已用 token、百分比 clamp、token 格式化、取最近一条用量
+  - `services/chat/reply.ts`：usage 从「后到覆盖」改成 `mergeUsage`
+  - `services/balance.ts`（新）：余额接口、币种优先、格式化
+  - `services/contextWindow.ts`（新）：按模型 id 取 `context_window`，缓存 24 小时
+  - `services/api/client.ts`：`verifyApiKey` 返回 /models 的 JSON（向后兼容，原调用方只 await）
+  - `components/session/UsageBar.tsx`（新）+ 样式；`SessionView` / `Welcome` 落点；`Welcome.container` 桌面也改 column
+  - 中英词条各 4 个
+- 运行过的验证：
+  - `pnpm type` / `pnpm lint` / `pnpm test` — 全绿（156 条）
+  - `_probe/math-render.mjs` **8/8**、`_probe/usage-bar.mjs` **6/6**
+  - `measure-layout --check`：10 档断言全过；**基线重存**（新增 32px 栏改变几何，属预期变化）
+  - `verify-boot-guard.mjs` **39/39**
+  - `./init.ps1` 六道门 error 0 / hint 1 / info 9
+- **未验证**：真机（A58 上状态栏观感、余额请求的实际网络表现）
+- 踩到的坑：
+  1. **Node 的类型剥离不认 `.js → .ts`**：测试里不能 import 带本地运行时 import 的 `parse.ts`，接线验证只能交给探针
+  2. **没填 Key 时应用会自动弹设置窗**：探针点不到会话，先在 localStorage 塞假 Key 或按 Escape
+  3. **KaTeX 的 MathML `<annotation>` 保留原文**：探针用 `body.textContent` 查「有没有反斜杠残留」会误判，要看 `.katex-html`
+  4. **KaTeX 宽松模式不用 `katex-error` 类**：是红色文本（`mathcolor="#cc0000"`）
+  5. **`measure-layout` 基线是旧版工具写的**（缺 800x480、1024x600 两档），重存后才一致
+- 更新过的文件或工件：见提交 `feat: 裸 LaTeX 识别…` 与 `feat: 标题栏下新增状态栏…`；`package.json`（0.4.13）、`CHANGELOG.md`、`feature_list.json`（math-001/002、code-001、usage-001）、`tools/layout-baseline.json`、本文件
+- 下一步最佳动作：打 0.4.13 debug 包，装 A58 看状态栏与公式；旧会话圆环显示 `--` 是预期
