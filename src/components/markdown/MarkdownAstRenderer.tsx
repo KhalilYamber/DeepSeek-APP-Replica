@@ -12,6 +12,7 @@ import { CitationLink } from '../search/CitationLink.js'
 import { CodeBlock } from './CodeBlock.js'
 import { ImageAsLink, Link } from './Link.js'
 import { InlineMath, MathBlock } from './MathFormula.js'
+import { MathLoadingProvider } from './mathLoading.js'
 
 const Html = memo(function Html({ value }: { value: string }) {
   if (/^<br\s*\/?>$/i.test(value)) {
@@ -234,13 +235,15 @@ export const MarkdownAstRenderer = memo(function MarkdownAstRenderer({
 
   return useMemo(
     () => (
-      <div className={clsx('ds-markdown', className)}>
-        {/* 解析器在根节点下产出块级内容。 */}
-        <MarkdownBlockContentOrDefinitionContent
-          nodes={ast.children as Array<BlockContent | DefinitionContent>}
-          loading={loading}
-        />
-      </div>
+      <MathLoadingProvider value={loading}>
+        <div className={clsx('ds-markdown', className)}>
+          {/* 解析器在根节点下产出块级内容。 */}
+          <MarkdownBlockContentOrDefinitionContent
+            nodes={ast.children as Array<BlockContent | DefinitionContent>}
+            loading={loading}
+          />
+        </div>
+      </MathLoadingProvider>
     ),
     [className, ast.children, loading]
   )

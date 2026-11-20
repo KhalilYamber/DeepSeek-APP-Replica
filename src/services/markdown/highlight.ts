@@ -15,6 +15,7 @@ const c: Loader = () => import('prismjs/components/prism-c.min.js')
 const java: Loader = () => import('prismjs/components/prism-java.min.js')
 const jsx: Loader = () => import('prismjs/components/prism-jsx.min.js')
 const typescript: Loader = () => import('prismjs/components/prism-typescript.min.js')
+const basic: Loader = () => import('prismjs/components/prism-basic.min.js')
 
 /** 只保留常用语言，其余按纯文本显示；key 为 Prism 语言名 */
 const loaders: Record<string, Loader> = {
@@ -64,6 +65,27 @@ const loaders: Record<string, Loader> = {
   tsx: after([jsx, typescript], () => import('prismjs/components/prism-tsx.min.js')),
   typescript,
   yaml: () => import('prismjs/components/prism-yaml.min.js'),
+  // 0.4.13 起补充的常用语言
+  julia: () => import('prismjs/components/prism-julia.min.js'),
+  zig: () => import('prismjs/components/prism-zig.min.js'),
+  elixir: () => import('prismjs/components/prism-elixir.min.js'),
+  ocaml: () => import('prismjs/components/prism-ocaml.min.js'),
+  fortran: () => import('prismjs/components/prism-fortran.min.js'),
+  verilog: () => import('prismjs/components/prism-verilog.min.js'),
+  vhdl: () => import('prismjs/components/prism-vhdl.min.js'),
+  solidity: after([builtin], () => import('prismjs/components/prism-solidity.min.js')),
+  hcl: () => import('prismjs/components/prism-hcl.min.js'),
+  nix: () => import('prismjs/components/prism-nix.min.js'),
+  lisp: () => import('prismjs/components/prism-lisp.min.js'),
+  scheme: () => import('prismjs/components/prism-scheme.min.js'),
+  clojure: () => import('prismjs/components/prism-clojure.min.js'),
+  erlang: () => import('prismjs/components/prism-erlang.min.js'),
+  vbnet: after([basic], () => import('prismjs/components/prism-vbnet.min.js')),
+  groovy: after([builtin], () => import('prismjs/components/prism-groovy.min.js')),
+  pascal: () => import('prismjs/components/prism-pascal.min.js'),
+  less: after([builtin], () => import('prismjs/components/prism-less.min.js')),
+  glsl: after([c], () => import('prismjs/components/prism-glsl.min.js')),
+  regex: () => import('prismjs/components/prism-regex.min.js'),
 }
 
 /** 代码块语言名 → Prism 语言名 */
@@ -93,6 +115,27 @@ const aliases: Record<string, string> = {
   rb: 'ruby',
   rs: 'rust',
   yml: 'yaml',
+  // 0.4.13 起补充语言的别名
+  jl: 'julia',
+  ex: 'elixir',
+  exs: 'elixir',
+  ml: 'ocaml',
+  mli: 'ocaml',
+  f90: 'fortran',
+  f95: 'fortran',
+  vhd: 'vhdl',
+  tf: 'hcl',
+  terraform: 'hcl',
+  lsp: 'lisp',
+  scm: 'scheme',
+  clj: 'clojure',
+  cljs: 'clojure',
+  erl: 'erlang',
+  vb: 'vbnet',
+  pas: 'pascal',
+  sol: 'solidity',
+  regexp: 'regex',
+  ps1: 'powershell',
 }
 
 /** 支持高亮时返回 Prism 语言名，否则返回 null */

@@ -6,6 +6,7 @@ import { mathFromMarkdown } from 'mdast-util-math'
 import { gfm } from 'micromark-extension-gfm'
 import { math } from 'micromark-extension-llm-math'
 import type { Source } from '../chat/view.js'
+import { matchBareTexParagraph } from './bareTex.js'
 
 /** 正文里的 [citation:N]，已换成对应来源 */
 export interface CitationNode extends MdAstNode {
@@ -64,6 +65,11 @@ export function toMdAst(
       ;(node as Parent).children = node.children.flatMap(simplify) as RootContent[]
     }
     switch (node.type) {
+      case 'text': {
+        // 整段就是一个裸 LaTeX 片段时按行内公式渲染；其余情况保持原文
+        const tex = matchBareTexParagraph(node.value)
+        return tex ? [{ type: 'inlineMath', value: tex }] : [node]
+      }
       case 'link':
         return disableLink ? node.children : [node]
       case 'delete': {
