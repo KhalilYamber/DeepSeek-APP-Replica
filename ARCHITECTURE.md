@@ -399,6 +399,18 @@ APK（使用者拿自己的 API Key 运行）
 
 **跨域**：实测余额接口对任意 Origin 回显 CORS 头（含 APK 的 `https://localhost` 与 `capacitor://localhost`），所以网页版与 APK 都直接 `fetch`，**不启用 CapacitorHttp 补丁**——那条补丁会重写 `window.fetch`，有碰坏 SSE 流式的风险。
 
+## 决策 27：文件夹只加表、不迁移，导出不带分类
+
+**取舍**：给会话加 `folderId` 时，可以写一次全量迁移（遍历所有会话补 `null`），也可以只在读取时兜底。
+
+**选择**：数据库 11 → 12 只新增 `folders` 表，不写迁移；`toSessionSummary` 里 `folderId ?? null`，旧会话自动落在「未分类」。分组时再兜底一次：`folderId` 指向不存在的文件夹也归未分类（导入的历史数据可能带已删文件夹的 id）。
+
+**代价**：数据库里没有显式的 `folderId: null` 记录，全靠读取兜底；绕过 `toSessionSummary` 直接读 store 的代码会遇到 `undefined`。
+
+**导出**：ZIP 不带文件夹，导入的会话统一落未分类；老版本 App 导入新 ZIP 会忽略未知字段。
+
+**边界**：升级后旧版本 App 打不开新数据库（IndexedDB 版本单调递增），这是所有数据库升级的固有代价，已在 README 与使用说明里写明。
+
 ## 尚未决策（悬空）
 
 - **项目命名**：目录 `DeepSeek 复刻APP` / remote `DeepSeek-APP-Replica` / `package.json` name `chat-demo` / README 标题 `DeepSeek APP Replica`。四处不统一，`package.json` 未改。改不改、改成什么，待定。
