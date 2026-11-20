@@ -637,3 +637,19 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 取舍：**图片骨架底色不做**——本地 blob 解码通常 <50ms，骨架看不见；给容器加底色会让透明 PNG 透出灰底
 - 更新过的文件或工件：`balance.ts`、`UsageBar.tsx`、`SettingsDialog.tsx`、`i18n/{zh,en}.ts`、`_probe/usage-bar.mjs`、`package.json`（0.4.14）、`CHANGELOG.md`、`feature_list.json`（`loading-001`）、本文件
 - 下一步最佳动作：真机验一眼；再往后只剩「首屏骨架」与「附件上传进度」两个大件，都属于要单独评估性能的范畴
+
+### Session 027
+
+- 日期：2026-11-20
+- 本轮目标：0.4.15 —— 系统提示声明客户端渲染能力，阻止模型用 HTML 模拟样式
+- 背景：用户真机截图里，模型为「橙色 + 加粗」输出了 `<span style="...">`，客户端把标签原样显示成源码；同一张截图里 `$\color{#ff4500}{\textbf{...}}$` 是渲染成功的。定责：渲染引擎没问题，是模型不知道客户端支持什么。
+- 已完成：
+  - `services/chat/store.ts`：`SYSTEM_PROMPT` 从一行扩成四行，追加「输出格式约定」三条（公式用 KaTeX、禁 HTML、颜色用 `\textcolor`、中文强调用 Markdown）
+  - 刻意**不加**「整段裸 LaTeX 也支持」（会诱导模型输出只部分支持的形式）与「表格/Mermaid」（不解决问题）
+- 运行过的验证：
+  - `pnpm type` / `pnpm lint` / `pnpm build` 全绿
+  - `./init.ps1` 六道门全绿（156 条测试）
+  - **模型是否遵守未验**：探针用假 Key，拿不到真实输出；要用户用自己的 Key 测一句「用橙色加粗写微积分基本定理」
+- **未验证**：提示的实际效果（只能真机真 Key 验）
+- 更新过的文件或工件：`store.ts`、`package.json`（0.4.15）、`CHANGELOG.md`、`README.md`、`feature_list.json`（`prompt-001`）、本文件
+- 下一步最佳动作：用户真机测一句，看模型是否改用 `$\textcolor{...}$`；若仍用 HTML，再把提示写具体（给正反例）

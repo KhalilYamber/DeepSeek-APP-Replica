@@ -930,6 +930,24 @@
         "2026-11-20：导出按钮 busy 时文字改「导出中...」，新增 exportAllExporting 词条。"
       ],
       "notes": "**图片骨架底色刻意不做**：图片来自本地 IndexedDB 的 blob，解码通常 <50ms，骨架看不见；给容器加底色还会让透明 PNG 透出灰底。"
+    },
+    {
+      "id": "prompt-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "系统提示声明客户端渲染能力",
+      "user_visible_behavior": "模型不再用 HTML 标签模拟颜色或加粗，改为 KaTeX 的 \\textcolor 与 Markdown 的 **；公式用 $...$ / $$...$$。",
+      "status": "inferred",
+      "verification": [
+        "pnpm type / lint / build 全绿",
+        "六道门全绿（156 条测试）",
+        "**效果未验**：探针用假 Key 拿不到真实模型输出，需要真 Key 发一条测试，看模型给的是 $\\textcolor{...}$ 还是 <span>"
+      ],
+      "evidence": [
+        "2026-11-20：`store.ts` 的 SYSTEM_PROMPT 从一行扩成四行，只追加输出格式约定，身份说明原样保留。",
+        "2026-11-20：起因是用户截图里模型用 `<span style=\"...\">` 模拟橙色加粗，客户端把标签原样显示成源码；同一张截图里 `$\\color{#ff4500}{\\textbf{...}}$` 是渲染成功的。"
+      ],
+      "notes": "系统提示是软约束，不保证 100% 遵守；但能消掉「主动用 HTML」这个高频行为。刻意没写「整段裸 LaTeX 也支持」（会诱导模型输出我们只部分支持的形式），也没罗列表格/Mermaid（不解决问题）。"
     }
   ]
 }
