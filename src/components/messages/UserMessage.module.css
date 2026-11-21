@@ -44,8 +44,8 @@
   box-sizing: border-box;
   padding: 10px 16px;
   border-radius: 22px;
-  font-size: 16px;
-  line-height: 24px;
+  font-size: calc(16px * var(--app-reading-scale));
+  line-height: calc(24px * var(--app-reading-scale));
   color: var(--dsw-alias-label-primary);
   background-color: var(--dsw-specific-bubble);
   white-space: pre-wrap;
@@ -102,8 +102,8 @@
   outline: none;
   resize: none;
   font: inherit;
-  font-size: 16px;
-  line-height: 24px;
+  font-size: calc(16px * var(--app-reading-scale));
+  line-height: calc(24px * var(--app-reading-scale));
   color: var(--dsw-alias-label-primary);
   background: transparent;
 }

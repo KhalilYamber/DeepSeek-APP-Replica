@@ -23,6 +23,7 @@ import { ensureApiKey } from '../components/settings/settingsDialogState.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
 import { DisclaimerDialog } from '../components/disclaimer/DisclaimerDialog.js'
 import { acknowledgeDisclaimer, isDisclaimerAcknowledged } from '../services/disclaimer.js'
+import { useChatBackground } from '../services/chatBackground.js'
 import { Toast } from '../components/base/Toast.js'
 import { showToast } from '../components/base/toastState.js'
 import { onUploadNotice } from '../services/attachments.js'
@@ -59,6 +60,7 @@ export const App = () => {
     state.activeId === null ? false : Object.hasOwn(state.streaming, state.activeId)
   )
   const activeId = useChatStore((state) => state.activeId)
+  const background = useChatBackground((state) => state.image)
 
   useViewportLayoutSync()
   useNativeShell()
@@ -108,6 +110,12 @@ export const App = () => {
       <div ref={frameRef} className={styles.frame}>
         {isMobile ? <MobileSider /> : siderCollapsed ? null : <Sider />}
         <main className={styles.main}>
+          {background ? (
+            <div className={styles.background} aria-hidden="true">
+              <img className={styles.backgroundImage} src={background} alt="" />
+              <div className={styles.backgroundDim} />
+            </div>
+          ) : null}
           {saveError ? (
             <div className={styles.saveError} role="alert">
               <span>{t('sessionSaveFailed')}</span>

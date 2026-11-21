@@ -137,17 +137,17 @@ try {
     return false
   })()`)
 
-  // 首次打开没有 API Key，设置弹窗会自动弹出，但停在「数据管理」——头像在「通用设置」里，先切过去
+  // 首次打开没有 API Key，设置弹窗会自动弹出，但停在「数据管理」——头像在「个性化」里，先切过去
   const dialog = await waitFor(`document.querySelector('[role="dialog"]')`)
   check('设置弹窗自动打开', dialog >= 0, `${dialog}ms`)
   const switched = await evaluate(`(function () {
     var nodes = document.querySelectorAll('[role="dialog"] button')
     for (var i = 0; i < nodes.length; i++) {
-      if (nodes[i].textContent.indexOf('通用设置') >= 0) { nodes[i].click(); return true }
+      if (nodes[i].textContent.indexOf('个性化') >= 0) { nodes[i].click(); return true }
     }
     return false
   })()`)
-  check('切到「通用设置」', switched === true)
+  check('切到「个性化」', switched === true)
   const hasRows = await waitFor(
     `(function () {
       var text = (document.querySelector('[role="dialog"]') || { textContent: '' }).textContent
@@ -159,7 +159,7 @@ try {
   const uploads = await evaluate(
     `document.querySelectorAll('[role="dialog"] input[type="file"]').length`
   )
-  check('两个上传入口都在', uploads === 2, `找到 ${uploads} 个`)
+  check('三个上传入口都在（两个头像 + 一个背景）', uploads === 3, `找到 ${uploads} 个`)
 
   // 真上传：CDP 把文件塞进第一个 input，走应用自己的 onChange → fileToAvatar 那条链路
   const doc = await send('DOM.getDocument')
@@ -168,6 +168,23 @@ try {
     selector: '[role="dialog"] input[type="file"]',
   })
   await send('DOM.setFileInputFiles', { nodeId: node.result.nodeId, files: [PNG] })
+
+  // 图片解码完「保存」才可用，所以要等到它不再是 disabled
+  const cropReady = await waitFor(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '保存' && !nodes[i].disabled) return true
+    }
+    return false
+  })()`)
+  check('裁剪器打开且可保存', cropReady >= 0, `${cropReady}ms`)
+  await evaluate(`(function () {
+    var nodes = document.querySelectorAll('button')
+    for (var i = 0; i < nodes.length; i++) {
+      if ((nodes[i].textContent || '').trim() === '保存') { nodes[i].click(); return true }
+    }
+    return false
+  })()`)
 
   const stored = await waitFor(
     `(function () {

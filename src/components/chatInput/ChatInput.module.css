@@ -1,12 +1,15 @@
 .wrapper {
-  --line-height: 24px;
+  --line-height: calc(24px * var(--app-reading-scale));
   --input-padding-top: 12px;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   width: 100%;
   cursor: text;
+  /* 先给老内核固定值兜底；支持 max() 的内核再按档位放大。
+     输入框不低于 16px：iOS Safari 里小于 16px 会在聚焦时把整页放大。 */
   font-size: 16px;
+  font-size: max(16px, calc(16px * var(--app-reading-scale)));
   line-height: var(--line-height);
   border-radius: 24px;
   border: 1px solid var(--dsw-alias-border-l2-darkmode-thin);

@@ -7,6 +7,7 @@ import {
   IconFollowsystemOutline16,
   IconLightOutline16,
   IconSettingsOutline16,
+  IconThinkOutline16,
   IconUploadOutline14,
 } from '../base/icons.js'
 import {
@@ -17,7 +18,19 @@ import {
   type ImportMode,
 } from '../../services/chat/backup.js'
 import { importMessage } from '../../services/chat/history/result.js'
-import { fileToAvatar, setAvatar, useAvatars, type AvatarRole } from '../../services/avatar.js'
+import { AVATAR_SIZE, setAvatar, useAvatars, type AvatarRole } from '../../services/avatar.js'
+import {
+  READING_LEVELS,
+  setReadingLevel,
+  useReadingFont,
+  type ReadingLevel,
+} from '../../services/readingFont.js'
+import {
+  setBackgroundDim,
+  setChatBackground,
+  useChatBackground,
+} from '../../services/chatBackground.js'
+import { ImageCropper } from './ImageCropper.js'
 import { appVersion, clearDiagnostics, collectDiagnostics } from '../../services/diagnostics.js'
 import { isNativeApp, saveBlobOnNative } from '../../services/native/platform.js'
 import { useIsMobile } from '../../app/viewport.js'
@@ -58,6 +71,11 @@ const sections: { value: SettingsSection; label: TranslationKey; icon: ReactNode
     value: 'general',
     label: 'settingDialogAsideGeneralOptionLabel',
     icon: <IconSettingsOutline16 />,
+  },
+  {
+    value: 'personalize',
+    label: 'settingDialogAsidePersonalizeOptionLabel',
+    icon: <IconThinkOutline16 />,
   },
   { value: 'data', label: 'settingDialogAsideDataOptionLabel', icon: <IconDataOutline16 /> },
 ]
@@ -106,14 +124,19 @@ const SettingsContent = () => {
             <>
               <ThemeSetting />
               <LocaleSetting />
-              <TtsVoiceSetting />
-              <ThinkingEndSetting />
-              <AvatarSetting />
               <LocationSetting />
               {/* 只在 APK 里出现：网页版刷新就是最新，不存在"检查更新"，跳 APK 下载页更是错位 */}
               {isNativeApp() ? <UpdateSetting /> : null}
               <DisclaimerSetting />
               <DiagnosticsSetting />
+            </>
+          ) : section === 'personalize' ? (
+            <>
+              <FontSizeSetting />
+              <ThinkingEndSetting />
+              <TtsVoiceSetting />
+              <AvatarSetting />
+              <BackgroundSetting />
             </>
           ) : (
             <>
@@ -444,6 +467,129 @@ const ThemeSetting = () => {
   )
 }
 
+/** 字体大小：四档，作用于聊天正文与输入框；标题、表格、代码按同一系数跟随 */
+const FONT_LABELS: Record<ReadingLevel, TranslationKey> = {
+  small: 'fontSizeSmall',
+  normal: 'fontSizeNormal',
+  large: 'fontSizeLarge',
+  xlarge: 'fontSizeXLarge',
+}
+
+const FontSizeSetting = () => {
+  const t = useTranslate()
+  const level = useReadingFont((state) => state.level)
+  const label = t('fontSizeLabel')
+  return (
+    <div className={styles.theme}>
+      <div className={styles.settingTitle}>
+        {label}
+        <span className={styles.settingHint}>{t('fontSizeHint')}</span>
+      </div>
+      <div role="radiogroup" aria-label={label} className={styles.fontSizeOptions}>
+        {READING_LEVELS.map((item) => (
+          <button
+            key={item}
+            type="button"
+            role="radio"
+            aria-checked={level === item}
+            className={clsx(
+              styles.fontSizeOption,
+              level === item && styles.fontSizeOptionSelected
+            )}
+            onClick={() => setReadingLevel(item)}
+          >
+            {t(FONT_LABELS[item])}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** 对话背景：选图走同一个裁剪器，导出压到 1080×1920 / 质量 0.7 */
+const MAX_BACKGROUND_CHARS = 450_000
+
+const BackgroundSetting = () => {
+  const t = useTranslate()
+  const image = useChatBackground((state) => state.image)
+  const dim = useChatBackground((state) => state.dim)
+  const [pending, setPending] = useState<File | null>(null)
+
+  return (
+    <div className={styles.backgroundSetting}>
+      <div className={styles.backgroundHeader}>
+        <div>
+          <div className={styles.label}>{t('backgroundLabel')}</div>
+          <div className={styles.description}>{t('backgroundHint')}</div>
+        </div>
+        <div className={styles.avatarActions}>
+          <label className={styles.avatarUpload}>
+            {t('backgroundPick')}
+            <input
+              className={styles.avatarInput}
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ''
+                if (file) {
+                  setPending(file)
+                }
+              }}
+            />
+          </label>
+          {image ? (
+            <Button
+              size="m"
+              variant="outlined"
+              className={styles.cellButton}
+              onClick={() => setChatBackground(null)}
+            >
+              {t('backgroundClear')}
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {image ? (
+        <>
+          <div className={styles.backgroundPreview}>
+            <img src={image} alt="" />
+            <div className={styles.backgroundPreviewDim} />
+          </div>
+          <label className={styles.backgroundDimRow}>
+            <span>{t('backgroundDim')}</span>
+            <input
+              type="range"
+              min={0}
+              max={80}
+              step={5}
+              value={dim}
+              onChange={(event) => setBackgroundDim(Number(event.target.value))}
+            />
+          </label>
+        </>
+      ) : null}
+      {pending ? (
+        <ImageCropper
+          file={pending}
+          aspect={9 / 16}
+          outputWidth={1080}
+          quality={0.7}
+          onCancel={() => setPending(null)}
+          onConfirm={(dataUrl) => {
+            setPending(null)
+            if (dataUrl.length > MAX_BACKGROUND_CHARS) {
+              showToast({ key: 'backgroundTooLarge', type: 'error' })
+              return
+            }
+            setChatBackground(dataUrl)
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
 /** `reason` 为失败原因的文案 key，展示时按当前语言翻译后填入 `message` 参数。 */
 type Status = (TranslationMessage & { error?: boolean; reason?: TranslationKey }) | null
 
@@ -664,19 +810,11 @@ const AvatarSetting = () => {
 const AvatarRow = ({ role, label }: { role: AvatarRole; label: string }) => {
   const t = useTranslate()
   const src = useAvatars((state) => state[role])
-  const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<File | null>(null)
 
-  const pick = async (file: File | undefined) => {
-    if (!file) {
-      return
-    }
-    setBusy(true)
-    try {
-      setAvatar(role, await fileToAvatar(file))
-    } catch {
-      showToast({ key: 'settingsAvatarFailed', type: 'error' })
-    } finally {
-      setBusy(false)
+  const pick = (file: File | undefined) => {
+    if (file) {
+      setPending(file)
     }
   }
 
@@ -700,11 +838,10 @@ const AvatarRow = ({ role, label }: { role: AvatarRole; label: string }) => {
             className={styles.avatarInput}
             type="file"
             accept="image/*"
-            disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0]
               event.target.value = ''
-              void pick(file)
+              pick(file)
             }}
           />
         </label>
@@ -713,13 +850,25 @@ const AvatarRow = ({ role, label }: { role: AvatarRole; label: string }) => {
             size="m"
             variant="outlined"
             className={styles.cellButton}
-            disabled={busy}
             onClick={() => setAvatar(role, null)}
           >
             {t('settingsAvatarReset')}
           </Button>
         ) : null}
       </div>
+      {pending ? (
+        <ImageCropper
+          file={pending}
+          aspect={1}
+          outputWidth={AVATAR_SIZE}
+          quality={0.85}
+          onCancel={() => setPending(null)}
+          onConfirm={(dataUrl) => {
+            setAvatar(role, dataUrl)
+            setPending(null)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
