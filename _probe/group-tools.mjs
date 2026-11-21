@@ -13,6 +13,7 @@ const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const PORT = 9588
 const WEB_PORT = 8158
 const PROFILE = join(tmpdir(), 'group-tools-probe-profile')
+const THEME = process.env.THEME === 'dark' ? 'dark' : 'light'
 
 await rm(PROFILE, { recursive: true, force: true })
 await mkdir(join(REPO, 'screenshots'), { recursive: true })
@@ -116,7 +117,7 @@ await sleep(1400)
 await evaluate(`
   localStorage.setItem('chat-demo:disclaimer-ack', '1');
   localStorage.setItem('chat-demo:api-key', 'sk-probe-000000000000');
-  localStorage.setItem('chat-demo:theme-preference', 'light');
+  localStorage.setItem('chat-demo:theme-preference', '${THEME}');
   true
 `)
 await send('Page.reload')
@@ -171,8 +172,8 @@ if (light && !light.error) {
 
 const shotLight = await send('Page.captureScreenshot', { format: 'png' })
 if (shotLight.result?.data) {
-  await writeFile(join(REPO, 'screenshots', 'group-tools-light.png'), Buffer.from(shotLight.result.data, 'base64'))
-  console.log('截图: screenshots/group-tools-light.png')
+  await writeFile(join(REPO, 'screenshots', `group-tools-${THEME}.png`), Buffer.from(shotLight.result.data, 'base64'))
+  console.log(`截图: screenshots/group-tools-${THEME}.png`)
 }
 
 // 强制 :active，验证按下态与常态不同色
@@ -194,8 +195,8 @@ if (node.result?.nodeId) {
   check('按下态与常态不同', !!active && active !== light.collapseBg, `${active} vs ${light.collapseBg}`)
   const shotActive = await send('Page.captureScreenshot', { format: 'png' })
   if (shotActive.result?.data) {
-    await writeFile(join(REPO, 'screenshots', 'group-tools-active.png'), Buffer.from(shotActive.result.data, 'base64'))
-    console.log('截图: screenshots/group-tools-active.png')
+    await writeFile(join(REPO, 'screenshots', `group-tools-active-${THEME}.png`), Buffer.from(shotActive.result.data, 'base64'))
+    console.log(`截图: screenshots/group-tools-active-${THEME}.png`)
   }
   await send('CSS.forcePseudoState', { nodeId: node.result.nodeId, forcedPseudoClasses: [] })
 } else {
