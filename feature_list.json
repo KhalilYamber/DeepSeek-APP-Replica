@@ -1078,6 +1078,68 @@
         "2026-11-21：两处必要修正——不写死库版本号；滚动出口从「固定帧数」改成「位置不再变化」（列表高度会随 content-visibility 从 19.8 万 px 涨到 34.6 万 px，定帧数会提前收工）。"
       ],
       "notes": "无头 Chrome 的数字只证明「没退化」，不代表真机手感；真机只有一台 A58x。引用基线前先核对探针输出的「构建于 + 版本」两行，否则会把改过的产物当成改前的。"
+    },
+    {
+      "id": "font-size-001",
+      "priority": 1,
+      "area": "settings",
+      "title": "字体大小四档，只作用于正文与输入框",
+      "user_visible_behavior": "设置 → 个性化 → 字体大小：小 / 标准 / 大 / 特大。选完正文与输入框立刻变，标题、表格、代码按同一系数跟随。",
+      "status": "passing",
+      "verification": [
+        "`_probe/font-scale.mjs` 13/13：四档下正文 14/16/18/20px、h1 21/24/30px、表格 15/18.75px、小档输入框仍 16px、四档标题都大于正文",
+        "`pnpm test`：`test/reading-font.test.ts` 守档位映射与坏数据回标准档"
+      ],
+      "evidence": [
+        "2026-11-21 本机 Chrome 无头（390×844 移动视口）：把 theme.css 里 9 个 font 简写变量改成 calc(px × --app-reading-scale)，实测 calc 在 font 简写里生效"
+      ],
+      "notes": "输入框 16px 下限是 iOS 的硬约束（低于 16px 聚焦会放大整页），真机 iOS 未验证。"
+    },
+    {
+      "id": "avatar-crop-001",
+      "priority": 1,
+      "area": "settings",
+      "title": "头像可拖动与缩放后再保存",
+      "user_visible_behavior": "设置 → 个性化 → 上传照片后进裁剪器：拖动位置、滑块缩放，点保存才生效。",
+      "status": "passing",
+      "verification": [
+        "`_probe/avatar-apk.mjs` 12/12：选文件 → 裁剪器打开且可保存 → 保存后 localStorage 存成 JPEG dataURL → 会话里头像生效"
+      ],
+      "evidence": [
+        "2026-11-21 本机 Chrome 无头：走真实文件输入链路（CDP DOM.setFileInputFiles），不是模拟 state"
+      ],
+      "notes": "原图任一边超过 4096px 会先等比缩小；canvas 不可用时保留旧头像，不破坏已有数据。"
+    },
+    {
+      "id": "chat-background-001",
+      "priority": 1,
+      "area": "settings",
+      "title": "对话背景图与可调遮罩",
+      "user_visible_behavior": "设置 → 个性化 → 对话背景：选图、裁剪、拖动遮罩滑块；聊天区显示背景，正文始终清晰。",
+      "status": "inferred",
+      "verification": [
+        "`_probe/personalize.mjs` 9/9：背景图渲染进主区域、遮罩计算值 0.4"
+      ],
+      "evidence": [
+        "2026-11-21 本机 Chrome 无头：注入渐变图后断言主区域 img 存在与遮罩 opacity；截图 screenshots/background.png"
+      ],
+      "notes": "只铺内容区，顶部标题栏与余额栏保持不透明。真机渲染效果与滚动性能未验，故标 inferred。"
+    },
+    {
+      "id": "settings-grouping-001",
+      "priority": 2,
+      "area": "settings",
+      "title": "设置页拆成三栏",
+      "user_visible_behavior": "设置弹窗导航从两项变三项：通用设置 / 个性化 / 数据管理；个性化里收字体、思考、音色、头像、背景。",
+      "status": "passing",
+      "verification": [
+        "`_probe/personalize.mjs`：导航文案为「通用设置/个性化/数据管理」，个性化里四项齐全",
+        "`_probe/disclaimer.mjs` 16/16 与 `_probe/update-link.mjs` 16/16 回归通过"
+      ],
+      "evidence": [
+        "2026-11-21 本机 Chrome 无头：截图 screenshots/personalize.png"
+      ],
+      "notes": "`openSettings('general')` 等旧调用点语义未变，全仓仅 3 处。"
     }
   ]
 }
