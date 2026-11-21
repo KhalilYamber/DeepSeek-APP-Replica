@@ -1,5 +1,5 @@
-// 探针：会话分类文件夹——渲染、折叠、归到文件夹弹窗。
-// 用法：先 pnpm build，再 node _probe/folders.mjs
+// 探针：会话分类分组——渲染、折叠、归到分组弹窗。
+// 用法：先 pnpm build，再 node _probe/groups.mjs
 import { spawn } from 'node:child_process'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -12,8 +12,8 @@ const REPO = resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
 const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const PORT = 9585
 const WEB_PORT = 8155
-const PROFILE = join(tmpdir(), 'folders-probe-profile')
-const SHOT = join(REPO, 'screenshots', 'folders.png')
+const PROFILE = join(tmpdir(), 'groups-probe-profile')
+const SHOT = join(REPO, 'screenshots', 'groups.png')
 
 await rm(PROFILE, { recursive: true, force: true })
 await mkdir(join(REPO, 'screenshots'), { recursive: true })
@@ -102,16 +102,16 @@ const check = (name, ok, detail = '') => {
 const bodyHas = (text) => `(document.body.textContent || '').indexOf(${JSON.stringify(text)}) >= 0`
 
 const seed = `new Promise(function (resolve, reject) {
-  var req = indexedDB.open('chat-demo', 12)
+  var req = indexedDB.open('chat-demo')
   req.onerror = function () { reject(req.error) }
   req.onsuccess = function () {
     var db = req.result
     var now = Date.now()
-    var tx = db.transaction(['sessions', 'sessionSummaries', 'folders'], 'readwrite')
-    tx.objectStore('folders').put({ id: 'f-work', name: '工作', createdAt: now - 20000 })
-    function putSession(id, title, folderId, updatedAt) {
+    var tx = db.transaction(['sessions', 'sessionSummaries', 'groups'], 'readwrite')
+    tx.objectStore('groups').put({ id: 'f-work', name: '工作', createdAt: now - 20000 })
+    function putSession(id, title, groupId, updatedAt) {
       tx.objectStore('sessions').put({
-        id: id, title: title, createdAt: updatedAt, updatedAt: updatedAt, folderId: folderId,
+        id: id, title: title, createdAt: updatedAt, updatedAt: updatedAt, groupId: groupId,
         messages: [
           { id: id + '-u', role: 'user', content: title, files: [], createdAt: updatedAt },
           {
@@ -123,7 +123,7 @@ const seed = `new Promise(function (resolve, reject) {
       })
       tx.objectStore('sessionSummaries').put({
         id: id, title: title, createdAt: updatedAt, updatedAt: updatedAt,
-        folderId: folderId, fileIds: []
+        groupId: groupId, fileIds: []
       })
     }
     putSession('s-in', '归到工作里的会话', 'f-work', now - 10000)
@@ -170,7 +170,7 @@ try {
   await evaluate(`localStorage.setItem('chat-demo:disclaimer-ack', '1')`)
   await evaluate(`localStorage.setItem('chat-demo:api-key', 'sk-probe-not-real')`)
   await sleep(400)
-  check('塞进一个文件夹与两条会话', (await evaluate(seed)) === true)
+  check('塞进一个分组与两条会话', (await evaluate(seed)) === true)
 
   await send('Page.navigate', { url: `http://127.0.0.1:${WEB_PORT}/` })
   await waitFor(`document.getElementById('root') && document.getElementById('root').children.length > 0`)
@@ -179,23 +179,23 @@ try {
   await evaluate(openDrawer)
   await sleep(700)
 
-  check('侧栏有「新建文件夹」入口', await evaluate(bodyHas('新建文件夹')))
-  check('文件夹「工作」渲染出来', await evaluate(bodyHas('工作')))
+  check('侧栏有「新建分组」入口', await evaluate(bodyHas('新建分组')))
+  check('分组「工作」渲染出来', await evaluate(bodyHas('工作')))
   check('未分类组在', await evaluate(bodyHas('未分类')))
-  check('文件夹里的会话在', await evaluate(bodyHas('归到工作里的会话')))
+  check('分组里的会话在', await evaluate(bodyHas('归到工作里的会话')))
   check('未分类的会话也在', await evaluate(bodyHas('还没归类的会话')))
 
-  // 折叠文件夹：里面的会话应该隐藏
+  // 折叠分组：里面的会话应该隐藏
   await evaluate(clickTextButton('工作'))
   await sleep(400)
-  check('点文件夹头能折叠', !(await evaluate(bodyHas('归到工作里的会话'))))
+  check('点分组头能折叠', !(await evaluate(bodyHas('归到工作里的会话'))))
 
   // 展开回来
   await evaluate(clickTextButton('工作'))
   await sleep(400)
   check('再点能展开', await evaluate(bodyHas('归到工作里的会话')))
 
-  // 点未分类会话的「更多」→ 菜单里应有「归到文件夹」
+  // 点未分类会话的「更多」→ 菜单里应有「归到分组」
   await evaluate(`(function () {
     var buttons = document.querySelectorAll('button[aria-label="更多"]')
     if (buttons.length === 0) return false
@@ -203,18 +203,18 @@ try {
     return true
   })()`)
   await sleep(500)
-  check('会话菜单里有「归到文件夹」', await evaluate(bodyHas('归到文件夹')))
+  check('会话菜单里有「归到分组」', await evaluate(bodyHas('归到分组')))
 
   await evaluate(`(function () {
     var items = document.querySelectorAll('[role="menuitem"]')
     for (var i = 0; i < items.length; i++) {
-      if ((items[i].textContent || '').indexOf('归到文件夹') >= 0) { items[i].click(); return true }
+      if ((items[i].textContent || '').indexOf('归到分组') >= 0) { items[i].click(); return true }
     }
     return false
   })()`)
   await sleep(500)
   check('弹窗列出「未分类」', await evaluate(bodyHas('未分类')))
-  check('弹窗里有「新建文件夹」', await evaluate(bodyHas('新建文件夹')))
+  check('弹窗里有「新建分组」', await evaluate(bodyHas('新建分组')))
 
   const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
   await writeFile(SHOT, Buffer.from(shot.result.data, 'base64'))

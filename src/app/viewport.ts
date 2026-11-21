@@ -131,7 +131,7 @@ export const useMobileViewport = (enabled: boolean) => {
 /** 布局突变（转屏、键盘、窗口缩放）期间临时关掉过渡，避免闪与晕 */
 const LAYOUT_CHANGE_CLASS = 'change-layout'
 const LAYOUT_CHANGE_HOLD_MS = 120
-/** env() 只由样式解析，借这个隐形探针把它读成像素值（样式见 global.css） */
+/** 安全边距只由样式解析（APK 里是 Capacitor 注入的变量），借这个隐形探针把它读成像素值（样式见 global.css） */
 const SAFE_AREA_PROBE_CLASS = 'safe-area-probe'
 
 const readSideInsets = () => {

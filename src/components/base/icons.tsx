@@ -104,7 +104,7 @@ export const IconDownloadOutline16 = () => (
   </svg>
 )
 
-export const IconFolderOutline16 = () => (
+export const IconGroupOutline16 = () => (
   <svg width={16} height={16} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
       d="M1.75 4.25C1.75 3.55964 2.30964 3 3 3H5.79289C6.12441 3 6.44236 3.1317 6.67678 3.36612L7.63388 4.32322C7.8683 4.55764 8.18625 4.68934 8.51777 4.68934H13C13.6904 4.68934 14.25 5.24898 14.25 5.93934V11.75C14.25 12.4404 13.6904 13 13 13H3C2.30964 13 1.75 12.4404 1.75 11.75V4.25Z"

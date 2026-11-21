@@ -6,23 +6,25 @@ import {
   IconChevronRightOutline14,
   IconEditOutline16,
   IconEllipsisOutline16,
-  IconFolderOutline16,
+  IconGroupOutline16,
   IconPanelLeftOutline16,
   IconSettingsOutline16,
   IconTrashOutline16,
   NewChatIcon,
 } from '../base/icons.js'
 import { setSiderCollapsed } from '../../services/settings.js'
-import { groupSessionsByFolder } from '../../services/chat/sessionGroups.js'
+import { groupSessionsByGroup } from '../../services/chat/sessionGroups.js'
 import {
-  createFolder,
-  deleteFolder,
-  moveSessionToFolder,
+  createGroup,
+  deleteGroup,
+  moveSessionToGroup,
   newChat,
+  newChatInGroup,
   removeSession,
-  renameFolder,
+  renameGroup,
   useChatStore,
 } from '../../services/chat/store.js'
+import { useGroupCollapsed } from '../../services/groupCollapsed.js'
 import type { SessionSummary } from '../../services/chat/types.js'
 import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
@@ -35,23 +37,25 @@ import { SearchBox, SearchResults, useSessionSearch } from './SearchBox.js'
 import { SessionItem } from './SessionItem.js'
 import styles from './Sider.module.css'
 
-/** 展开的侧边栏：名称与收起按钮、开启新对话、搜索、分类文件夹、按时间分组的会话、底部设置；移动端放在抽屉里 */
+/** 展开的侧边栏：名称与收起按钮、开启新对话、搜索、会话分组、按时间分组的会话、底部设置；移动端放在抽屉里 */
 export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const t = useTranslate()
   const sessions = useChatStore((state) => state.sessions)
-  const folders = useChatStore((state) => state.folders)
+  const groups = useChatStore((state) => state.groups)
   const activeId = useChatStore((state) => state.activeId)
   const [now, setNow] = useState(Date.now)
-  const groups = useMemo(
-    () => groupSessionsByFolder(sessions, folders, now, t),
-    [sessions, folders, now, t]
+  const sessionGroups = useMemo(
+    () => groupSessionsByGroup(sessions, groups, now, t),
+    [sessions, groups, now, t]
   )
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const collapsedKeys = useGroupCollapsed((state) => state.collapsed)
+  const toggleGroupCollapsed = useGroupCollapsed((state) => state.toggle)
+  const setAllGroupsCollapsed = useGroupCollapsed((state) => state.setAll)
   const [deleting, setDeleting] = useState<SessionSummary | null>(null)
   const [deletePending, setDeletePending] = useState(false)
-  const [folderEditor, setFolderEditor] = useState<{ id: string | null; name: string } | null>(null)
-  const [folderPending, setFolderPending] = useState(false)
-  const [removingFolder, setRemovingFolder] = useState<{
+  const [groupEditor, setGroupEditor] = useState<{ id: string | null; name: string } | null>(null)
+  const [groupPending, setGroupPending] = useState(false)
+  const [removingGroup, setRemovingGroup] = useState<{
     id: string
     name: string
     count: number
@@ -87,50 +91,62 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
     }
   }, [])
 
-  const toggleFolder = (key: string) =>
-    setCollapsed((current) => ({ ...current, [key]: current[key] !== true }))
+  const toggleGroup = (key: string) => toggleGroupCollapsed(key)
 
-  const openFolderEditor = (folder: { id: string; name: string } | null) =>
-    setFolderEditor({ id: folder?.id ?? null, name: folder?.name ?? '' })
+  const groupKeys = sessionGroups.map((item) => item.key)
+  const allCollapsed =
+    groupKeys.length > 0 && groupKeys.every((key) => collapsedKeys.includes(key))
+  const toggleAllGroups = () => setAllGroupsCollapsed(groupKeys, !allCollapsed)
 
-  const submitFolder = async () => {
-    const name = folderEditor?.name.trim()
-    if (!folderEditor || !name || folderPending) {
+  const startChatInGroup = (groupId: string | null, label: string) => {
+    newChatInGroup(groupId)
+    if (mobile) {
+      closeMobileSider()
+    }
+    showToast({ key: 'groupNewChatHint', params: { group: label } })
+  }
+
+  const openGroupEditor = (group: { id: string; name: string } | null) =>
+    setGroupEditor({ id: group?.id ?? null, name: group?.name ?? '' })
+
+  const submitGroup = async () => {
+    const name = groupEditor?.name.trim()
+    if (!groupEditor || !name || groupPending) {
       return
     }
-    setFolderPending(true)
+    setGroupPending(true)
     try {
-      if (folderEditor.id) {
-        renameFolder(folderEditor.id, name)
+      if (groupEditor.id) {
+        renameGroup(groupEditor.id, name)
       } else {
-        createFolder(name)
+        createGroup(name)
       }
-      setFolderEditor(null)
+      setGroupEditor(null)
     } finally {
-      setFolderPending(false)
+      setGroupPending(false)
     }
   }
 
-  const confirmDeleteFolder = async (withSessions: boolean) => {
-    if (!removingFolder || folderPending) {
+  const confirmDeleteGroup = async (withSessions: boolean) => {
+    if (!removingGroup || groupPending) {
       return
     }
-    setFolderPending(true)
+    setGroupPending(true)
     try {
-      await deleteFolder(removingFolder.id, withSessions)
-      setRemovingFolder(null)
+      await deleteGroup(removingGroup.id, withSessions)
+      setRemovingGroup(null)
     } finally {
-      setFolderPending(false)
+      setGroupPending(false)
     }
   }
 
-  const moveTo = (folderId: string | null, name: string) => {
+  const moveTo = (groupId: string | null, name: string) => {
     if (!moving) {
       return
     }
-    moveSessionToFolder(moving.id, folderId)
+    moveSessionToGroup(moving.id, groupId)
     setMoving(null)
-    showToast({ key: 'folderMoved', params: { name } })
+    showToast({ key: 'groupMoved', params: { name } })
   }
 
   return (
@@ -159,56 +175,70 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
         {t('newChat')}
       </button>
       <SearchBox value={query} onChange={setQuery} />
-      <button type="button" className={styles.newFolder} onClick={() => openFolderEditor(null)}>
-        <IconFolderOutline16 />
-        <span>{t('folderNew')}</span>
-      </button>
+      <div className={styles.groupTools}>
+        <button type="button" className={styles.newGroup} onClick={() => openGroupEditor(null)}>
+          <IconGroupOutline16 />
+          <span>{t('groupNew')}</span>
+        </button>
+        <IconButton
+          icon={allCollapsed ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
+          aria-label={allCollapsed ? t('groupExpandAll') : t('groupCollapseAll')}
+          tooltip={allCollapsed ? t('groupExpandAll') : t('groupCollapseAll')}
+          onClick={toggleAllGroups}
+        />
+      </div>
       <div className={styles.listWrap}>
         <div className={styles.list}>
           {searching ? (
             <SearchResults state={search} />
           ) : (
-            groups.map((folderGroup) => {
-              const isCollapsed = collapsed[folderGroup.key] === true
-              const count = folderGroup.groups.reduce(
+            sessionGroups.map((sessionGroup) => {
+              const isCollapsed = collapsedKeys.includes(sessionGroup.key)
+              const count = sessionGroup.groups.reduce(
                 (total, group) => total + group.sessions.length,
                 0
               )
               return (
-                <div key={folderGroup.key} className={styles.folderSection}>
-                  <div className={styles.folderHeader}>
+                <div key={sessionGroup.key} className={styles.groupSection}>
+                  <div className={styles.groupHeader}>
                     <button
                       type="button"
-                      className={styles.folderToggle}
+                      className={styles.groupToggle}
                       aria-expanded={!isCollapsed}
-                      onClick={() => toggleFolder(folderGroup.key)}
+                      onClick={() => toggleGroup(sessionGroup.key)}
                     >
                       {isCollapsed ? <IconChevronRightOutline14 /> : <IconChevronDownOutline14 />}
-                      <span className={styles.folderName}>{folderGroup.label}</span>
-                      {count > 0 ? <span className={styles.folderCount}>{count}</span> : null}
+                      <span className={styles.groupName}>{sessionGroup.label}</span>
+                      {count > 0 ? <span className={styles.groupCount}>{count}</span> : null}
                     </button>
-                    {folderGroup.folderId ? (
+                    <IconButton
+                      icon={<span className={styles.groupAddGlyph}>+</span>}
+                      aria-label={t('groupNewChat')}
+                      tooltip={t('groupNewChat')}
+                      onClick={() => startChatInGroup(sessionGroup.groupId, sessionGroup.label)}
+                    />
+                    {sessionGroup.groupId ? (
                       <Menu
                         options={[
                           {
                             key: 'rename',
-                            label: t('folderMenuRename'),
+                            label: t('groupMenuRename'),
                             icon: <IconEditOutline16 />,
                             onSelect: () =>
-                              openFolderEditor({
-                                id: folderGroup.folderId as string,
-                                name: folderGroup.label,
+                              openGroupEditor({
+                                id: sessionGroup.groupId as string,
+                                name: sessionGroup.label,
                               }),
                           },
                           {
                             key: 'delete',
-                            label: t('folderMenuDelete'),
+                            label: t('groupMenuDelete'),
                             icon: <IconTrashOutline16 />,
                             danger: true,
                             onSelect: () =>
-                              setRemovingFolder({
-                                id: folderGroup.folderId as string,
-                                name: folderGroup.label,
+                              setRemovingGroup({
+                                id: sessionGroup.groupId as string,
+                                name: sessionGroup.label,
                                 count,
                               }),
                           },
@@ -224,10 +254,10 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
                       </Menu>
                     ) : null}
                   </div>
-                  {isCollapsed ? null : folderGroup.groups.length === 0 ? (
-                    <div className={styles.folderEmpty}>{t('folderEmpty')}</div>
+                  {isCollapsed ? null : sessionGroup.groups.length === 0 ? (
+                    <div className={styles.groupEmpty}>{t('groupEmpty')}</div>
                   ) : (
-                    folderGroup.groups.map((section) => (
+                    sessionGroup.groups.map((section) => (
                       <div key={section.key} className={styles.section}>
                         <div className={styles.sectionHeader}>{section.label}</div>
                         {section.sessions.map((session) => (
@@ -293,114 +323,114 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           {t('deleteSessionWithFilesDescription')}
         </Modal>
       ) : null}
-      {folderEditor ? (
+      {groupEditor ? (
         <Modal
-          title={folderEditor.id ? t('folderMenuRename') : t('folderNew')}
+          title={groupEditor.id ? t('groupMenuRename') : t('groupNew')}
           onClose={() => {
-            if (!folderPending) {
-              setFolderEditor(null)
+            if (!groupPending) {
+              setGroupEditor(null)
             }
           }}
           footer={
             <>
-              <Button variant="outlined" disabled={folderPending} onClick={() => setFolderEditor(null)}>
+              <Button variant="outlined" disabled={groupPending} onClick={() => setGroupEditor(null)}>
                 {t('cancel')}
               </Button>
               <Button
-                disabled={folderPending || !folderEditor.name.trim()}
-                onClick={() => void submitFolder()}
+                disabled={groupPending || !groupEditor.name.trim()}
+                onClick={() => void submitGroup()}
               >
-                {folderEditor.id ? t('confirm') : t('folderCreate')}
+                {groupEditor.id ? t('confirm') : t('groupCreate')}
               </Button>
             </>
           }
         >
           <input
-            className={styles.folderInput}
-            value={folderEditor.name}
-            placeholder={t('folderNamePlaceholder')}
+            className={styles.groupInput}
+            value={groupEditor.name}
+            placeholder={t('groupNamePlaceholder')}
             autoFocus
             onChange={(event) =>
-              setFolderEditor((current) =>
+              setGroupEditor((current) =>
                 current ? { ...current, name: event.target.value } : current
               )
             }
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                void submitFolder()
+                void submitGroup()
               }
             }}
           />
         </Modal>
       ) : null}
-      {removingFolder ? (
+      {removingGroup ? (
         <Modal
-          title={t('folderDeleteTitle', { name: removingFolder.name })}
+          title={t('groupDeleteTitle', { name: removingGroup.name })}
           closable
           onClose={() => {
-            if (!folderPending) {
-              setRemovingFolder(null)
+            if (!groupPending) {
+              setRemovingGroup(null)
             }
           }}
           footer={
             <>
               <Button
                 variant="outlined"
-                disabled={folderPending}
-                onClick={() => void confirmDeleteFolder(false)}
+                disabled={groupPending}
+                onClick={() => void confirmDeleteGroup(false)}
               >
-                {t('folderDeleteOnlyFolder')}
+                {t('groupDeleteOnly')}
               </Button>
               <Button
                 variant="danger"
-                disabled={folderPending}
-                onClick={() => void confirmDeleteFolder(true)}
+                disabled={groupPending}
+                onClick={() => void confirmDeleteGroup(true)}
               >
-                {t('folderDeleteWithSessions')}
+                {t('groupDeleteWithSessions')}
               </Button>
             </>
           }
         >
-          <div className={styles.folderDialogText}>
-            {t('folderDeleteOnlyDescription', { count: removingFolder.count })}
+          <div className={styles.groupDialogText}>
+            {t('groupDeleteOnlyDescription', { count: removingGroup.count })}
           </div>
-          <div className={styles.folderDialogText}>
-            {t('folderDeleteWithSessionsDescription', { count: removingFolder.count })}
+          <div className={styles.groupDialogText}>
+            {t('groupDeleteWithSessionsDescription', { count: removingGroup.count })}
           </div>
         </Modal>
       ) : null}
       {moving ? (
-        <Modal title={t('folderMoveTo')} closable onClose={() => setMoving(null)}>
-          <div className={styles.folderPickList}>
+        <Modal title={t('groupMoveTo')} closable onClose={() => setMoving(null)}>
+          <div className={styles.groupPickList}>
             <button
               type="button"
-              className={styles.folderPickItem}
-              onClick={() => moveTo(null, t('folderUncategorized'))}
+              className={styles.groupPickItem}
+              onClick={() => moveTo(null, t('groupUncategorized'))}
             >
-              <IconFolderOutline16 />
-              <span>{t('folderUncategorized')}</span>
+              <IconGroupOutline16 />
+              <span>{t('groupUncategorized')}</span>
             </button>
-            {folders.map((folder) => (
+            {groups.map((group) => (
               <button
-                key={folder.id}
+                key={group.id}
                 type="button"
-                className={styles.folderPickItem}
-                onClick={() => moveTo(folder.id, folder.name)}
+                className={styles.groupPickItem}
+                onClick={() => moveTo(group.id, group.name)}
               >
-                <IconFolderOutline16 />
-                <span>{folder.name}</span>
+                <IconGroupOutline16 />
+                <span>{group.name}</span>
               </button>
             ))}
             <button
               type="button"
-              className={styles.folderPickItem}
+              className={styles.groupPickItem}
               onClick={() => {
                 setMoving(null)
-                openFolderEditor(null)
+                openGroupEditor(null)
               }}
             >
-              <span className={styles.folderPickPlus}>+</span>
-              <span>{t('folderNew')}</span>
+              <span className={styles.groupPickPlus}>+</span>
+              <span>{t('groupNew')}</span>
             </button>
           </div>
         </Modal>

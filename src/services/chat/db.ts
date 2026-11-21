@@ -1,9 +1,9 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import { findInSession, sortHits, type SearchHit } from './search.js'
-import { toSessionSummary, type Folder, type Session, type SessionSummary } from './types.js'
+import { toSessionSummary, type Group, type Session, type SessionSummary } from './types.js'
 
 /** IndexedDB 存储结构版本；新增或调整存储、索引时递增。 */
-const DB_VERSION = 12
+const DB_VERSION = 13
 
 /** 文件原件按附件的本地 id 存储，所有引用同一 id 的消息共用一份；用于缩略图、打开查看，以及没有 serverId 时补传。 */
 export type StoredFile = {
@@ -30,8 +30,8 @@ interface ChatDB extends DBSchema {
    */
   sessionsStaging: { key: string; value: Session }
   filesStaging: { key: string; value: StoredFile }
-  /** 会话分类文件夹；只加表，不改已有会话，老数据的 folderId 读取时兜底成未分类 */
-  folders: { key: string; value: Folder }
+  /** 会话分组；只加表，不改已有会话，老数据的 groupId 读取时兜底成未分类 */
+  groups: { key: string; value: Group }
 }
 
 let dbPromise: Promise<IDBPDatabase<ChatDB>> | null = null
@@ -65,9 +65,10 @@ const getDB = () =>
           db.createObjectStore(name, { keyPath: 'id' })
         }
       }
-      // 12：只新增文件夹表；不给已有会话写迁移，缺 folderId 的按未分类读
-      if (!db.objectStoreNames.contains('folders')) {
-        db.createObjectStore('folders', { keyPath: 'id' })
+      // 13：分组表取代 12 版的 folders 表。12 版留下的 folders 由 migrateGroups 搬完再清空，
+      // 不在这里删——删除存储只能在版本变更事务里做，且这里抛错会让整个库打不开（见 migrateGroups.ts）
+      if (!db.objectStoreNames.contains('groups')) {
+        db.createObjectStore('groups', { keyPath: 'id' })
       }
       const summaries = db.objectStoreNames.contains('sessionSummaries')
         ? tx.objectStore('sessionSummaries')
@@ -147,11 +148,8 @@ export const renameSession = async (id: string, title: string): Promise<void> =>
   ])
 }
 
-/** 把会话归到某个文件夹（null = 未分类），原子更新详情和列表。 */
-export const moveSessionFolder = async (
-  id: string,
-  folderId: string | null
-): Promise<void> => {
+/** 把会话归到某个分组（null = 未分类），原子更新详情和列表。 */
+export const moveSessionGroup = async (id: string, groupId: string | null): Promise<void> => {
   const tx = (await getDB()).transaction(['sessions', 'sessionSummaries'], 'readwrite')
   await Promise.all([
     (async () => {
@@ -159,7 +157,7 @@ export const moveSessionFolder = async (
         const sessions = tx.objectStore('sessions')
         const session = await sessions.get(id)
         if (session) {
-          session.folderId = folderId
+          session.groupId = groupId
           await sessions.put(session)
           await tx.objectStore('sessionSummaries').put(storedSummary(session))
         }
@@ -196,23 +194,31 @@ export const deleteSession = async (sessionId: string): Promise<void> => {
   ])
 }
 
-/** 读取全部文件夹，按创建时间升序 */
-export const loadFolders = async (): Promise<Folder[]> => {
-  const folders = await (await getDB()).getAll('folders')
-  return folders.sort((a, b) => a.createdAt - b.createdAt)
+/** 读取全部分组，按创建时间升序 */
+export const loadGroups = async (): Promise<Group[]> => {
+  const groups = await (await getDB()).getAll('groups')
+  return groups.sort((a, b) => a.createdAt - b.createdAt)
 }
 
-/** 新建或重命名文件夹（按 id 覆盖） */
-export const saveFolder = async (folder: Folder): Promise<void> => {
+/** 新建或重命名分组（按 id 覆盖） */
+export const saveGroup = async (group: Group): Promise<void> => {
   const db = await getDB()
-  await db.put('folders', folder)
+  await db.put('groups', group)
 }
 
-/** 只删文件夹记录；里面的会话由调用方处理（移回未分类或一起删） */
-export const deleteFolderRecord = async (id: string): Promise<void> => {
+/** 只删分组记录；里面的会话由调用方处理（移回未分类或一起删） */
+export const deleteGroupRecord = async (id: string): Promise<void> => {
   const db = await getDB()
-  await db.delete('folders', id)
+  await db.delete('groups', id)
 }
+
+/**
+ * 迁移用的连接：12 版遗留的 folders 表不在 ChatDB 里，迁移代码按无类型结构访问它。
+ * 复用同一个连接，是为了让 12 → 13 的结构升级只由 upgrade 做一次；类型要显式退回去——
+ * 带 ChatDB 的句柄只认得自己声明过的表，表达不了「按名字访问一张已摘掉的表」。
+ */
+export const openMigrationDB = async (): Promise<IDBPDatabase<unknown>> =>
+  (await getDB()) as unknown as IDBPDatabase<unknown>
 
 const putFiles = async (store: 'files' | 'filesStaging', files: StoredFile[]) => {  const tx = (await getDB()).transaction(store, 'readwrite')
   await Promise.all([...files.map((file) => tx.store.put(file)), tx.done])

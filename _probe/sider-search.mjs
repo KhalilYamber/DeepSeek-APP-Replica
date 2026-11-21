@@ -164,7 +164,7 @@ try {
 
   // ---- 第二阶段：真的有一条命中，点进去看抽屉收不收、会话切不切 ----
   const seeded = await evaluate(`new Promise(function (resolve, reject) {
-    var req = indexedDB.open('chat-demo', 11)
+    var req = indexedDB.open('chat-demo')
     req.onerror = function () { reject(req.error) }
     req.onsuccess = function () {
       var db = req.result

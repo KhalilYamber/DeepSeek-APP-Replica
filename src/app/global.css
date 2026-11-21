@@ -1,6 +1,12 @@
 :root {
   --message-list-max-width: 840px;
   --message-list-padding-horizontal: 44px;
+  /* 四边安全区。APK 里由 Capacitor 的 SystemBars 注入 --safe-area-inset-*（Android WebView
+     不提供 env()，那是 iOS 的机制）；iOS Safari 上的网页版退回 env()；两者都没有时是 0。 */
+  --app-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --app-safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --app-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --app-safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 }
 
 @media (max-width: 1023px) {
@@ -47,7 +53,7 @@ body.change-layout *::after {
   transition: none !important;
 }
 
-/* viewport.ts 拿它把 env(safe-area-inset-left/right) 读成像素值，读一次就摘掉 */
+/* viewport.ts 拿它把左右安全边距读成像素值，读一次就摘掉 */
 .safe-area-probe {
   position: fixed;
   top: 0;
@@ -56,8 +62,8 @@ body.change-layout *::after {
   height: 0;
   visibility: hidden;
   pointer-events: none;
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: var(--app-safe-left);
+  padding-right: var(--app-safe-right);
 }
 
 @media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {

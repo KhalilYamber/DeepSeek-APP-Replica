@@ -57,7 +57,8 @@
 @media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
   .panel {
     position: fixed;
-    inset: 0;
+    /* 固定定位相对视口，不继承 .frame 的顶部留白，所以自己让出状态栏 */
+    inset: var(--app-safe-top) 0 0 0;
     z-index: 700;
     width: auto;
     max-width: none;

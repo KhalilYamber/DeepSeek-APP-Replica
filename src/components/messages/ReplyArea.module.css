@@ -41,6 +41,10 @@
 }
 
 .title {
+  position: sticky;
+  /* 只吸附在自己这段思考区内：思考内容滚完就松手。top 相对滚动容器，而滚动容器在标题栏与余额栏之下 */
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
   width: 100%;
@@ -48,7 +52,7 @@
   margin-bottom: 2px;
   padding: 0;
   border: 0;
-  background: none;
+  background-color: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-secondary);
   font: inherit;
   text-align: left;

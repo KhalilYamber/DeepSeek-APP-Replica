@@ -105,7 +105,7 @@ const check = (name, ok, detail = '') => {
 
 /** 造一条 210 轮的会话：既够触发 content-visibility，也够滚很远 */
 const seed = `new Promise(function (resolve, reject) {
-  var req = indexedDB.open('chat-demo', 11)
+  var req = indexedDB.open('chat-demo')
   req.onerror = function () { reject(req.error) }
   req.onsuccess = function () {
     var db = req.result

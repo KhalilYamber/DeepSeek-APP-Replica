@@ -117,7 +117,7 @@ const ANSWER = [
 ].join('\n\n')
 
 const seed = (id, title, answer) => `new Promise(function (resolve, reject) {
-  var req = indexedDB.open('chat-demo', 11)
+  var req = indexedDB.open('chat-demo')
   req.onerror = function () { reject(req.error) }
   req.onsuccess = function () {
     var db = req.result

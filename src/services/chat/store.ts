@@ -10,6 +10,7 @@ import {
 } from '../api/errors.js'
 import { cancelUpload, describeUploadError, uploadAttachment, useUploads } from '../attachments.js'
 import { describeParseFailed } from '../imageFormat.js'
+import { requestBalanceRefresh } from '../balanceRefresh.js'
 import { useSettings } from '../settings.js'
 import { appendBranch, getVisibleMessages, normalizeSession, selectVersion } from './branches.js'
 import * as db from './db.js'
@@ -21,6 +22,7 @@ import {
   prepareDraftMessage,
 } from './drafts.js'
 import { createLatestReminder } from './latestReminder.js'
+import { migrateGroupsIfNeeded } from './migrateGroups.js'
 import {
   applyEvent,
   canContinueReply,
@@ -32,7 +34,7 @@ import {
   toSessionSummary,
   type AssistantMessage,
   type FileAttachment,
-  type Folder,
+  type Group,
   type Message,
   type Session,
   type SessionSummary,
@@ -80,8 +82,8 @@ type ChatState = {
   importingHistory: boolean
   /** 仅列表元数据，按 updatedAt 降序；流式消息更新不会改变此数组。 */
   sessions: SessionSummary[]
-  /** 分类文件夹，按 createdAt 升序 */
-  folders: Folder[]
+  /** 会话分组，按 createdAt 升序 */
+  groups: Group[]
   sessionCache: Record<string, Session>
   sessionLoadErrors: Record<string, boolean>
   sessionSaveErrors: Record<string, boolean>
@@ -96,7 +98,7 @@ export const useChatStore = create<ChatState>(() => ({
   initError: false,
   importingHistory: false,
   sessions: [],
-  folders: [],
+  groups: [],
   sessionCache: {},
   sessionLoadErrors: {},
   sessionSaveErrors: {},
@@ -123,7 +125,7 @@ const sameSummary = (a: SessionSummary, b: SessionSummary) =>
   a.title === b.title &&
   a.createdAt === b.createdAt &&
   a.updatedAt === b.updatedAt &&
-  (a.folderId ?? null) === (b.folderId ?? null)
+  (a.groupId ?? null) === (b.groupId ?? null)
 
 const sessionAccess = new Map<string, number>()
 const unsavedSessions = new Set<string>()
@@ -319,12 +321,14 @@ export const initChat = (): Promise<void> => {
   set({ initError: false })
   initTask = (async () => {
     try {
-      const [summaries, folders] = await Promise.all([
+      // 12 → 13 的分组搬迁先跑完：否则列表读到的是还没改名的 groupId，分组全显示成未分类
+      await migrateGroupsIfNeeded()
+      const [summaries, groups] = await Promise.all([
         db.loadSessionSummaries(),
-        db.loadFolders(),
+        db.loadGroups(),
       ])
       if (epoch === historyEpoch) {
-        set({ ready: true, sessions: sortSessions(summaries), folders })
+        set({ ready: true, sessions: sortSessions(summaries), groups })
       }
     } catch (error) {
       if (epoch === historyEpoch) {
@@ -483,15 +487,27 @@ export const replaceHistory = async <T>(
   }
 }
 
-export const newChat = () => {
+/**
+ * 新对话要落在哪个分组：只记在这里，等第一条消息真正建出会话时才写进会话。
+ * 没发消息就离开的话，不会在分组里留下一个空会话。
+ */
+let pendingGroupId: string | null = null
+
+export const newChat = (groupId: string | null = null) => {
   if (!get().importingHistory) {
+    pendingGroupId = groupId
     set({ activeId: null })
     trimSessionCache()
   }
 }
 
+/** 在指定分组里开新对话；未分类传 null */
+export const newChatInGroup = (groupId: string | null) => newChat(groupId)
+
 export const selectSession = (id: string) => {
   if (!get().importingHistory && get().sessions.some((session) => session.id === id)) {
+    // 切到已有会话，之前选的分组归属就作废了
+    pendingGroupId = null
     touchSession(id)
     set({ activeId: id })
     void ensureSessionLoaded(id)
@@ -530,79 +546,79 @@ export const removeSession = (id: string): Promise<boolean> => {
   return task
 }
 
-/** 新建文件夹；同名允许，列表按创建时间升序 */
-export const createFolder = (name: string): Folder => {
-  const folder: Folder = { id: createId(), name, createdAt: Date.now() }
-  set((state) => ({ folders: [...state.folders, folder] }))
-  void db.saveFolder(folder).catch(db.reportStorageError('save folder'))
-  return folder
+/** 新建分组；同名允许，列表按创建时间升序 */
+export const createGroup = (name: string): Group => {
+  const group: Group = { id: createId(), name, createdAt: Date.now() }
+  set((state) => ({ groups: [...state.groups, group] }))
+  void db.saveGroup(group).catch(db.reportStorageError('save group'))
+  return group
 }
 
-export const renameFolder = (id: string, name: string) => {
-  const folder = get().folders.find((item) => item.id === id)
-  if (!folder || folder.name === name) {
+export const renameGroup = (id: string, name: string) => {
+  const group = get().groups.find((item) => item.id === id)
+  if (!group || group.name === name) {
     return
   }
-  const next = { ...folder, name }
+  const next = { ...group, name }
   set((state) => ({
-    folders: state.folders.map((item) => (item.id === id ? next : item)),
+    groups: state.groups.map((item) => (item.id === id ? next : item)),
   }))
-  void db.saveFolder(next).catch(db.reportStorageError('save folder'))
+  void db.saveGroup(next).catch(db.reportStorageError('save group'))
 }
 
-/** 把会话归到文件夹；null 表示未分类 */
-export const moveSessionToFolder = (id: string, folderId: string | null) => {
+/** 把会话归到分组；null 表示未分类 */
+export const moveSessionToGroup = (id: string, groupId: string | null) => {
   set((state) => {
-    // 已打开的会话也同步改缓存：保存时用的是缓存里的对象，不同步会把 folderId 冲回未分类
+    // 已打开的会话也同步改缓存：保存时用的是缓存里的对象，不同步会把 groupId 冲回未分类
     const cached = state.sessionCache[id]
     return {
       sessions: state.sessions.map((session) =>
-        session.id === id ? { ...session, folderId } : session
+        session.id === id ? { ...session, groupId } : session
       ),
       sessionCache: cached
-        ? { ...state.sessionCache, [id]: { ...cached, folderId } }
+        ? { ...state.sessionCache, [id]: { ...cached, groupId } }
         : state.sessionCache,
     }
   })
-  void db.moveSessionFolder(id, folderId).catch(db.reportStorageError('move session'))
+  void db.moveSessionGroup(id, groupId).catch(db.reportStorageError('move session'))
 }
 
-/** 删除文件夹；withSessions 为 true 时连里面的会话一起删 */
-export const deleteFolder = async (id: string, withSessions: boolean): Promise<void> => {
+/** 删除分组；withSessions 为 true 时连里面的会话一起删 */
+export const deleteGroup = async (id: string, withSessions: boolean): Promise<void> => {
   if (withSessions) {
     // 走 removeSession：它会先停流、等收尾、清缓存，避免删完又被收尾保存写回来
     const ids = get()
-      .sessions.filter((session) => session.folderId === id)
+      .sessions.filter((session) => session.groupId === id)
       .map((session) => session.id)
     for (const sessionId of ids) {
       await removeSession(sessionId)
     }
-    await db.deleteFolderRecord(id)
-    set((state) => ({ folders: state.folders.filter((item) => item.id !== id) }))
+    await db.deleteGroupRecord(id)
+    set((state) => ({ groups: state.groups.filter((item) => item.id !== id) }))
     return
   }
 
-  const affected = get().sessions.filter((session) => session.folderId === id)
+  const affected = get().sessions.filter((session) => session.groupId === id)
   set((state) => {
-    // 已打开的会话也要同步缓存，否则之后保存会把失效的 folderId 写回去
+    // 已打开的会话也要同步缓存，否则之后保存会把失效的 groupId 写回去
     const sessionCache = { ...state.sessionCache }
     for (const [key, session] of Object.entries(sessionCache)) {
-      if (session.folderId === id) {
-        sessionCache[key] = { ...session, folderId: null }
+      if (session.groupId === id) {
+        sessionCache[key] = { ...session, groupId: null }
       }
     }
     return {
-      folders: state.folders.filter((item) => item.id !== id),
+      groups: state.groups.filter((item) => item.id !== id),
       sessions: state.sessions.map((session) =>
-        session.folderId === id ? { ...session, folderId: null } : session
+        session.groupId === id ? { ...session, groupId: null } : session
       ),
       sessionCache,
     }
   })
   for (const session of affected) {
-    await db.moveSessionFolder(session.id, null)
+    await db.moveSessionGroup(session.id, null)
   }
-  await db.deleteFolderRecord(id)
+  await db.deleteGroupRecord(id)
 }
 
 const removeSessionData = async (id: string): Promise<boolean> => {
@@ -688,7 +704,9 @@ export const sendMessage = (targetSessionId: string | null) => {
       updatedAt: now,
       messages: [],
       rootMessageId: null,
+      groupId: pendingGroupId,
     }
+    pendingGroupId = null
     sessionId = session.id
     touchSession(session.id)
     set((state) => ({
@@ -1215,5 +1233,7 @@ const streamReply = async (sessionId: string, initial: AssistantMessage, request
       ),
     }))
     persist(sessionId)
+    // 这轮回答结束，余额可能已经变了：通知状态栏立刻刷新
+    requestBalanceRefresh()
   }
 }

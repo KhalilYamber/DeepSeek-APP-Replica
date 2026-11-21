@@ -111,7 +111,7 @@ const TITLE = '已思考'
 
 /** 往库里塞一条会话；id / 标题 / 思考文本 / 回答文本由调用方指定 */
 const seed = (id, title, think, answer) => `new Promise(function (resolve, reject) {
-  var req = indexedDB.open('chat-demo', 11)
+  var req = indexedDB.open('chat-demo')
   req.onerror = function () { reject(req.error) }
   req.onsuccess = function () {
     var db = req.result

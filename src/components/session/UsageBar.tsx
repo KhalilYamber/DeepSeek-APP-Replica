@@ -22,10 +22,13 @@ import {
   writeCachedContextWindow,
 } from '../../services/contextWindow.js'
 import { showToast } from '../base/toastState.js'
+import { onBalanceRefresh } from '../../services/balanceRefresh.js'
 import styles from './UsageBar.module.css'
 
 /** 余额 60 秒内不重复请求；点一下可以强制刷新 */
 const BALANCE_INTERVAL = 60 * 1000
+/** 没人操作时的兜底轮询 */
+const BALANCE_REFRESH_INTERVAL = 5 * 60 * 1000
 const RADIUS = 7
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
@@ -44,7 +47,8 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
   const lastFetch = useRef(0)
 
   const refreshBalance = useCallback(
-    async (force = false) => {
+    // silent：后台自动刷新不显示「…」，避免每次定时器都把数字闪一下
+    async (force = false, silent = false) => {
       if (!apiKey) {
         setBalance(null)
         return
@@ -52,7 +56,9 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
       if (!force && Date.now() - lastFetch.current < BALANCE_INTERVAL) {
         return
       }
-      setLoading(true)
+      if (!silent) {
+        setLoading(true)
+      }
       try {
         const next = await fetchBalance(apiKey)
         setBalance(next)
@@ -60,7 +66,9 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
       } catch {
         // 失败保留上一次的值；从没成功过就显示 --
       } finally {
-        setLoading(false)
+        if (!silent) {
+          setLoading(false)
+        }
       }
     },
     [apiKey]
@@ -68,6 +76,23 @@ export const UsageBar = memo(function UsageBar({ session }: { session?: Session 
 
   useEffect(() => {
     void refreshBalance()
+  }, [refreshBalance])
+
+  // 余额只在扣费后才变：答完一条立刻刷、切回前台刷（走 60 秒防抖）、其余每 5 分钟兜底
+  useEffect(() => {
+    const off = onBalanceRefresh(() => void refreshBalance(true, true))
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshBalance()
+      }
+    }
+    const timer = window.setInterval(() => void refreshBalance(true, true), BALANCE_REFRESH_INTERVAL)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      off()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.clearInterval(timer)
+    }
   }, [refreshBalance])
 
   // 上下文上限不常变：先读缓存，没有才请一次 /models

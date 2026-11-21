@@ -111,7 +111,7 @@ const USAGE = {
 const ANSWER = '这是一条带用量记录的回答。'
 
 const seed = (id, title, answer, usage) => `new Promise(function (resolve, reject) {
-  var req = indexedDB.open('chat-demo', 11)
+  var req = indexedDB.open('chat-demo')
   req.onerror = function () { reject(req.error) }
   req.onsuccess = function () {
     var db = req.result

@@ -189,7 +189,7 @@ try {
 
   // ---- 第二阶段：造一条对话，看在手机宽度下头像与气泡排得对不对 ----
   const seeded = await evaluate(`new Promise(function (resolve, reject) {
-    var req = indexedDB.open('chat-demo', 11)
+    var req = indexedDB.open('chat-demo')
     req.onerror = function () { reject(req.error) }
     req.onsuccess = function () {
       var db = req.result

@@ -1,7 +1,7 @@
 import clsx from 'clsx'
 import { memo, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
-import { IconEditOutline16, IconEllipsisOutline16, IconFolderOutline16, IconTrashOutline16 } from '../base/icons.js'
+import { IconEditOutline16, IconEllipsisOutline16, IconGroupOutline16, IconTrashOutline16 } from '../base/icons.js'
 import { renameSession, selectSession } from '../../services/chat/store.js'
 import type { SessionSummary } from '../../services/chat/types.js'
 import { IconButton } from '../base/IconButton.js'
@@ -69,8 +69,8 @@ export const SessionItem = memo(function SessionItem({
             },
             {
               key: 'move',
-              label: t('folderMoveTo'),
-              icon: <IconFolderOutline16 />,
+              label: t('groupMoveTo'),
+              icon: <IconGroupOutline16 />,
               onSelect: onMove,
             },
             {
