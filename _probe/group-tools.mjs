@@ -161,12 +161,12 @@ const readTools = `(function () {
 })()`
 
 const light = await evaluate(readTools)
-check('浅色：两块都找到了', !!light && !light.error, JSON.stringify(light))
+check(THEME + '：两块都找到了', !!light && !light.error, JSON.stringify(light))
 if (light && !light.error) {
-  check('浅色：新建分组有底色', light.newGroupBg !== 'rgba(0, 0, 0, 0)', light.newGroupBg)
-  check('浅色：一键折叠有底色', light.collapseBg !== 'rgba(0, 0, 0, 0)', light.collapseBg)
-  check('浅色：边框可见（不是全透明）', light.newGroupBorder !== 'rgba(0, 0, 0, 0)', light.newGroupBorder)
-  check('视觉尺寸 32×32', light.collapseWidth === 32 && light.collapseHeight === 32,
+  check(THEME + '：新建分组有底色', light.newGroupBg !== 'rgba(0, 0, 0, 0)', light.newGroupBg)
+  check(THEME + '：一键折叠有底色', light.collapseBg !== 'rgba(0, 0, 0, 0)', light.collapseBg)
+  check(THEME + '：边框可见（不是全透明）', light.newGroupBorder !== 'rgba(0, 0, 0, 0)', light.newGroupBorder)
+  check(THEME + '：视觉尺寸 32×32', light.collapseWidth === 32 && light.collapseHeight === 32,
     `${light.collapseWidth}×${light.collapseHeight}`)
 }
 
@@ -188,7 +188,12 @@ if (node.result?.nodeId) {
     nodeId: node.result.nodeId,
     forcedPseudoClasses: ['active'],
   })
-  await sleep(120)
+  // 按钮有 200ms 的颜色过渡，等它走完再读，否则读到的是插值中间色
+  await sleep(320)
+  const varValue = await evaluate(
+    `getComputedStyle(document.body).getPropertyValue('--dsw-alias-interactive-bg-hover').trim()`
+  )
+  console.log(`  按下色变量 = ${varValue}`)
   const active = await evaluate(
     `getComputedStyle(document.querySelector('[class*="collapseAll-"]')).backgroundColor`
   )
