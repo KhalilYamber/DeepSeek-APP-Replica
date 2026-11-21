@@ -178,6 +178,14 @@ try {
     return false
   })()`)
   check('裁剪器打开且可保存', cropReady >= 0, `${cropReady}ms`)
+  const preview = await evaluate(`(function () {
+    var img = document.querySelector('[class*="stage-"] img')
+    return img ? { complete: img.complete, width: img.naturalWidth } : null
+  })()`)
+  check('裁剪器里的预览图真的加载出来了', !!preview && preview.complete && preview.width > 0, JSON.stringify(preview))
+  const cropShot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false })
+  await writeFile(join(REPO, 'screenshots', 'avatar-cropper.png'), Buffer.from(cropShot.result.data, 'base64'))
+  console.log('截图：screenshots/avatar-cropper.png')
   await evaluate(`(function () {
     var nodes = document.querySelectorAll('button')
     for (var i = 0; i < nodes.length; i++) {

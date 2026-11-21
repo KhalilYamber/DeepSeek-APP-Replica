@@ -8,19 +8,22 @@ import styles from './ImageCropper.module.css'
 /** 原图任一边超过这个就先缩小再进裁剪：手机 12MP 照片直接画进 canvas 在低端机会内存不足 */
 const MAX_SOURCE = 4096
 
+/**
+ * 读成 dataURL 再建 Image：用 blob URL 的话，加载完就得 revoke，
+ * 而预览那个 `<img>` 会拿着已经失效的 URL 再请求一次，结果是碎图。
+ * dataURL 没有生命周期问题，预览与导出都用同一份。
+ */
 const loadImage = (file: File): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file)
-    const image = new Image()
-    image.onload = () => {
-      URL.revokeObjectURL(url)
-      resolve(image)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = () => reject(new Error('image load failed'))
+      image.src = String(reader.result)
     }
-    image.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error('image load failed'))
-    }
-    image.src = url
+    reader.onerror = () => reject(new Error('image read failed'))
+    reader.readAsDataURL(file)
   })
 
 /** 超过上限时等比缩到上限，返回新的图片对象；没超过就原样返回 */
