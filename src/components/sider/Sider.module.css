@@ -79,7 +79,7 @@
   margin-right: 6px;
 }
 
-/* 历史对话搜索：只在网页版出现（APK 不渲染） */
+/* 历史对话搜索：网页版与 APK 都渲染（2026-11-19 起 APK 也打开） */
 .search {
   position: relative;
   display: flex;
@@ -364,12 +364,28 @@
 
 /* ---- 分类文件夹（0.4.16） ---- */
 
-/* 新建分组与「一键折叠/展开」同一行 */
+/* 新建分组与「一键折叠/展开」：两块各自有边界，缝隙 6px */
 .groupTools {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-top: 4px;
+}
+
+/* 与搜索框同一套：底色 + 细边。浅色靠边框画出范围，深色靠底色，两个主题都成立 */
+.newGroup,
+.collapseAll {
+  box-sizing: border-box;
+  height: 32px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background-color: var(--dsw-alias-bg-layer-3);
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  cursor: pointer;
+  /* 去掉双击缩放带来的点按等待，触摸响应更跟手 */
+  touch-action: manipulation;
+  transition: background-color var(--ds-transition-duration) var(--ds-ease-in-out);
 }
 
 .newGroup {
@@ -378,17 +394,49 @@
   gap: 8px;
   flex: 1;
   min-width: 0;
-  box-sizing: border-box;
-  height: 32px;
   padding: 0 12px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  font: inherit;
   font-size: 13px;
-  color: var(--dsw-alias-label-secondary);
-  cursor: pointer;
   text-align: left;
+}
+
+.collapseAll {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  padding: 0;
+}
+
+/* 触摸区水平扩到 44px（32 + 6 + 6），正好到 6px 缝隙边界，不与左边按钮重叠；垂直不扩，避免盖住搜索框与分组标题 */
+.collapseAll::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -6px;
+  right: -6px;
+}
+
+/* 按下：安卓 WebView / iOS Safari / 鸿蒙内核都认 :active */
+.newGroup:active,
+.collapseAll:active {
+  background-color: var(--dsw-alias-interactive-bg-hover);
+}
+
+/* 悬停只给真能悬停的设备，手机上不匹配，避免「点完还挂着」 */
+@media (hover: hover) {
+  .newGroup:hover,
+  .collapseAll:hover {
+    background-color: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.newGroup:focus-visible,
+.collapseAll:focus-visible {
+  box-shadow: 0 0 0 2px var(--dsw-alias-button-primary-fill);
+  outline: none;
 }
 
 /* 分组标题行里的「+」：纯文字加号，与选择分组弹窗里的保持一致 */
@@ -396,10 +444,6 @@
   font-size: 16px;
   font-weight: 500;
   line-height: 1;
-}
-
-.newGroup:hover {
-  background-color: var(--dsw-specific-sidebar-nav-item-hover);
 }
 
 .groupSection {

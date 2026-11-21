@@ -180,12 +180,15 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           <IconGroupOutline16 />
           <span>{t('groupNew')}</span>
         </button>
-        <IconButton
-          icon={allCollapsed ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
+        <button
+          type="button"
+          className={styles.collapseAll}
           aria-label={allCollapsed ? t('groupExpandAll') : t('groupCollapseAll')}
-          tooltip={allCollapsed ? t('groupExpandAll') : t('groupCollapseAll')}
+          title={allCollapsed ? t('groupExpandAll') : t('groupCollapseAll')}
           onClick={toggleAllGroups}
-        />
+        >
+          {allCollapsed ? <IconChevronDownOutline14 /> : <IconChevronRightOutline14 />}
+        </button>
       </div>
       <div className={styles.listWrap}>
         <div className={styles.list}>

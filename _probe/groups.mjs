@@ -180,6 +180,27 @@ try {
   await sleep(700)
 
   check('侧栏有「新建分组」入口', await evaluate(bodyHas('新建分组')))
+
+  // 两个工具按钮各自要有常态底色（不依赖 hover / active）
+  const tools = await evaluate(`(function () {
+    var buttons = document.querySelectorAll('button')
+    var group = null
+    for (var i = 0; i < buttons.length; i++) {
+      if ((buttons[i].textContent || '').indexOf('新建分组') >= 0) { group = buttons[i]; break }
+    }
+    if (!group) return { error: 'no-new-group' }
+    var siblings = group.parentElement.querySelectorAll('button')
+    if (siblings.length < 2) return { error: 'no-collapse' }
+    var collapse = siblings[siblings.length - 1]
+    return {
+      newGroupBg: getComputedStyle(group).backgroundColor,
+      collapseBg: getComputedStyle(collapse).backgroundColor,
+      collapseWidth: Math.round(collapse.getBoundingClientRect().width)
+    }
+  })()`)
+  check('新建分组有常态底色', !!tools && tools.newGroupBg !== 'rgba(0, 0, 0, 0)', tools ? tools.newGroupBg : '未找到')
+  check('一键折叠有常态底色', !!tools && tools.collapseBg !== 'rgba(0, 0, 0, 0)', tools ? tools.collapseBg : '未找到')
+  check('一键折叠视觉宽度 32px', !!tools && tools.collapseWidth === 32, tools ? String(tools.collapseWidth) : '未找到')
   check('分组「工作」渲染出来', await evaluate(bodyHas('工作')))
   check('未分类组在', await evaluate(bodyHas('未分类')))
   check('分组里的会话在', await evaluate(bodyHas('归到工作里的会话')))
