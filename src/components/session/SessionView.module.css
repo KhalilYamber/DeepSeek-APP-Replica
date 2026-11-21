@@ -56,6 +56,8 @@
   line-height: 16px;
   text-align: center;
   color: var(--dsw-alias-label-tertiary);
+  /* 设置过对话背景图时这行字直接压在图上，用遮罩同色描一道边保证辨识 */
+  text-shadow: 0 1px 2px var(--app-bg-dim-color);
   user-select: none;
 }
 

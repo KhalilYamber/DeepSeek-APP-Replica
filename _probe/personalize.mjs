@@ -12,6 +12,7 @@ const CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const PORT = 9590
 const WEB_PORT = 8160
 const PROFILE = join(tmpdir(), 'personalize-probe-profile')
+const THEME = process.env.THEME === 'light' ? 'light' : 'dark'
 
 await rm(PROFILE, { recursive: true, force: true })
 await mkdir(join(REPO, 'screenshots'), { recursive: true })
@@ -113,6 +114,7 @@ await sleep(1400)
 await evaluate(`
   localStorage.setItem('chat-demo:disclaimer-ack', '1');
   localStorage.setItem('chat-demo:api-key', 'sk-probe-000000000000');
+  localStorage.setItem('chat-demo:theme-preference', '${THEME}');
   true
 `)
 await send('Page.reload')
@@ -182,8 +184,8 @@ check('档位写进了本地存储', stored === 'large', String(stored))
 const shot = await send('Page.captureScreenshot', { format: 'png' })
 if (shot.result?.data) {
   const { writeFile } = await import('node:fs/promises')
-  await writeFile(join(REPO, 'screenshots', 'personalize.png'), Buffer.from(shot.result.data, 'base64'))
-  console.log('截图: screenshots/personalize.png')
+  await writeFile(join(REPO, 'screenshots', `personalize-${THEME}.png`), Buffer.from(shot.result.data, 'base64'))
+  console.log(`截图: screenshots/personalize-${THEME}.png`)
 }
 
 // ---- 背景图：注入一张渐变图，重载后应渲染在内容下面并带遮罩 ----
@@ -219,8 +221,8 @@ check('遮罩按默认 40% 生效', !!bg && bg.opacity !== null && Math.abs(Numb
 const bgShot = await send('Page.captureScreenshot', { format: 'png' })
 if (bgShot.result?.data) {
   const { writeFile } = await import('node:fs/promises')
-  await writeFile(join(REPO, 'screenshots', 'background.png'), Buffer.from(bgShot.result.data, 'base64'))
-  console.log('截图: screenshots/background.png')
+  await writeFile(join(REPO, 'screenshots', `background-${THEME}.png`), Buffer.from(bgShot.result.data, 'base64'))
+  console.log(`截图: screenshots/background-${THEME}.png`)
 }
 
 const failed = results.filter((r) => !r).length
