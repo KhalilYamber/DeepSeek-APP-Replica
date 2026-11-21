@@ -110,6 +110,25 @@ export const ImageCropper = ({
     return () => observer.disconnect()
   }, [image])
 
+  // 图片刚好铺满裁剪框时的基准缩放；用户的 scale 再乘上去
+  const cover =
+    image && stage.width > 0 && stage.height > 0
+      ? Math.max(stage.width / image.naturalWidth, stage.height / image.naturalHeight)
+      : 0
+
+  /** 拖动与缩放都夹在这个范围内：图片边缘不能进到裁剪框里，否则会露出黑底 */
+  const clampOffset = (nextX: number, nextY: number, nextScale: number) => {
+    if (!image || cover <= 0) {
+      return { x: nextX, y: nextY }
+    }
+    const limitX = Math.max(0, (image.naturalWidth * cover * nextScale - stage.width) / 2)
+    const limitY = Math.max(0, (image.naturalHeight * cover * nextScale - stage.height) / 2)
+    return {
+      x: Math.min(Math.max(nextX, -limitX), limitX),
+      y: Math.min(Math.max(nextY, -limitY), limitY),
+    }
+  }
+
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!image) {
       return
@@ -123,10 +142,13 @@ export const ImageCropper = ({
     if (!start) {
       return
     }
-    setOffset({
-      x: start.ox + (event.clientX - start.x),
-      y: start.oy + (event.clientY - start.y),
-    })
+    setOffset(
+      clampOffset(
+        start.ox + (event.clientX - start.x),
+        start.oy + (event.clientY - start.y),
+        scale
+      )
+    )
   }
 
   const endDrag = () => {
@@ -177,12 +199,6 @@ export const ImageCropper = ({
     }
   }
 
-  // 图片铺满裁剪框所需的缩放由 CSS 的 object-fit: cover 负责，这里的 scale 再乘上去
-  const cover =
-    image && stage.width > 0 && stage.height > 0
-      ? Math.max(stage.width / image.naturalWidth, stage.height / image.naturalHeight)
-      : 0
-
   return (
     <div className={styles.mask} role="dialog" aria-modal="true">
       <div className={styles.panel}>
@@ -219,7 +235,12 @@ export const ImageCropper = ({
             max={3}
             step={0.01}
             value={scale}
-            onChange={(event) => setScale(Number(event.target.value))}
+            onChange={(event) => {
+              const next = Number(event.target.value)
+              setScale(next)
+              // 缩小后允许的偏移变小，同步夹一下，否则图片会被甩出画面
+              setOffset((current) => clampOffset(current.x, current.y, next))
+            }}
           />
         </label>
         {failed ? <div className={styles.failed}>{t('cropperFailed')}</div> : null}

@@ -506,8 +506,9 @@ const FontSizeSetting = () => {
   )
 }
 
-/** 对话背景：选图走同一个裁剪器，导出压到 1080×1920 / 质量 0.7 */
-const MAX_BACKGROUND_CHARS = 450_000
+/** 对话背景：选图走同一个裁剪器。900×1600 对手机屏幕（390px 宽）已有 2.3 倍像素密度，
+ *  再大只是白占 localStorage；600K 字符约等于 450KB 图，普通照片压到这个尺寸一定能过。 */
+const MAX_BACKGROUND_CHARS = 600_000
 
 const BackgroundSetting = () => {
   const t = useTranslate()
@@ -573,7 +574,7 @@ const BackgroundSetting = () => {
         <ImageCropper
           file={pending}
           aspect={9 / 16}
-          outputWidth={1080}
+          outputWidth={900}
           quality={0.7}
           onCancel={() => setPending(null)}
           onConfirm={(dataUrl) => {
