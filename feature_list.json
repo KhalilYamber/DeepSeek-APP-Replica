@@ -1,6 +1,6 @@
 {
   "project": "DeepSeek APP Replica（官方 chat-demo 前端 + Capacitor 8 安卓壳）",
-  "last_updated": "2026-11-20",
+  "last_updated": "2026-11-21",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
@@ -15,7 +15,7 @@
     "inferred": "有充分依据（规范推演、等价环境实测、产物检查）但未在目标设备上确认。可以认为大概率是对的，不可以当成已验过。",
     "passing": "要求的验证已通过，证据已记录。只用于不涉及设备行为的条目（静态门、纯逻辑、产物检查）；涉及设备行为的一律用 verified 或 inferred 表示证据等级，不许标 passing。"
   },
-  "note": "清单 47 条（截至 0.4.16），按 area 分：compat 16、feature 22、harness 6、performance 2、repo 1。口径：涉及设备行为的一律标 verified 或 inferred，不许标 passing——标签只说明「在哪种环境验过」，不说明「大概没问题」。新增条目以能跑的验证为准，不凭印象补录。",
+  "note": "清单 53 条（截至 0.4.17）。口径：涉及设备行为的一律标 verified 或 inferred，不许标 passing——标签只说明「在哪种环境验过」，不说明「大概没问题」。0.4.17 新增 6 条：四边安全区、改名与迁移、两处吸顶、折叠记忆与组内新建、余额刷新、流畅度标尺。",
   "features": [
     {
       "id": "harness-001",
@@ -968,6 +968,116 @@
         "2026-11-20：探针补 `hover: none` 模拟——真机上会话行「⋯」常显，桌面端 hover 才出现。"
       ],
       "notes": "**形态判断（决策 24）**：网页版与 APK 都成立，不需要 `isNativeApp()` 分支——纯数据 + UI，不碰原生 API。唯一与设备有关的是会话行「⋯」的显示方式，按 `hover` 能力区分（触摸屏常显、鼠标 hover 才出现），不是按平台区分，iOS / 鸿蒙 / 安卓手机走的是同一条。\n\n**inferred：真机未验**（折叠手感、文件夹多了之后的滚动）。\n\n**没做的**：拖拽排序会话、文件夹嵌套、自定义图标。\n\n**测试的偏差**：`sessionGroups.ts` 带运行时本地 import，Node 的类型剥离不认 `.js → .ts`；`test/folder-groups.test.ts` 用 `module.registerHooks` 补了一层解析，这是仓库里第一次这么干。"
+    },
+    {
+      "id": "safe-area-001",
+      "priority": 1,
+      "area": "compat",
+      "title": "四边安全区在 APK 里真的生效",
+      "user_visible_behavior": "侧栏抽屉标题、搜索结果标题不再压在手机状态栏上，关闭按钮点得到；底部内容不被手势条压住；横屏左右留白按较宽的一侧镜像。",
+      "status": "inferred",
+      "verification": [
+        "探针 `_probe/safe-area.mjs` 6/6：未注入时为 0、注入 44px 后变量跟随、主容器 paddingTop=44、抽屉 top=44",
+        "六道门全绿"
+      ],
+      "evidence": [
+        "2026-11-21：根因是变量名对不上——Capacitor 8 的 SystemBars 注入 `--safe-area-inset-*`，样式表用的是 Android WebView 不提供的 `env(safe-area-inset-*)`，解析恒为 0。",
+        "2026-11-21：`global.css` 定义 `--app-safe-*`（Capacitor 变量 → `env()` → 0），主容器、抽屉、搜索面板、Toast、底部、横屏边距探针全部改用它。",
+        "2026-11-21：`Sider.module.css` 的 `.drawer` 与 `SearchPanel.module.css` 的移动端 `.panel` 各自让出状态栏；遮罩仍铺满全屏。"
+      ],
+      "notes": "**inferred：真机未验**。探针里的 44px 是注入的假值，真机状态栏实际高度、首帧是否有一瞬无留白都没看过。改的是纯样式，没有动 `android/`，因此没有新增「生成目录例外」。"
+    },
+    {
+      "id": "group-rename-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "文件夹改名分组，数据库 12→13 带分层迁移",
+      "user_visible_behavior": "界面上的「文件夹」全部变成「分组」；升级后原有的分组与归属还在，会话一条不少。",
+      "status": "passing",
+      "verification": [
+        "单测 `test/group-migration.test.ts` 6 条 + `test/group-groups.test.ts` 8 条",
+        "本机 Chrome 实测三个起点：全新安装 / 11 版（无分组表）/ 12 版（有分组表），迁移后会话与消息逐条一致，`hasFolderId:false`",
+        "六道门全绿（176 条测试）"
+      ],
+      "evidence": [
+        "2026-11-21：`DB_VERSION = 13`；表 `folders`→`groups`、字段 `folderId`→`groupId`；类型 `Folder`→`Group`。",
+        "2026-11-21：迁移拆成两层——`upgrade` 只建表，`migrateGroupsIfNeeded()` 在 `initChat` 里搬数据，失败只记诊断、不写标记、不阻塞启动。",
+        "2026-11-21：旧表只清空不删除（`deleteObjectStore` 只能在版本变更事务里调用）。",
+        "2026-11-21：导出 ZIP 不涉及分组，`history/` 目录零改动。"
+      ],
+      "notes": "**设备行为按 inferred 记**：迁移逻辑在本机 Chrome 上三起点都验过，但安卓 WebView 未验。**升级后不能装回 0.4.16 及更早**。"
+    },
+    {
+      "id": "sticky-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "分组标题与思考折叠条吸顶",
+      "user_visible_behavior": "侧栏滚进某个分组时，分组标题吸在列表顶部，日期标题叠在它下面；滚到下一个分组/日期时被顶走，不会全堆在屏幕上。展开思考后往上翻，折叠条吸在标题栏下方，思考内容从它下面滑过；思考区滚完就松手。",
+      "status": "inferred",
+      "verification": [
+        "探针 `_probe/sticky.mjs` 9/9：分组标题 top=列表顶（214=214）、第二个分组不吸（1271）、思考条 top=滚动容器顶（92=92）、滚过思考区后离开",
+        "回归：侧栏搜索 8/8、思考折叠 10/10、回到底部 7/7"
+      ],
+      "evidence": [
+        "2026-11-21：分组标题 `position: sticky; top: 0`，包含块是分组包裹层；日期标题 `top: 32px`（分组标题高度），z-index 分层。",
+        "2026-11-21：思考折叠条 `position: sticky; top: 0`，包含块是思考区 `.area`；`top` 相对滚动容器，而滚动容器在标题栏与余额栏之下，不需要额外算偏移。",
+        "2026-11-21：两个吸顶元素都补了不透明底色，否则下面的内容会透出来。"
+      ],
+      "notes": "**inferred：真机未验**（手感、快速甩动时的观感）。**长会话（>200 条）下的吸附边界未单独实测**：`content-visibility` 只影响屏幕外渲染、不改变包含块，理论上边界不变，但这是推理。"
+    },
+    {
+      "id": "group-collapse-001",
+      "priority": 1,
+      "area": "feature",
+      "title": "记住分组折叠状态 + 一键折叠/展开 + 组内新建会话",
+      "user_visible_behavior": "关掉哪个分组、开着哪个，下次打开还是那样；「新建分组」右边有一键收起/展开全部；分组标题右边的「+」点了就在该分组里开新对话，发第一条消息自动归入，不改变该分组的展开状态。",
+      "status": "passing",
+      "verification": [
+        "单测 `test/group-collapsed.test.ts` 4 条（切换、全部收起、全部展开、空目标）",
+        "探针 `_probe/groups.mjs` 11/11（渲染、折叠展开、归到分组弹窗）；吸顶探针里的分组折叠也走这条路径",
+        "六道门全绿（176 条测试）"
+      ],
+      "evidence": [
+        "2026-11-21：折叠状态存 localStorage `chat-demo:group-collapsed`，只记「收起的 key」，所以新建分组默认展开。",
+        "2026-11-21：`store.ts` 加 `pendingGroupId` 与 `newChatInGroup()`；会话要到 `sendMessage` 真正建出时才写入 `groupId`，没发消息不会留空会话。",
+        "2026-11-21：`selectSession` 会清掉待定归属；顶栏「开启新对话」与折叠侧栏的新建按钮都改走 `newChat()`，不会误继承分组。"
+      ],
+      "notes": "**设备行为按 inferred 记**：纯逻辑与渲染在本机验过，真机未验。**轻提示**只在点击「+」时弹一句，不改变折叠、滚动与分组顺序。"
+    },
+    {
+      "id": "balance-refresh-001",
+      "priority": 2,
+      "area": "feature",
+      "title": "余额按三个时机自动刷新",
+      "user_visible_behavior": "答完一条消息后余额立刻更新；App 从后台切回来会更新；长时间挂着每 5 分钟兜底一次。自动刷新不闪「…」。",
+      "status": "passing",
+      "verification": [
+        "单测 `test/balance-refresh.test.ts` 3 条（订阅、退订、重复退订）",
+        "探针 `_probe/usage-bar.mjs` 8/8 回归通过（超时收敛、失败保留旧值）",
+        "六道门全绿"
+      ],
+      "evidence": [
+        "2026-11-21：新增 `services/balanceRefresh.ts`（单监听器 + 退订），`store.ts` 流式收尾处调用 `requestBalanceRefresh()`。",
+        "2026-11-21：`UsageBar` 增加三个触发：事件、`visibilitychange`（走 60 秒防抖）、5 分钟定时器；`silent` 参数让后台刷新不动 loading 态。"
+      ],
+      "notes": "**没做**：不做每分钟轮询——余额只在扣费后才变，答完一条立刻刷比定时更准。真机上的实际网络表现未验。"
+    },
+    {
+      "id": "perf-baseline-001",
+      "priority": 2,
+      "area": "performance",
+      "title": "流畅度有一把可对比的标尺",
+      "user_visible_behavior": "不直接可见；用途是以后每次改完都能说「没退化」，而不是凭感觉。",
+      "status": "passing",
+      "verification": [
+        "`_probe/scroll-perf.mjs` 600 条消息滚两轮：帧间隔 P50 16.7ms / P95 16.8ms、长任务 2 次共 127ms（0.4.16 产物，构建于 18:17:51）",
+        "`docs/perf-baseline.md` 记录环境、读法、复跑方式与边界"
+      ],
+      "evidence": [
+        "2026-11-21：探针沿用「起静态服务 + 无头 Chrome + CDP + 向 IndexedDB 塞会话」的骨架，答文含表格、代码块、公式。",
+        "2026-11-21：两处必要修正——不写死库版本号；滚动出口从「固定帧数」改成「位置不再变化」（列表高度会随 content-visibility 从 19.8 万 px 涨到 34.6 万 px，定帧数会提前收工）。"
+      ],
+      "notes": "无头 Chrome 的数字只证明「没退化」，不代表真机手感；真机只有一台 A58x。引用基线前先核对探针输出的「构建于 + 版本」两行，否则会把改过的产物当成改前的。"
     }
   ]
 }
