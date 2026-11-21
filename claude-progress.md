@@ -743,6 +743,7 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   - **头像裁剪**：新增通用 `ImageCropper`（pointer 拖动 + 滑块缩放 + 圆形遮罩 + canvas 导出），`AvatarRow` 从「选完直接存」改成「选完进裁剪器、确认才存」；`services/imageCrop.ts` 是纯函数，负责屏幕坐标 → 原图坐标的换算与夹紧
   - **对话背景**：`services/chatBackground.ts` 存图与遮罩浓度（默认 40）；`App` 的主区域加背景层 + 遮罩层（`--app-bg-dim-color` 跟主题，深色压黑、浅色压白），没图时两层都不渲染
   - **设置页三栏**：`SettingsSection` 加 `personalize`，把字体、思考结束后、朗读音色、头像、背景收进「个性化」；通用设置留下主题、语言、位置、更新、须知、诊断
+  - **草稿持久化**（debug 阶段补的）：`services/chat/draftStorage.ts` 负责 key 编码与坏数据兜底，`drafts.ts` 用 `subscribe` + 400ms 防抖落盘；只存文本，附件仍在内存
 - 运行过的验证：
   - 六道门全绿（**190 条测试**：新增字号 4 条、裁剪 6 条）
   - 探针：字号 13/13（四档下正文/h1/表格/输入框逐个核对，且标题四档都不小于正文）、头像 12/12（真实文件输入 → 裁剪器 → 保存 → 生效）、个性化 9/9（导航三项、四项齐全、选「大」正文 18px、背景图渲染 + 遮罩 0.4）

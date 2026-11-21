@@ -11,6 +11,7 @@ import {
   type UploadTask,
 } from '../attachments.js'
 import type { FileAttachment } from './types.js'
+import { parseDraftRecords, serializeDraftRecords } from './draftStorage.js'
 
 export type DraftAttachment = {
   /** 本地标识，也是 IndexedDB 原件与上传任务的 key */
@@ -24,10 +25,60 @@ type Draft = { text: string; attachments: DraftAttachment[] }
 
 export const EMPTY_DRAFT: Draft = { text: '', attachments: [] }
 
-/** 草稿只保存在本次页面的内存中，独立于会话详情缓存；null 是新对话的草稿。 */
+const DRAFT_KEY = 'chat-demo:drafts'
+/** 打字时不要每个字符碰一次存储 */
+const PERSIST_DELAY = 400
+
+const readDrafts = (): Map<string | null, Draft> => {
+  const drafts = new Map<string | null, Draft>()
+  let raw: string | null = null
+  try {
+    raw = localStorage.getItem(DRAFT_KEY)
+  } catch {
+    raw = null
+  }
+  for (const [sessionId, text] of parseDraftRecords(raw)) {
+    drafts.set(sessionId, { text, attachments: [] })
+  }
+  return drafts
+}
+
+/** 草稿文本落盘：附件是 File 对象没法序列化，所以只存文字，读回来时 attachments 为空 */
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+const persist = (drafts: Map<string | null, Draft>) => {
+  if (persistTimer !== null) {
+    clearTimeout(persistTimer)
+  }
+  persistTimer = setTimeout(() => {
+    persistTimer = null
+    const entries: Array<[string | null, string]> = []
+    for (const [sessionId, draft] of drafts) {
+      if (draft.text) {
+        entries.push([sessionId, draft.text])
+      }
+    }
+    try {
+      if (entries.length === 0) {
+        localStorage.removeItem(DRAFT_KEY)
+      } else {
+        localStorage.setItem(DRAFT_KEY, serializeDraftRecords(entries))
+      }
+    } catch {
+      // 存储不可用（隐私模式 / 配额满）时放弃持久化，内存里的草稿照常可用
+    }
+  }, PERSIST_DELAY)
+}
+
+/** 草稿按会话分开存放；null 是新对话的草稿。文本会落盘，附件只在内存里。 */
 export const useDrafts = create<{ drafts: Map<string | null, Draft> }>(() => ({
-  drafts: new Map(),
+  drafts: readDrafts(),
 }))
+
+useDrafts.subscribe((state) => {
+  persist(state.drafts)
+})
+
 
 export const getDraft = (sessionId: string | null): Draft =>
   useDrafts.getState().drafts.get(sessionId) ?? EMPTY_DRAFT

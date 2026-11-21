@@ -1140,6 +1140,22 @@
         "2026-11-21 本机 Chrome 无头：截图 screenshots/personalize.png"
       ],
       "notes": "`openSettings('general')` 等旧调用点语义未变，全仓仅 3 处。"
+    },
+    {
+      "id": "draft-persist-001",
+      "priority": 1,
+      "area": "data-safety",
+      "title": "草稿跨刷新保留",
+      "user_visible_behavior": "在输入框里写一半没发出去，刷新页面或 App 被回收后重新打开，文字还在原处。",
+      "status": "passing",
+      "verification": [
+        "`_probe/draft-persist.mjs` 4/4：写入 → 落盘 → 刷新还在 → 清空后键被删",
+        "`pnpm test`：`test/draft-storage.test.ts` 守 key 编码与坏数据兜底"
+      ],
+      "evidence": [
+        "2026-11-21 本机 Chrome 无头：走 React 受控链路（原生 setter + input 事件），不是直接写 localStorage"
+      ],
+      "notes": "只持久化文本；附件是 File 对象无法序列化，仍只在内存。删除会话时草稿一并清掉（原有的 clearDraft 已经覆盖）。"
     }
   ]
 }
