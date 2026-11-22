@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { formatDate, monthKey } from '../src/utils/format.ts'
+import { formatDate, formatMegabytes, monthKey } from '../src/utils/format.ts'
 
 test('formatDate 输出本地时区的 YYYY-MM-DD', () => {
   assert.equal(formatDate(new Date(2026, 10, 16, 8, 0, 0)), '2026-11-16')
@@ -34,4 +34,15 @@ test('monthKey 输出补零的 YYYY-MM', () => {
 
 test('monthKey 无法解析时返回 null', () => {
   assert.equal(monthKey('not-a-date'), null)
+})
+
+test('formatMegabytes 固定按 MB、保留一位小数', () => {
+  assert.equal(formatMegabytes(0), '0.0')
+  assert.equal(formatMegabytes(1024 * 1024), '1.0')
+  assert.equal(formatMegabytes(12.34 * 1024 * 1024), '12.3')
+  assert.equal(formatMegabytes(300 * 1024 * 1024), '300.0')
+})
+
+test('formatMegabytes 对负数按 0 处理，不会出现负进度', () => {
+  assert.equal(formatMegabytes(-1), '0.0')
 })

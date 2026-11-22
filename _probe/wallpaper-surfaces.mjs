@@ -45,6 +45,8 @@ const CHECK_ANY = LEVEL >= 1
 const WITH_SETTINGS = argv.includes('--settings')
 // 欢迎页：不点开会话，直接截「新对话」那一屏
 const WELCOME = argv.includes('--welcome')
+// 侧栏：只打开抽屉截历史列表（看行距与段落留白）
+const SIDEBAR = argv.includes('--sidebar')
 
 // 与真机同尺寸：1080×2362 / 3 ≈ 360×787
 const WIDTH = 360
@@ -103,7 +105,7 @@ const seed = `new Promise(function (resolve, reject) {
   req.onsuccess = function () {
     var db = req.result
     var now = Date.now()
-    var tx = db.transaction(['sessions', 'sessionSummaries'], 'readwrite')
+    var tx = db.transaction(['sessions', 'sessionSummaries', 'groups'], 'readwrite')
     tx.objectStore('sessions').put({
       id: 'wallpaper-demo',
       title: '壁纸模式检查',
@@ -132,6 +134,28 @@ const seed = `new Promise(function (resolve, reject) {
     tx.objectStore('sessionSummaries').put({
       id: 'wallpaper-demo', title: '壁纸模式检查', createdAt: now - 60000, updatedAt: now, fileIds: []
     })
+    // 侧栏看行距用的数据：两个分组 + 若干未分类，标题照用户截图里的样子取
+    tx.objectStore('groups').put({ id: 'g1', name: '人机恋体验', createdAt: now - 9000000 })
+    tx.objectStore('groups').put({ id: 'g2', name: '打造提示词', createdAt: now - 8000000 })
+    var extras = [
+      { id: 's1', title: '人格·回应节奏（试验）', groupId: 'g1' },
+      { id: 's2', title: '一段话，试验-AI领域', groupId: 'g2' },
+      { id: 's3', title: '学习地图提示词', groupId: 'g2' },
+      { id: 's4', title: '室温超导研究知识地图(试验)', groupId: 'g2' },
+      { id: 's5', title: '黎曼猜想学习定位(试验)', groupId: 'g2' },
+      { id: 's6', title: '哈哈行啊回应（导入的）', groupId: null },
+      { id: 's7', title: '摩西摩西回应（导入的）', groupId: null }
+    ]
+    for (var i = 0; i < extras.length; i++) {
+      var item = extras[i]
+      var at = now - (i + 2) * 60000
+      tx.objectStore('sessions').put({
+        id: item.id, title: item.title, createdAt: at, updatedAt: at, groupId: item.groupId, messages: []
+      })
+      tx.objectStore('sessionSummaries').put({
+        id: item.id, title: item.title, createdAt: at, updatedAt: at, groupId: item.groupId, fileIds: []
+      })
+    }
     tx.oncomplete = function () { db.close(); resolve(true) }
     tx.onerror = function () { reject(tx.error) }
   }
@@ -487,6 +511,14 @@ try {
     await evaluate(`localStorage.setItem('chat-demo:theme-preference', '${theme}'); true`)
     await send('Page.reload')
     await sleep(1600)
+    if (SIDEBAR) {
+      await evaluate(openDrawer)
+      await sleep(600)
+      if (SHOT_LABEL) {
+        await shot(`${SHOT_LABEL}-sidebar-${theme}`)
+      }
+      continue
+    }
     if (WELCOME) {
       if (SHOT_LABEL) {
         await shot(`${SHOT_LABEL}-welcome-${theme}`)

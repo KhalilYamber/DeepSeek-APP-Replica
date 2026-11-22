@@ -211,6 +211,10 @@ export const en = {
     'Includes all chat history and locally stored images. Other attachments retain file details only. Your API Key is not included.',
   exportAllDownload: 'Download',
   exportAllExporting: 'Exporting...',
+  historyExportProgress: 'Wrote {done} MB / {total} MB',
+  longMessageExpand: 'Show full reply ({chars} characters)',
+  longMessageExpanding: 'Expanding…',
+  longMessageCollapse: 'Collapse reply',
   deleteAllSessions: 'Delete all chats',
   deleteAllSessionsModalTitle: 'Once deleted, all chats will be cleared and cannot be recovered.',
   deleteAllSessionsModalDescription:

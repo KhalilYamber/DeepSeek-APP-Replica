@@ -36,6 +36,7 @@ import {
 import { ImageCropper } from './ImageCropper.js'
 import { appVersion, clearDiagnostics, collectDiagnostics } from '../../services/diagnostics.js'
 import { isNativeApp, saveBlobOnNative } from '../../services/native/platform.js'
+import { formatMegabytes } from '../../utils/format.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { useChatStore } from '../../services/chat/store.js'
 import { openMobileSider } from '../sider/mobileSiderState.js'
@@ -774,7 +775,20 @@ const ExportHistory = ({ disabled }: { disabled: boolean }) => {
       const { name, blob } = await exportHistory()
       // WebView 里 a[download] 不生效，改走原生文件写入 + 系统分享
       if (isNativeApp()) {
-        await saveBlobOnNative(name, blob)
+        let last = 0
+        await saveBlobOnNative(name, blob, (written, total) => {
+          // 200ms 刷一次就够：写盘本身是瓶颈，状态行刷太快只是白白重渲染
+          const now = Date.now()
+          if (written < total && now - last < 200) {
+            return
+          }
+          last = now
+          setStatus({
+            key: 'historyExportProgress',
+            params: { done: formatMegabytes(written), total: formatMegabytes(total) },
+          })
+        })
+        setStatus(null)
         return
       }
       const url = URL.createObjectURL(blob)

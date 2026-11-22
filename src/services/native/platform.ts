@@ -18,6 +18,9 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
     reader.readAsDataURL(blob)
   })
 
+/** 已写入 / 总字节；只在大文件分块写时回调，小文件一次性写完没有中间态 */
+export type WriteProgress = (writtenBytes: number, totalBytes: number) => void
+
 const writeWhole = async (name: string, blob: Blob): Promise<string> => {
   const data = await blobToBase64(blob)
   const written = await Filesystem.writeFile({
@@ -30,7 +33,12 @@ const writeWhole = async (name: string, blob: Blob): Promise<string> => {
 }
 
 /** 每块单独转 base64、单独过桥，峰值内存只跟块大小有关，不跟文件总大小有关 */
-const writeChunked = async (name: string, blob: Blob, ranges: WriteRange[]): Promise<string> => {
+const writeChunked = async (
+  name: string,
+  blob: Blob,
+  ranges: WriteRange[],
+  onProgress?: WriteProgress
+): Promise<string> => {
   let uri = ''
   for (const [index, range] of ranges.entries()) {
     const data = await blobToBase64(blob.slice(range.start, range.end))
@@ -45,6 +53,8 @@ const writeChunked = async (name: string, blob: Blob, ranges: WriteRange[]): Pro
     } else {
       await Filesystem.appendFile({ path: name, data, directory: Directory.Cache })
     }
+    // 报进度放在写完之后：数字对应「已经落盘的字节」，不是「已经读进内存的字节」
+    onProgress?.(range.end, blob.size)
   }
   return uri
 }
@@ -56,11 +66,15 @@ const writeChunked = async (name: string, blob: Blob, ranges: WriteRange[]): Pro
  * 大文件走分块写：一次把整包转 base64 过桥时，同一份数据会在内存里复制三四份，
  * 几十 MB 的历史足以把进程撑死（表现是 App 直接退出）。阈值以下仍是原来的一次写。
  */
-export const saveBlobOnNative = async (name: string, blob: Blob): Promise<void> => {
+export const saveBlobOnNative = async (
+  name: string,
+  blob: Blob,
+  onProgress?: WriteProgress
+): Promise<void> => {
   const plan = planNativeWrite(blob.size)
   const uri =
     plan.kind === 'chunks' && typeof Filesystem.appendFile === 'function'
-      ? await writeChunked(name, blob, plan.ranges)
+      ? await writeChunked(name, blob, plan.ranges, onProgress)
       : await writeWhole(name, blob)
   await Share.share({ title: name, url: uri, dialogTitle: name })
 }

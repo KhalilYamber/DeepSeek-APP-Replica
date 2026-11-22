@@ -803,3 +803,25 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   1. **「截图有图标、断言却是 opacity:0」不是矛盾**：`MessageList.tsx:215` 的 `isLast || lastIndex-1` 让末尾两条消息的图标常显；探针量到的是第一条（旧）消息
   2. 分块写必须按 3 字节对齐：`appendFile` 每块独立 base64 解码，块长不是 3 的倍数会在拼接处错位
 - 下一步最佳动作：真机上导出一份大历史验证分块写盘；再走 0.4.19 发版
+
+### Session 034
+
+- 日期：2026-11-22
+- 本轮目标：把壁纸、导出、长会话三块收尾，跑兼容预检后打 0.4.19
+- 已完成：
+  - **超长回复折叠**：单条 > 3 万字符先渲染 8000 字预览 +「展开全文（共 N 字）」；点击时先用双 rAF 把「展开中…」画出来再渲染；展开后「收起全文」吸顶在气泡顶部（滚动中随时可点）。**本次流式生成出来的长回复不折叠**（否则读着读着内容会被抽走）
+  - **侧栏密度**：会话行 44→40、小节留白 20→10、分组间距 12→6；分组标题的点击高度与「新建/搜索」没动
+  - **导出**：>8MB 分块写盘（3MB 一块，3 的倍数对齐）+ 设置页「已写 X MB / 共 Y MB」进度（200ms 节流）
+  - **打包**：`pnpm build` → `cap sync android` → `gradlew assembleDebug`；产物 `release/DS-Echo-0.4.19-20261122-debug.apk`（6,440,628 字节，versionCode 419，minSdk 24），桌面另存一份交付文件夹
+- 运行过的验证：
+  - 六道门：type / lint(0) / test(**211 条**) / build / 产物 / 兼容（error 0 / hint 1 / info 9，与 0.4.18 一致）
+  - 启动兜底页 **39/39**；壁纸探针 33/33；measure-layout 10 档与基线一致
+  - 长消息探针：20 万字符首帧 **3564ms → 187~265ms**，DOM 16.7 万 → 6.7 千；展开/收起闭环通
+- **未验证（按 inferred 记）**：A58 真机观感与滚动手感；安卓端分块写盘与系统分享的真实行为；**从正文深处点「收起」是否会把滚动位置甩走**（现有夹具只有一条消息，测不出）
+- 踩到的坑：
+  1. 流式结束那一下不能触发折叠——要记「这条消息在本次会话流过」（`streamedHere`）
+  2. 侧栏探针第一次拍出来按钮图标可见，是因为 `isLast || lastIndex-1` 让末尾两条常显；断言量的是第一条旧消息
+  3. 性能探针跑出长任务 60 次是机器上残留 17 个 Chrome 进程，清场后为 0
+- 更新过的文件或工件：`AssistantMessage.{tsx,module.css}`、`Sider.module.css`、`SessionItem.module.css`、`platform.ts`、`SettingsDialog.tsx`、`format.ts`、`longMessage.ts`（新）、`i18n/{zh,en}.ts`、`test/{long-message,native-chunk-plan,format}.test.ts`、`_probe/{long-message,wallpaper-surfaces}.mjs`、`CHANGELOG.md`、`package.json`（0.4.19）、本文件
+- **当前状态：以上改动全部未提交**（工作区 16 个文件）。打包用的 APK 已出，等真机验完再 commit / tag / Release
+- 下一步最佳动作：装 `DS-Echo-0.4.19-20261122-debug.apk` 到手机，按桌面「怎么验.txt」走一遍；重点：A58 类旧机不白屏、长会话滑动、导出大历史、壁纸模式各处表面

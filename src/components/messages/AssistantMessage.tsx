@@ -1,7 +1,11 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
-import { memo } from 'react'
-import { IconRefreshOutline16, IconWarningOutline16 } from '../base/icons.js'
+import { memo, useEffect, useState } from 'react'
+import {
+  IconChevronDownOutline14,
+  IconRefreshOutline16,
+  IconWarningOutline16,
+} from '../base/icons.js'
 import { describeReply } from '../../services/chat/describe.js'
 import { canContinueReply } from '../../services/chat/reply.js'
 import { continueReply, regenerateReply } from '../../services/chat/store.js'
@@ -11,6 +15,7 @@ import { openSettings } from '../settings/settingsDialogState.js'
 import { IconButton } from '../base/IconButton.js'
 import { Button } from '../base/Button.js'
 import { Markdown } from '../markdown/Markdown.js'
+import { LONG_MESSAGE_CHARS, groupDigits, previewMarkdown } from '../../utils/longMessage.js'
 import { SiteThumbnails } from '../search/SiteLogo.js'
 import { toggleSearchPanel, useSearchPanel } from '../search/searchPanelState.js'
 import { MessageAvatar } from './MessageAvatar.js'
@@ -51,6 +56,35 @@ export const AssistantMessage = memo(function AssistantMessage({
   // 安全拒绝：已下发的思考与正文按协议丢弃，只显示模板答复。
   const refused = message.stopReason === 'refusal'
   const answer = refused ? null : view.answer
+  // 单条回复过长时先折叠：一条 20 万字的回复实测首帧 3.5 秒，整条渲染会把主线程占死，
+  // 而 content-visibility 只能跳过「屏幕外的消息」，管不到一条消息内部。
+  const [expandedLong, setExpandedLong] = useState(false)
+  // 这条消息是在本次会话里边流式边长出来的：结束时不能突然折起来，否则
+  // 用户正读着的内容会缩掉、滚动位置也跳；渲染成本在流式过程中已经付过了。
+  const [streamedHere, setStreamedHere] = useState(false)
+  useEffect(() => {
+    if (streaming) {
+      setStreamedHere(true)
+    }
+  }, [streaming])
+  const answerMarkdown = answer?.markdown ?? ''
+  const longCollapsed =
+    !streaming && !streamedHere && !expandedLong && answerMarkdown.length > LONG_MESSAGE_CHARS
+  // 展开要先把「展开中…」画出来，再让那条几万字的消息去渲染；
+  // 否则点击到重绘之间主线程被占死，界面看起来像没反应。
+  const [expanding, setExpanding] = useState(false)
+  const beginExpand = () => {
+    if (expanding) {
+      return
+    }
+    setExpanding(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setExpandedLong(true)
+        setExpanding(false)
+      })
+    })
+  }
   const responseText = [answer?.text, notice?.presentation === 'response' ? notice.text : null]
     .filter(Boolean)
     .join('\n\n')
@@ -70,15 +104,44 @@ export const AssistantMessage = memo(function AssistantMessage({
             hasResponse={!!responseText}
           />
         )}
+        {expandedLong && answerMarkdown.length > LONG_MESSAGE_CHARS ? (
+          <div className={styles.collapseRow}>
+            <button
+              type="button"
+              className={clsx(styles.expandLong, styles.collapseLong)}
+              aria-expanded
+              onClick={() => setExpandedLong(false)}
+            >
+              <IconChevronDownOutline14 />
+              <span>{t('longMessageCollapse')}</span>
+            </button>
+          </div>
+        ) : null}
         {answer ? (
           <Markdown
             className="ds-assistant-message-main-content"
-            content={answer.markdown}
+            content={longCollapsed ? previewMarkdown(answerMarkdown) : answer.markdown}
             loading={streaming}
-            cacheKey={message.id}
+            cacheKey={longCollapsed ? `${message.id}-preview` : message.id}
             disableLink={false}
             sources={view.sources}
           />
+        ) : null}
+        {longCollapsed ? (
+          <button
+            type="button"
+            className={styles.expandLong}
+            aria-expanded={false}
+            disabled={expanding}
+            onClick={beginExpand}
+          >
+            <IconChevronDownOutline14 />
+            <span>
+              {expanding
+                ? t('longMessageExpanding')
+                : t('longMessageExpand', { chars: groupDigits(answerMarkdown.length) })}
+            </span>
+          </button>
         ) : null}
         {waiting ? (
           <div className={styles.waiting}>

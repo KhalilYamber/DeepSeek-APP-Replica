@@ -33,6 +33,51 @@ body[data-chat-bg] .actions button {
   color: var(--dsw-alias-label-secondary);
 }
 
+/* 超长回复的「展开全文」：和气泡同一套表面，平时只是一个小胶囊 */
+.expandLong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 10px;
+  padding: 6px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 100px;
+  background-color: var(--app-chip);
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.expandLong:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+/* 收起：同一个胶囊，箭头翻过来朝上 */
+.collapseLong > svg {
+  transform: rotate(180deg);
+}
+
+/* 展开后的「收起」贴在消息顶部吸顶：几百 KB 的正文滚到哪儿都点得到，
+   不用再滚回文末找按钮。容器不挡文字，只有按钮本身接收点击。 */
+.collapseRow {
+  position: sticky;
+  top: 8px;
+  z-index: 4;
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 6px;
+  pointer-events: none;
+}
+
+.collapseRow > button {
+  pointer-events: auto;
+  /* 一点点投影：让它读成「浮在正文之上」的控件，而不是正文的一部分 */
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+}
+
 /* 网页版左侧头像：绝对定位，不改原有正文排布 */
 .withAvatar {
   padding-left: 44px;

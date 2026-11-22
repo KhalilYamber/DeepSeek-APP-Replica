@@ -65,11 +65,14 @@
   }
 }
 
-@media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
+@media not all and (min-width: 768px),
+  (max-height: 519px),
+  (min-aspect-ratio: 1/1) and (max-height: 699px) {
   .item {
-    height: 44px;
-    padding: 11px 6px 11px 12px;
-    border-radius: 16px;
+    /* 40 而不是更矮：这一列点一下就是切会话，误触代价高；留 40 仍好点 */
+    height: 40px;
+    padding: 9px 6px 9px 12px;
+    border-radius: 14px;
     font-size: 16px;
   }
 
@@ -78,9 +81,9 @@
   }
 
   .renameInput {
-    height: 44px;
+    height: 40px;
     padding: 0 12px;
-    border-radius: 16px;
+    border-radius: 14px;
     font-size: 16px;
   }
 }

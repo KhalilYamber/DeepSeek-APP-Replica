@@ -43,3 +43,26 @@ test('分块首尾相接、不重叠、完整覆盖整个文件', () => {
     assert.ok(range.end - range.start <= CHUNK_BYTES)
   }
 })
+
+test('按计划分块、逐块 base64 再逐块解码拼接，结果与原始字节完全一致', () => {
+  // 5 MB 大于一块、又不是块的整数倍：最后一块长度不是 3 的倍数，专门验接缝
+  const size = 5 * 1024 * 1024 + 1
+  const original = Buffer.alloc(size)
+  for (let i = 0; i < size; i++) {
+    original[i] = (i * 37 + 11) % 256
+  }
+
+  const plan = planNativeWrite(size, CHUNK_BYTES, 0)
+  if (plan.kind !== 'chunks') {
+    assert.fail('should chunk')
+    return
+  }
+
+  const parts: Buffer[] = []
+  for (const range of plan.ranges) {
+    // 与 platform.ts 里一致：每块单独 base64，原生端逐块解码后追加
+    parts.push(Buffer.from(original.subarray(range.start, range.end).toString('base64'), 'base64'))
+  }
+
+  assert.deepEqual(Buffer.concat(parts), original)
+})
