@@ -1,0 +1,35 @@
+DS Echo（仓库名 DeepSeek-APP-Replica）
+====================================
+
+本仓库由两部分组成，分别适用不同的许可。
+
+【一】上游前端
+  来源：deepseek-ai/chat-demo
+  版权：Copyright (c) 2026 DeepSeek
+  许可：MIT，全文见 LICENSE-upstream
+
+【二】本项目新增部分
+  内容：安卓外壳接线、低版本内核兼容与启动兜底、构建与探针脚本、测试与文档，
+        以及 0.4.x 系列起对界面与交互的改造（含壁纸模式表面层级、气泡透明度等）
+  版权：Copyright (c) 2026 KhalilYamber
+        https://github.com/KhalilYamber/DeepSeek-APP-Replica
+  许可：GNU Affero General Public License v3.0，全文见 LICENSE
+
+【分发规则】
+  整仓按 AGPL-3.0 分发。上游 MIT 部分的版权声明与许可全文按要求保留在
+  LICENSE-upstream 中，不得删除。再分发本项目或其修改版时，必须：
+
+    1. 保留本 NOTICE 以及上述两处版权声明；
+    2. 按 AGPL-3.0 提供完整的对应源码；
+    3. 显著说明你做了修改，不得把本项目代码表述为自己的原创作品。
+
+  把本项目（或其修改版）改名后当作他人原创发布，同时去掉上述版权声明，
+  属于违反许可的侵权行为。
+
+【时间线】
+  首个提交：2026-11-16（commit 16c6f8b，初始提交：DeepSeek App 安卓复刻客户端）
+  首次对外发布：v0.3.0（2026-11-17）
+  本文件最后更新：2026-11-22
+
+【说明】
+  「DeepSeek」名称与标识归其所有者所有。本项目为个人项目，与深度求索无隶属关系。

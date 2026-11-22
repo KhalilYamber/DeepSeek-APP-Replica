@@ -224,6 +224,15 @@ cd android
 
 ## 许可
 
-界面与主要代码来自 [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo)，MIT 许可，见 `LICENSE`。
+本仓库分两部分，适用不同许可（归属与分发规则见 [NOTICE](NOTICE)）：
+
+| 部分 | 来源 | 许可 |
+|---|---|---|
+| 上游前端（界面与主要交互） | [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo)，版权归 DeepSeek | MIT，全文见 [LICENSE-upstream](LICENSE-upstream) |
+| 本项目新增部分（安卓外壳接线、兼容性兜底、构建与探针、测试与文档、0.4.x 起的界面改造） | 本项目作者 | AGPL-3.0，全文见 [LICENSE](LICENSE) |
+
+整仓按 **AGPL-3.0** 分发；上游 MIT 的版权声明与全文按要求原样保留。
+
+再分发或发布修改版时，必须保留 `NOTICE` 与两处版权声明，并按 AGPL-3.0 公开对应源码；**把本项目（或其修改版）改名后当作自己的原创发布，属于违反许可的侵权行为**。
 
 「DeepSeek」名称与标识归其所有者所有。本仓库是个人项目，与 DeepSeek 官方无关。若要公开发布，请更换应用名称与图标。

@@ -36,6 +36,23 @@
       "notes": "只在壁纸模式下生效，无壁纸时所有令牌回落到实色。真机观感、滚动手感与旧内核表现未验，故标 inferred；不新增权限、不改数据库版本。"
     },
     {
+      "id": "export-001",
+      "priority": 1,
+      "area": "settings",
+      "title": "导出全部历史（大文件分块写盘）",
+      "user_visible_behavior": "设置 → 数据管理 → 导出所有历史对话：网页版直接下载 ZIP，安卓端写入缓存目录后交给系统分享面板。大历史不再因为一次性 base64 过桥把 App 撑退。",
+      "status": "inferred",
+      "verification": [
+        "`test/archive-roundtrip.test.ts` 2/2：导出的 ZIP 能被自己的读取器原样读回；同一份归档重复导出字节一致",
+        "`test/native-chunk-plan.test.ts` 4/4：阈值以下一次写、以上分块；块长是 3 的倍数，首尾相接覆盖整个文件",
+        "`pnpm type` / `lint` / `test`(200) / `build` / `scan-compat`(error 0) 全绿"
+      ],
+      "evidence": [
+        "2026-11-22 本机 Node 24：归档写入/读取往返与分块计划均为机器断言；原生写盘与系统分享未在真机跑过"
+      ],
+      "notes": "分块阈值 8MB、块长 3MB（3 的倍数，base64 分块拼接不会错位）。安卓端实际写盘与分享只能真机验，故标 inferred。"
+    },
+    {
       "id": "harness-001",
       "priority": 1,
       "area": "harness",

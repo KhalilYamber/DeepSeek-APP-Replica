@@ -91,6 +91,10 @@ export const createConfig = ({
     new rspack.CopyRspackPlugin({
       patterns: [
         { from: path.resolve(root, 'LICENSE'), to: 'LICENSE', toType: 'file' },
+        // 上游 MIT 全文与归属说明必须随产物分发：AGPL 要求保留上游声明，
+        // 少带一份，别人拿到 dist 就无从知道哪部分是谁的。
+        { from: path.resolve(root, 'LICENSE-upstream'), to: 'LICENSE-upstream', toType: 'file' },
+        { from: path.resolve(root, 'NOTICE'), to: 'NOTICE', toType: 'file' },
         // 兼容性自检页：白屏时用户唯一的自助出口，必须随产物一起装进 APK。
         // transform 把它自己的版本号写进去——自检页不经过 HtmlRspackPlugin，读不到 package.json。
         {

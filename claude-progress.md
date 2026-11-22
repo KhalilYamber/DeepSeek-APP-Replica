@@ -784,3 +784,22 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   4. **气泡贴在一起**：加了 12px 间距仍显得连体，根因是壁纸本身是白色、气泡边界消失；补 1px 细边才解决
 - 更新过的文件或工件：`global.css`、`theme.css`、`chatBackground.ts`、`AssistantMessage.{tsx,module.css}`、`UserMessage.module.css`、`ReplyArea.{tsx,module.css}`、`SessionView.module.css`、`MobileHeader.module.css`、`UsageBar.module.css`、`ChatInput.module.css`、`SettingsDialog.tsx`、`Settings.module.css`、`ScrollToBottomButton.module.css`、`Welcome.module.css`、`BranchSwitcher.module.css`、`App.module.css`、`i18n/{zh,en}.ts`、`test/bubble-opacity.test.ts`（新）、`_probe/wallpaper-surfaces.mjs`（新）、`README.md`、`CHANGELOG.md`、`feature_list.json`（surface-001）、本文件
 - 下一步最佳动作：等用户对着 `screenshots/wallpaper/b5-*.png` 最终点头 → 改版本号 0.4.19 → 六道门 → 打包 → 真机验（尤其滚动手感与旧内核）
+
+### Session 033
+
+- 日期：2026-11-22
+- 本轮目标：① 对 Session 032 做一次 debug；② 处理「导出历史会话」在大数据下把 App 撑退的问题
+- 已完成：
+  - **debug**：CSS 变量引用/定义对账（全齐）、滑杆值 40 → 气泡 0.4、清除壁纸后标记与透明度全回退；发现并修「旧消息下面的空胶囊」（提交 `5ab7fd8`：胶囊底从 `.bottom` 挪到 `.actions`，图标淡出时胶囊一起消失）
+  - **导出**：核实导入端本来就是 256KB 分片流式读（安全）；导出端原生写盘是「整包 ZIP → base64 → 过桥」，同一份数据在内存里复制三四份，是撑退的来源。改为**分块写盘**：>8MB 时按 3MB 一块（3 的倍数，base64 边界不错位）逐块 `writeFile`/`appendFile`；≤8MB 与 `appendFile` 不可用时仍走老路
+  - 新增 `src/services/native/chunkPlan.ts`（纯函数）与 4 条单测；新增 `test/archive-roundtrip.test.ts` 2 条：导出 ZIP 能被自己的读取器原样读回、重复导出字节一致
+- 运行过的验证：
+  - `pnpm type` / `lint`（0 warning）/ `test`（**200 条**）/ `build` / `scan-compat`（error 0 / hint 1 / info 9，与 0.4.18 基线一致）
+  - 壁纸探针 **33/33**；无壁纸逐像素 0 差异；`verify-boot-guard` **39/39**
+- **未验证（按 inferred 记）**：
+  - A58 真机观感、滚动跟手度、旧内核表现
+  - 安卓端分块写盘与系统分享的实际行为——本机没有 adb/设备，只能等打包后真机验
+- 踩到的坑：
+  1. **「截图有图标、断言却是 opacity:0」不是矛盾**：`MessageList.tsx:215` 的 `isLast || lastIndex-1` 让末尾两条消息的图标常显；探针量到的是第一条（旧）消息
+  2. 分块写必须按 3 字节对齐：`appendFile` 每块独立 base64 解码，块长不是 3 的倍数会在拼接处错位
+- 下一步最佳动作：真机上导出一份大历史验证分块写盘；再走 0.4.19 发版
