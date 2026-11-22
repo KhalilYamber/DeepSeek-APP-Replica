@@ -79,7 +79,9 @@ if ($SkipBuild) {
     $missing = @()
     $artifactsOk = $false
     if (-not (Test-Path 'dist/index.html' -PathType Leaf)) { $missing += 'dist/index.html' }
-    if (-not (Test-Path 'dist/LICENSE' -PathType Leaf)) { $missing += 'dist/LICENSE（上游许可须随产物分发）' }
+    if (-not (Test-Path 'dist/LICENSE' -PathType Leaf)) { $missing += 'dist/LICENSE（本仓 AGPL-3.0 全文）' }
+    if (-not (Test-Path 'dist/LICENSE-upstream' -PathType Leaf)) { $missing += 'dist/LICENSE-upstream（上游 MIT 全文）' }
+    if (-not (Test-Path 'dist/NOTICE' -PathType Leaf)) { $missing += 'dist/NOTICE（归属说明）' }
     if (-not (Get-ChildItem 'dist/static/js' -Filter '*.js' -File -ErrorAction SilentlyContinue)) {
       $missing += 'dist/static/js/*.js'
     }

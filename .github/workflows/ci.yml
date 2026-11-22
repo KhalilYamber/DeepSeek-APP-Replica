@@ -62,7 +62,9 @@ jobs:
         run: |
           set -euo pipefail
           test -f dist/index.html   || { echo "缺少 dist/index.html"; exit 1; }
-          test -f dist/LICENSE      || { echo "缺少 dist/LICENSE（上游 MIT 许可须随产物分发）"; exit 1; }
+          test -f dist/LICENSE      || { echo "缺少 dist/LICENSE（本仓 AGPL-3.0 全文）"; exit 1; }
+          test -f dist/LICENSE-upstream || { echo "缺少 dist/LICENSE-upstream（上游 MIT 全文）"; exit 1; }
+          test -f dist/NOTICE       || { echo "缺少 dist/NOTICE（归属说明）"; exit 1; }
           test -d dist/static/js    || { echo "缺少 dist/static/js"; exit 1; }
           test -d dist/static/css   || { echo "缺少 dist/static/css"; exit 1; }
           echo "产物齐全：$(find dist/static -type f | wc -l) 个静态文件"

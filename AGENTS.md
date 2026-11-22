@@ -89,7 +89,7 @@ node tools/verify-boot-guard.mjs 真开 Chrome 验启动兜底页（7 个场景�
 
 ## 红线
 
-- **保留上游版权**：`src/` 主体来自 deepseek-ai/chat-demo（MIT）。`LICENSE` 必须随产物分发（构建会拷进 `dist/`），改动不删上游文件头。
+- **保留上游版权**：`src/` 主体来自 deepseek-ai/chat-demo（MIT）。三份声明缺一不可，且都必须随产物分发（构建会拷进 `dist/`）：`LICENSE`（本仓 AGPL-3.0 全文）、`LICENSE-upstream`（上游 MIT 全文）、`NOTICE`（谁写了哪部分的归属说明）。少带一份就等于把归属弄丢。改动不删上游文件头。
 - **API Key 只在本地**：只存本机存储，绝不进仓库、不进日志、不进截图、不进 issue。发布前搜一遍 `sk-`。
 - **产物不进版本控制**：`dist/`、`release/`、`screenshots/`、安卓构建中间物一律 gitignore。已跟踪的要 `git rm --cached` 撤出。
 - **不手改 `android/` 生成文件**：那是 `capacitor sync` 的产物，改了会被覆盖。要改配置改 `capacitor.config.ts`，要改原生代码改后单独登记。
