@@ -72,14 +72,20 @@ body[data-chat-bg] .bubble {
   margin-top: 6px;
 }
 
-/* 操作行在气泡外面：壁纸下给它一个窄胶囊托底，图标才看得见、点得准 */
-body[data-chat-bg] .bottom {
+/* 操作行在气泡外面：壁纸下给图标一个窄胶囊托底。
+   底色必须画在 .actions 上而不是 .bottom：.actions 默认 opacity:0，
+   胶囊跟着图标一起消失——否则触屏上每条旧消息下面都会留下一个空胶囊。 */
+body[data-chat-bg] .actions {
   box-sizing: border-box;
-  width: fit-content;
   height: 32px;
   padding: 0 8px;
   border-radius: 100px;
   background-color: var(--app-action);
+}
+
+/* 与胶囊同高，BranchSwitcher 不至于把这一行撑歪 */
+body[data-chat-bg] .bottom {
+  height: 32px;
 }
 
 /* 同助理消息：胶囊上的图标调深一档 */

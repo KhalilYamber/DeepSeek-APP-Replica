@@ -375,6 +375,14 @@ const readSurface = () =>
     if (answers.length > 0 && users.length > 1) {
       gap = Math.round(users[1].getBoundingClientRect().top - answers[0].getBoundingClientRect().bottom)
     }
+    // 用户消息的操作行：图标默认 opacity 0，若胶囊底画在外层，触屏上会留下一个空胶囊
+    var userBlock = null
+    var blocks = [].slice.call(document.querySelectorAll('[class*="container-"]'))
+    for (var k = 0; k < blocks.length; k++) {
+      if (blocks[k].querySelector('[class*="bubble-"]')) { userBlock = blocks[k]; break }
+    }
+    var userBottom = userBlock ? userBlock.querySelector('[class*="bottom-"]') : null
+    var userActions = userBottom ? userBottom.querySelector('[class*="actions-"]') : null
     var square = function (el) {
       if (!el) return null
       var r = el.getBoundingClientRect()
@@ -391,6 +399,9 @@ const readSurface = () =>
       titleBox: square(title),
       dockImage: dock ? cs(dock).backgroundImage.slice(0, 120) : null,
       inputBg: input ? cs(input).backgroundColor : null,
+      userPillBg: userBottom ? cs(userBottom).backgroundColor : null,
+      userActionsBg: userActions ? cs(userActions).backgroundColor : null,
+      userActionsOpacity: userActions ? cs(userActions).opacity : null,
       messageGap: gap
     }
   })()`)
@@ -484,6 +495,9 @@ try {
     }
     const clicked = await clickSession('壁纸模式检查')
     await sleep(1000)
+    // 把指针挪开，别让 :hover 把操作行「照亮」，否则测不到触屏上的真实状态
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: -5, y: -5 })
+    await sleep(500)
     if (!clicked) {
       console.log(`（${theme}）没点开会话，仍截首页`)
     }
@@ -513,6 +527,16 @@ try {
         s?.answerBg !== null && Math.abs((alphaOf(s.answerBg) ?? 1) - 0.7) < 0.02,
         String(s?.answerBg)
       )
+      check(
+        `${theme}：图标隐藏时胶囊不该留空`,
+        !(s?.userActionsOpacity === '0' && (alphaOf(s?.userPillBg) ?? 0) > 0),
+        `opacity=${s?.userActionsOpacity} pill=${s?.userPillBg}`
+      )
+      check(
+        `${theme}：胶囊底画在动作行本身上（0.8）`,
+        Math.abs((alphaOf(s?.userActionsBg) ?? 1) - 0.8) < 0.02,
+        String(s?.userActionsBg)
+      )
     }
     if (LEVEL >= 2) {
       check(`${theme}：思考标题变胶囊`, s?.titleRadius === '100px', String(s?.titleRadius))
@@ -539,6 +563,27 @@ try {
         String(s?.messageGap)
       )
     }
+  }
+
+  // 滑杆的值真的会驱动气泡：写成 40 再重载，气泡应该跟着变成 0.4
+  if (LEVEL >= 3) {
+    await evaluate(`localStorage.setItem('chat-demo:bubble-alpha', '40'); true`)
+    await send('Page.reload')
+    await sleep(1600)
+    await clickSession('壁纸模式检查')
+    await sleep(900)
+    const s40 = await readSurface()
+    check(
+      '滑杆值 40 → 用户气泡 0.4',
+      Math.abs((alphaOf(s40?.bubbleBg) ?? 1) - 0.4) < 0.02,
+      String(s40?.bubbleBg)
+    )
+    check(
+      '滑杆值 40 → AI 气泡 0.4',
+      Math.abs((alphaOf(s40?.answerBg) ?? 1) - 0.4) < 0.02,
+      String(s40?.answerBg)
+    )
+    await evaluate(`localStorage.setItem('chat-demo:bubble-alpha', '70'); true`)
   }
 
   if (WITH_SETTINGS && SHOT_LABEL) {
@@ -579,6 +624,23 @@ try {
       await sleep(300)
       await shot(`${SHOT_LABEL}-settings-${theme}`)
     }
+  }
+
+  // 清除壁纸后必须彻底退回原样：没有标记、气泡不透明、AI 气泡不显形
+  if (LEVEL >= 3) {
+    await evaluate(`localStorage.removeItem('chat-demo:chat-background'); true`)
+    await send('Page.reload')
+    await sleep(1600)
+    await clickSession('壁纸模式检查')
+    await sleep(900)
+    const cleared = await readSurface()
+    check('清除壁纸后撤掉标记', cleared?.hasAttr === false, String(cleared?.hasAttr))
+    check('清除壁纸后用户气泡不透明', alphaOf(cleared?.bubbleBg) === 1, String(cleared?.bubbleBg))
+    check(
+      '清除壁纸后 AI 气泡不显形',
+      cleared?.answerBg === null || alphaOf(cleared.answerBg) === 0,
+      String(cleared?.answerBg)
+    )
   }
 
   if (errors.length) {
