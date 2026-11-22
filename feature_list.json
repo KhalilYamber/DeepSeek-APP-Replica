@@ -1,6 +1,6 @@
 {
   "project": "DeepSeek APP Replica（官方 chat-demo 前端 + Capacitor 8 安卓壳）",
-  "last_updated": "2026-11-21",
+  "last_updated": "2026-11-22",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
