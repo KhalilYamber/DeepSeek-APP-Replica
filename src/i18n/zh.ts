@@ -144,6 +144,7 @@ export const zh = {
   backgroundPick: '选择图片',
   backgroundClear: '清除背景',
   backgroundDim: '背景遮罩',
+  backgroundBubbleOpacity: '气泡透明度',
   backgroundTooLarge: '这张图片太大，换一张试试',
   settingsAvatarUser: '你的头像',
   settingsAvatarAssistant: 'AI 的头像',
@@ -257,9 +258,11 @@ export const zh = {
   renderFailedUnknown: '未知错误',
   reload: '重新加载',
   disclaimerTitle: '使用前须知',
-  disclaimerOfficial: '不是官方 App：界面来自 DeepSeek 开源的 chat-demo，在此基础上进行的安卓封装与适配。',
+  disclaimerOfficial:
+    '不是官方 App：界面来自 DeepSeek 开源的 chat-demo，在此基础上进行的安卓封装与适配。',
   disclaimerFree: '本工具免费：用的是你自己的 API Key，费用由 API 方按用量结算。',
-  disclaimerData: 'API Key 和对话只存在这台设备上，工具作者这边看不到；只有生成回答时，文字会发给 API 方。',
+  disclaimerData:
+    'API Key 和对话只存在这台设备上，工具作者这边看不到；只有生成回答时，文字会发给 API 方。',
   disclaimerModel: '回答由模型生成，可能有错，要紧的事请自己再核实一遍哦。',
   disclaimerAck: '我知道了',
   settingsDisclaimerDescription: '首次启动时展示过的内容，可随时重新查看',

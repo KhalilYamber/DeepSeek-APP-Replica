@@ -18,3 +18,8 @@
   white-space: nowrap;
   user-select: none;
 }
+
+/* 壁纸下这一行落在半透明气泡/胶囊上，三级灰偏淡，调深一档 */
+body[data-chat-bg] .count {
+  color: var(--dsw-alias-label-secondary);
+}

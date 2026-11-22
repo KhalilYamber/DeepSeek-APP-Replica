@@ -32,12 +32,12 @@
 
 .fadeTop {
   top: 0;
-  background: linear-gradient(to bottom, var(--dsw-alias-bg-base), transparent);
+  background: linear-gradient(to bottom, var(--app-fade), transparent);
 }
 
 .fadeBottom {
   bottom: 0;
-  background: linear-gradient(to top, var(--dsw-alias-bg-base), transparent);
+  background: linear-gradient(to top, var(--app-fade), transparent);
 }
 
 .title {
@@ -63,6 +63,17 @@
   &:hover {
     color: var(--dsw-alias-label-primary);
   }
+}
+
+/* 壁纸模式下改成小胶囊：不再横贯整块「纸」。
+   吸顶时它仍然挡得住身后滚过的内容，只是挡住的范围变成一小条，而不是一整行。 */
+body[data-chat-bg] .title {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 100px;
+  background-color: var(--app-title);
 }
 
 .titleIcon {

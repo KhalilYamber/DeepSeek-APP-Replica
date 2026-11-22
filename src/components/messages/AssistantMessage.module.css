@@ -11,6 +11,28 @@
   }
 }
 
+/* 回复的「纸」：无壁纸时这层 div 不带任何样式，界面与改之前完全一致；
+   有壁纸时才给内边距、圆角与半透明底，让正文不再直接压在照片上。 */
+body[data-chat-bg] .body {
+  padding: 10px 14px 2px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 18px;
+  background-color: var(--app-answer);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  /* 两条消息都是半透明白气泡时，贴着放会看成连在一起的一块；留出间距才读得出是两张「纸」 */
+  margin-bottom: 12px;
+}
+
+/* 操作行原来的 left:-6px 是补正文外边距用的；进了气泡要归零，否则会顶出左沿 */
+body[data-chat-bg] .bottom {
+  left: 0;
+}
+
+/* 壁纸下图标调深一档：三级灰放在半透明气泡上仍然偏淡 */
+body[data-chat-bg] .actions button {
+  color: var(--dsw-alias-label-secondary);
+}
+
 /* 网页版左侧头像：绝对定位，不改原有正文排布 */
 .withAvatar {
   padding-left: 44px;
@@ -127,7 +149,7 @@
   padding: 4px 10px 4px 4px;
   border-radius: 100px;
   border: 1px solid var(--dsw-alias-border-l2);
-  background-color: var(--dsw-alias-bg-base);
+  background-color: var(--app-chip);
   color: var(--dsw-alias-label-primary);
   font: var(--dsw-font-markdown-small);
   cursor: pointer;

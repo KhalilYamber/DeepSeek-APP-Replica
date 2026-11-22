@@ -14,6 +14,36 @@
      目标都是「背景随便换，正文始终读得清」。 */
   --app-bg-dim: 0.4;
   --app-bg-dim-color: #ffffff;
+  /* 气泡透明度（0–1），壁纸模式下由设置里的滑杆写成根元素的内联样式；无壁纸时恒为 1。
+     只声明在 :root：内联样式写在 html 上，若 body 也声明默认值会把它压掉。 */
+  --app-bubble-alpha: 1;
+}
+
+/* 表面层级：无壁纸时每个令牌都等同今天的实底，所以这些默认值在无壁纸时不可见；
+   有壁纸时由 body[data-chat-bg] 换成半透明。
+   注意：它们引用主题色，而主题色声明在 body 上（theme.css），所以这一组也必须声明在 body——
+   写到 :root / html 上的话，求值时找不到主题色变量，整条声明会失效、底色塌成透明。 */
+body {
+  --app-bar: var(--dsw-alias-bg-base);
+  --app-dock: var(--dsw-alias-bg-base);
+  --app-input: var(--dsw-specific-input-major);
+  --app-title: var(--dsw-alias-bg-base);
+  --app-chip: var(--dsw-alias-bg-base);
+  --app-action: var(--dsw-alias-bg-base);
+  --app-bubble: var(--dsw-specific-bubble);
+  --app-fade: var(--dsw-alias-bg-base);
+}
+
+body[data-chat-bg] {
+  --app-bar: rgba(var(--app-surface-rgb), 0.75);
+  --app-dock: rgba(var(--app-surface-rgb), 0.88);
+  --app-input: rgba(var(--app-surface-rgb), 0.82);
+  --app-title: rgba(var(--app-surface-rgb), 0.85);
+  --app-chip: rgba(var(--app-surface-rgb), 0.85);
+  --app-action: rgba(var(--app-surface-rgb), 0.8);
+  --app-bubble: rgba(var(--app-bubble-user-rgb), var(--app-bubble-alpha));
+  --app-answer: rgba(var(--app-answer-rgb), var(--app-bubble-alpha));
+  --app-fade: rgba(var(--app-answer-rgb), var(--app-bubble-alpha));
 }
 
 @media (max-width: 1023px) {
@@ -74,7 +104,9 @@ body.change-layout *::after {
   padding-right: var(--app-safe-right);
 }
 
-@media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
+@media not all and (min-width: 768px),
+  (max-height: 519px),
+  (min-aspect-ratio: 1/1) and (max-height: 699px) {
   html,
   body,
   #root {

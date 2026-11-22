@@ -13,7 +13,8 @@
   padding: 0;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 50%;
-  background-color: var(--dsw-alias-bg-layer-2);
+  /* 有壁纸时半透明，免得像一个白点贴在图上 */
+  background-color: var(--app-chip);
   color: var(--dsw-alias-label-secondary);
   box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
   cursor: pointer;
@@ -29,7 +30,9 @@
   }
 }
 
-@media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
+@media not all and (min-width: 768px),
+  (max-height: 519px),
+  (min-aspect-ratio: 1/1) and (max-height: 699px) {
   .button {
     right: 4px;
     width: 40px;

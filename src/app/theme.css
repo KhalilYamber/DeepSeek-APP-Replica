@@ -164,6 +164,10 @@ body {
   --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-50);
   --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-blue-100);
   --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-75);
+  /* 壁纸模式的表面层级用裸 RGB 三元组：透明度单独给，避免 color-mix（Chrome 111+） */
+  --app-surface-rgb: 255, 255, 255;
+  --app-answer-rgb: 255, 255, 255;
+  --app-bubble-user-rgb: 237, 243, 254;
 }
 
 body[data-ds-dark-theme] {
@@ -215,6 +219,10 @@ body[data-ds-dark-theme] {
   --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-900);
   --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-neutral-bluish-800);
   --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-850);
+  /* 深色主题的同一组三元组：抬一档，气泡在壁纸上才不会和背景糊成一块 */
+  --app-surface-rgb: 21, 21, 23;
+  --app-answer-rgb: 33, 33, 35;
+  --app-bubble-user-rgb: 44, 44, 46;
 }
 
 body {
@@ -225,29 +233,41 @@ body {
 body {
   /* 阅读区排版：字号与行高统一乘 --app-reading-scale，标题、表格、代码一起缩放。
      当前值对应「标准」档；小/大/特大分别是 0.875 / 1.125 / 1.25。 */
-  --dsw-font-markdown-h1: 700 calc(24px * var(--app-reading-scale)) / calc(34px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-h1: 700 calc(24px * var(--app-reading-scale)) /
+    calc(34px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-h2: 700 calc(22px * var(--app-reading-scale)) / calc(32px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-h2: 700 calc(22px * var(--app-reading-scale)) /
+    calc(32px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-h3: 700 calc(20px * var(--app-reading-scale)) / calc(30px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-h3: 700 calc(20px * var(--app-reading-scale)) /
+    calc(30px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-h4: 600 calc(16px * var(--app-reading-scale)) / calc(28px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-h4: 600 calc(16px * var(--app-reading-scale)) /
+    calc(28px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-base: calc(16px * var(--app-reading-scale)) / calc(28px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-base: calc(16px * var(--app-reading-scale)) /
+    calc(28px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-base-strong: 600 calc(16px * var(--app-reading-scale)) / calc(28px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-base-strong: 600 calc(16px * var(--app-reading-scale)) /
+    calc(28px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-table: calc(15px * var(--app-reading-scale)) / calc(25px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-table: calc(15px * var(--app-reading-scale)) /
+    calc(25px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-table-head: 500 calc(15px * var(--app-reading-scale)) / calc(25px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-table-head: 500 calc(15px * var(--app-reading-scale)) /
+    calc(25px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-small: calc(14px * var(--app-reading-scale)) / calc(24px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-small: calc(14px * var(--app-reading-scale)) /
+    calc(24px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-small-strong: 600 calc(14px * var(--app-reading-scale)) / calc(24px * var(--app-reading-scale)) var(--dsw-font-family);
+  --dsw-font-markdown-small-strong: 600 calc(14px * var(--app-reading-scale)) /
+    calc(24px * var(--app-reading-scale)) var(--dsw-font-family);
 
-  --dsw-font-markdown-code: calc(14px * var(--app-reading-scale)) / calc(22px * var(--app-reading-scale)) var(--ds-font-family-code);
+  --dsw-font-markdown-code: calc(14px * var(--app-reading-scale)) /
+    calc(22px * var(--app-reading-scale)) var(--ds-font-family-code);
 
-  --dsw-font-markdown-code-block: calc(13px * var(--app-reading-scale)) / calc(22px * var(--app-reading-scale)) var(--ds-font-family-code);
+  --dsw-font-markdown-code-block: calc(13px * var(--app-reading-scale)) /
+    calc(22px * var(--app-reading-scale)) var(--ds-font-family-code);
 
   --dsw-font-s-strong-14: 500 14px/22px var(--dsw-font-family);
 

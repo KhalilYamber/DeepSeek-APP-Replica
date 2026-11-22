@@ -29,6 +29,11 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* 欢迎页没有气泡托底，问候语直接落在壁纸上：用遮罩同色描一道边保证辨识 */
+body[data-chat-bg] .greeting {
+  text-shadow: 0 1px 3px var(--app-bg-dim-color);
+}
+
 @media (max-width: 439px) {
   .greeting {
     font-size: 20px;
@@ -37,7 +42,9 @@
   }
 }
 
-@media not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px) {
+@media not all and (min-width: 768px),
+  (max-height: 519px),
+  (min-aspect-ratio: 1/1) and (max-height: 699px) {
   .container {
     flex-direction: column;
   }

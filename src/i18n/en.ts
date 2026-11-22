@@ -154,6 +154,7 @@ export const en = {
   backgroundPick: 'Choose image',
   backgroundClear: 'Remove background',
   backgroundDim: 'Background dim',
+  backgroundBubbleOpacity: 'Bubble opacity',
   backgroundTooLarge: 'That image is too large. Try another one.',
   settingsAvatarUser: 'Your avatar',
   settingsAvatarAssistant: 'AI avatar',
@@ -223,7 +224,8 @@ export const en = {
   uploadFileStatusFailed: 'Upload failed',
   uploadRetry: '{message}. Click to retry',
   chatInputPlaceholderChat: 'Enter a message',
-  chatInputNotReady: 'Something is still being prepared (an attachment may be uploading). Try again shortly.',
+  chatInputNotReady:
+    'Something is still being prepared (an attachment may be uploading). Try again shortly.',
   chatInputBlocked: 'Message not sent: a reply is still being generated. Stop it first.',
   deactivatedThinkTooltip: 'Think before responding to solve reasoning problems',
   thinkingSwitch: 'DeepThink',
@@ -273,9 +275,12 @@ export const en = {
   disclaimerTitle: 'Before you start',
   disclaimerOfficial:
     'Not an official app: the interface comes from the open-source chat-demo published by DeepSeek; this is an Android wrapper and adaptation built on top of it.',
-  disclaimerFree: 'The tool itself is free: you use your own API key, and the API provider bills you for usage.',
-  disclaimerData: 'Your API key and chats stay on this device — the tool author cannot see them. Only the chat text goes to the API provider to generate a reply.',
-  disclaimerModel: 'Answers come from a model and can be wrong; for anything important, please do check again.',
+  disclaimerFree:
+    'The tool itself is free: you use your own API key, and the API provider bills you for usage.',
+  disclaimerData:
+    'Your API key and chats stay on this device — the tool author cannot see them. Only the chat text goes to the API provider to generate a reply.',
+  disclaimerModel:
+    'Answers come from a model and can be wrong; for anything important, please do check again.',
   disclaimerAck: 'Got it',
   settingsDisclaimerDescription: 'The notice shown on first launch — open it again anytime',
   settingsDisclaimerOpen: 'View',

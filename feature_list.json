@@ -15,8 +15,26 @@
     "inferred": "有充分依据（规范推演、等价环境实测、产物检查）但未在目标设备上确认。可以认为大概率是对的，不可以当成已验过。",
     "passing": "要求的验证已通过，证据已记录。只用于不涉及设备行为的条目（静态门、纯逻辑、产物检查）；涉及设备行为的一律用 verified 或 inferred 表示证据等级，不许标 passing。"
   },
-  "note": "清单 53 条（截至 0.4.17）。口径：涉及设备行为的一律标 verified 或 inferred，不许标 passing——标签只说明「在哪种环境验过」，不说明「大概没问题」。0.4.17 新增 6 条：四边安全区、改名与迁移、两处吸顶、折叠记忆与组内新建、余额刷新、流畅度标尺。",
+  "note": "清单 59 条（截至本轮壁纸模式表面层级）。口径：涉及设备行为的一律标 verified 或 inferred，不许标 passing——标签只说明「在哪种环境验过」，不说明「大概没问题」。本轮新增 surface-001：设图后的半透明表面与气泡透明度滑杆，截图与断言齐备但真机未验，故 inferred。",
   "features": [
+    {
+      "id": "surface-001",
+      "priority": 1,
+      "area": "settings",
+      "title": "壁纸模式的表面层级与气泡透明度",
+      "user_visible_behavior": "设了对话背景图后，顶栏、余额条、思考折叠条、AI 回复、用户气泡、底部输入区都换成半透明表面；设置 → 个性化 → 对话背景多一个「气泡透明度」滑杆（20–90%，默认 70%）。没设背景图时界面与改动前逐像素一致。",
+      "status": "inferred",
+      "verification": [
+        "`_probe/wallpaper-surfaces.mjs` 24/24：有无 data-chat-bg、各处背景 alpha、AI 气泡存在、思考标题圆角 100px、两条消息间距 12px",
+        "无壁纸对照：同数据同尺寸逐像素比对，浅色/深色均 0 个像素变化",
+        "回归：personalize 9/9、usage-bar 8/8、thinking-collapse 10/10、sticky 9/9、scroll-to-bottom 7/7、measure-layout 10 档与基线一致",
+        "六道门：type / lint / test(194) / build / 产物齐全 / 兼容 error 0"
+      ],
+      "evidence": [
+        "2026-11-22 本机 Chrome 157 无头、360×787@3x：注入用户提供的壁纸（900×1600 JPEG 0.7）后逐批截图；截图在 screenshots/wallpaper/（gitignore）"
+      ],
+      "notes": "只在壁纸模式下生效，无壁纸时所有令牌回落到实色。真机观感、滚动手感与旧内核表现未验，故标 inferred；不新增权限、不改数据库版本。"
+    },
     {
       "id": "harness-001",
       "priority": 1,
@@ -1123,7 +1141,7 @@
       "evidence": [
         "2026-11-21 本机 Chrome 无头：注入渐变图后断言主区域 img 存在与遮罩 opacity；截图 screenshots/background.png"
       ],
-      "notes": "只铺内容区，顶部标题栏与余额栏保持不透明。真机渲染效果与滚动性能未验，故标 inferred。"
+      "notes": "只铺内容区。设图后各处表面（顶栏、余额条、气泡、底板）与气泡透明度另见 surface-001，本条不再涵盖那部分。真机渲染效果与滚动性能未验，故标 inferred。"
     },
     {
       "id": "settings-grouping-001",

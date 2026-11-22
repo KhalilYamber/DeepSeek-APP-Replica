@@ -5,6 +5,9 @@
   box-sizing: border-box;
   height: 60px;
   padding: 12px 10px 4px;
+  /* 移动端顶栏原先完全透明，壁纸下标题与两个图标直接压在图上；
+     无壁纸时这个颜色与 frame 底色相同，看不出来。 */
+  background: var(--app-bar);
 }
 
 .title {

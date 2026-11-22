@@ -47,9 +47,15 @@
   font-size: calc(16px * var(--app-reading-scale));
   line-height: calc(24px * var(--app-reading-scale));
   color: var(--dsw-alias-label-primary);
-  background-color: var(--dsw-specific-bubble);
+  /* 有壁纸时按设置里的滑杆变半透明；无壁纸时这个令牌等于原来的实色 */
+  background-color: var(--app-bubble);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* 壁纸下加一圈细边：底下若是浅色壁纸，半透明气泡的边界会整个消失，看着像和上一条连在一起 */
+body[data-chat-bg] .bubble {
+  border: 1px solid var(--dsw-alias-border-l2);
 }
 
 @media not all and (min-width: 440px) {
@@ -64,6 +70,21 @@
   gap: 10px;
   height: 28px;
   margin-top: 6px;
+}
+
+/* 操作行在气泡外面：壁纸下给它一个窄胶囊托底，图标才看得见、点得准 */
+body[data-chat-bg] .bottom {
+  box-sizing: border-box;
+  width: fit-content;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 100px;
+  background-color: var(--app-action);
+}
+
+/* 同助理消息：胶囊上的图标调深一档 */
+body[data-chat-bg] .actions button {
+  color: var(--dsw-alias-label-secondary);
 }
 
 .actions {

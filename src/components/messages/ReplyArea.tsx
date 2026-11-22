@@ -179,14 +179,14 @@ export const ReplyArea = memo(function ReplyArea({
       {showSteps ? (
         windowed ? (
           <div className={styles.windowBox}>
-            <div ref={windowRef} className={clsx(styles.steps, styles.window)}>
+            <div ref={windowRef} className={clsx(styles.window)}>
               {steps}
             </div>
             {edges.top ? <span className={clsx(styles.fade, styles.fadeTop)} /> : null}
             {edges.bottom ? <span className={clsx(styles.fade, styles.fadeBottom)} /> : null}
           </div>
         ) : (
-          <div className={styles.steps}>{steps}</div>
+          <div>{steps}</div>
         )
       ) : null}
     </div>

@@ -758,3 +758,29 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
   3. **设置页重排后头像入口从「通用设置」挪到「个性化」**，老探针断言「两个上传入口」也变成三个（多了背景图的 input）
   4. **`IconSparkleOutline16` 不存在**，写了个不存在的图标名，`pnpm type` 当场拦下
 - 下一步最佳动作：打包 0.4.18，真机上验四件事——字号四档切换、头像拖动缩放、背景图观感与遮罩、设置页三栏切换
+
+### Session 032
+
+- 日期：2026-11-22
+- 本轮目标：壁纸模式的表面层级（用户反馈：余额条实白横断、AI 正文直接压在图上、思考条一坨、底部大白块、操作图标看不清），共 5 批逐批截图验收
+- 已完成：
+  - **表面令牌**（`global.css`）：`--app-bar` / `--app-dock` / `--app-input` / `--app-title` / `--app-chip` / `--app-action` / `--app-bubble` / `--app-answer` / `--app-fade`，默认值全部等于改动前的实色；`body[data-chat-bg]` 下换成半透明。**必须声明在 body**：它们引用主题色，而主题色也在 body；写到 `:root` 上会求值失败、底色塌成透明
+  - **壁纸开关**：`chatBackground` 服务维护 `document.body.dataset.chatBg`，与遮罩同一处初始化；`--app-bubble-alpha` 只声明在 `:root`，JS 内联写 html（若 body 也声明默认值会压掉内联值）
+  - **气泡**：用户气泡换令牌；AI 回复新增 `.body` 包裹（`data-role="answer-bubble"`），只在壁纸模式有内边距/圆角/底色；操作行跟着进气泡，用户消息那条用窄胶囊；气泡间加 12px 间距 + 1px 细边（浅色壁纸下不加边会看成连体）
+  - **思考折叠条**：壁纸模式下 `fit-content` 胶囊（圆角 100、0.85 底、细边），不再横贯；思考区渐隐改用 `--app-fade`
+  - **底部**：底板渐变在壁纸下改成平滑过渡（0.88），输入框 0.82；`--until` 硬边在半透明底上会显形
+  - **其余**：移动端顶栏补底色（原先完全没有）、回到底部按钮换 `--app-chip`、欢迎页问候与加载/报错文字加描边、分支切换器与操作图标调深一档
+  - **设置**：个性化 → 对话背景 →「气泡透明度」滑杆（20–90/步长 5/默认 70，右侧显示百分比）
+  - **探针**：`_probe/wallpaper-surfaces.mjs`（360×787@3x，注入壁纸 + 假余额 + 演示会话；`--shots` 出图、`--until=bubbles|title|chrome` 分批断言、`--welcome` 截欢迎页）
+- 运行过的验证：
+  - `pnpm type` / `lint`（0 warning）/ `test`（**194 条**）/ `build` / 产物齐全 / `scan-compat`（error 0）全绿
+  - 新探针 **24/24**；无壁纸对照逐像素 **0 差异**（浅/深）
+  - 回归：personalize 9/9、usage-bar 8/8、thinking-collapse 10/10、sticky 9/9、scroll-to-bottom 7/7、measure-layout 10 档与基线一致
+- **未验证（按 inferred 记）**：真机观感、滚动手感、旧内核表现；全部只有本机 Chrome 157 无头截图与断言
+- 踩到的坑：
+  1. **漏定义 `--app-answer`**：AI 气泡第一版算出来 `rgba(0,0,0,0)`，肉眼在浅色壁纸上几乎看不出，是断言报出来的
+  2. **探针选择器抓错元素**：`[class*="title-"]` 先命中顶栏标题，思考标题断言读到 `0px`；改成 `button[aria-expanded][class*="title-"]`
+  3. **Windows 上 Chrome profile 目录 EBUSY**：同一脚本连跑两次会卡在启动时 `rm`；改成每次运行用带时间戳的独立目录
+  4. **气泡贴在一起**：加了 12px 间距仍显得连体，根因是壁纸本身是白色、气泡边界消失；补 1px 细边才解决
+- 更新过的文件或工件：`global.css`、`theme.css`、`chatBackground.ts`、`AssistantMessage.{tsx,module.css}`、`UserMessage.module.css`、`ReplyArea.{tsx,module.css}`、`SessionView.module.css`、`MobileHeader.module.css`、`UsageBar.module.css`、`ChatInput.module.css`、`SettingsDialog.tsx`、`Settings.module.css`、`ScrollToBottomButton.module.css`、`Welcome.module.css`、`BranchSwitcher.module.css`、`App.module.css`、`i18n/{zh,en}.ts`、`test/bubble-opacity.test.ts`（新）、`_probe/wallpaper-surfaces.mjs`（新）、`README.md`、`CHANGELOG.md`、`feature_list.json`（surface-001）、本文件
+- 下一步最佳动作：等用户对着 `screenshots/wallpaper/b5-*.png` 最终点头 → 改版本号 0.4.19 → 六道门 → 打包 → 真机验（尤其滚动手感与旧内核）

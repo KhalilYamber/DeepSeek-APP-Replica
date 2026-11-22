@@ -26,7 +26,10 @@ import {
   type ReadingLevel,
 } from '../../services/readingFont.js'
 import {
+  MAX_BUBBLE_ALPHA,
+  MIN_BUBBLE_ALPHA,
   setBackgroundDim,
+  setBubbleAlpha,
   setChatBackground,
   useChatBackground,
 } from '../../services/chatBackground.js'
@@ -492,10 +495,7 @@ const FontSizeSetting = () => {
             type="button"
             role="radio"
             aria-checked={level === item}
-            className={clsx(
-              styles.fontSizeOption,
-              level === item && styles.fontSizeOptionSelected
-            )}
+            className={clsx(styles.fontSizeOption, level === item && styles.fontSizeOptionSelected)}
             onClick={() => setReadingLevel(item)}
           >
             {t(FONT_LABELS[item])}
@@ -514,6 +514,7 @@ const BackgroundSetting = () => {
   const t = useTranslate()
   const image = useChatBackground((state) => state.image)
   const dim = useChatBackground((state) => state.dim)
+  const bubbleAlpha = useChatBackground((state) => state.bubbleAlpha)
   const [pending, setPending] = useState<File | null>(null)
 
   return (
@@ -567,6 +568,19 @@ const BackgroundSetting = () => {
               value={dim}
               onChange={(event) => setBackgroundDim(Number(event.target.value))}
             />
+          </label>
+          <label className={styles.backgroundDimRow}>
+            <span>{t('backgroundBubbleOpacity')}</span>
+            <input
+              type="range"
+              min={MIN_BUBBLE_ALPHA}
+              max={MAX_BUBBLE_ALPHA}
+              step={5}
+              value={bubbleAlpha}
+              onChange={(event) => setBubbleAlpha(Number(event.target.value))}
+            />
+            {/* 把数字显示出来：您调到一个满意的值，可以直接报数给我 */}
+            <span className={styles.rangeValue}>{bubbleAlpha}%</span>
           </label>
         </>
       ) : null}
@@ -891,7 +905,9 @@ const UpdateSetting = () => {
 
   const copy = () => {
     const finish = (ok: boolean) => {
-      showToast(ok ? { key: 'settingsUpdateCopied' } : { key: 'settingsUpdateCopyFailed', type: 'error' })
+      showToast(
+        ok ? { key: 'settingsUpdateCopied' } : { key: 'settingsUpdateCopyFailed', type: 'error' }
+      )
     }
     if (navigator.clipboard?.writeText) {
       void navigator.clipboard
@@ -924,7 +940,12 @@ const UpdateSetting = () => {
               <Button variant="outlined" onClick={copy}>
                 {t('settingsUpdateCopy')}
               </Button>
-              <a className={styles.updatePrimary} href={RELEASES_URL} target="_blank" rel="noreferrer">
+              <a
+                className={styles.updatePrimary}
+                href={RELEASES_URL}
+                target="_blank"
+                rel="noreferrer"
+              >
                 {t('settingsUpdateOpen')}
               </a>
             </>
@@ -953,7 +974,12 @@ const DisclaimerSetting = () => {
         description={t('settingsDisclaimerDescription')}
         status={null}
         action={
-          <Button size="m" variant="outlined" className={styles.cellButton} onClick={() => setOpen(true)}>
+          <Button
+            size="m"
+            variant="outlined"
+            className={styles.cellButton}
+            onClick={() => setOpen(true)}
+          >
             {t('settingsDisclaimerOpen')}
           </Button>
         }

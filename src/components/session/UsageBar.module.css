@@ -7,7 +7,8 @@
   height: 32px;
   padding: 0 16px;
   border-top: 1px solid var(--dsw-alias-border-l2);
-  background: var(--dsw-alias-bg-base);
+  /* 有壁纸时换成半透明，免得像把壁纸横着一刀切断 */
+  background: var(--app-bar);
   font: var(--dsw-font-xs-13);
   color: var(--dsw-alias-label-secondary);
 }
