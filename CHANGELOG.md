@@ -580,7 +580,7 @@ Julia、Zig、Elixir、OCaml、Fortran、Verilog、VHDL、Solidity、HCL/Terrafo
 - **历史导入未在真机验证**：入口在桌面 Chrome 里走通过（构造归档 → 确认弹窗 → 合并成功 → 列表出现会话），系统文件选择器是否弹出仍需真机确认
 - **测试覆盖面有限**：只覆盖 5 个自包含模块；`services/chat/` 的存储层（`db.ts` 的 merge 分支）与解析层（`importArchive` 的宽容分支）没有测试
 - `test/_probe.test.ts` 名字带下划线是历史原因：原为环境探测文件，因搭建环境不允许删除而就地改写为框架自检（钉住 Node >= 22 这个测试链路前提）
-- 项目名四处不统一：目录 `DeepSeek 复刻APP` / remote `DeepSeek-APP-Replica` / `package.json` name `chat-demo` / README 标题 `DeepSeek APP Replica`
+- 项目名四处不统一：目录 `DeepSeek 复刻APP` / remote `DeepSeek-APP-Replica` / `package.json` name `chat-demo` / README 标题 `DeepSeek APP Replica`（2026-11-23 结论：四处各有出处，按 ARCHITECTURE 决策 36 保留；用户可见的显示名已统一为 `DS Echo`）
 
 ## [0.1.1] - 2026-11-16
 

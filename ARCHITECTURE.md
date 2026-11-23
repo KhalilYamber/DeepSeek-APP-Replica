@@ -510,7 +510,28 @@ APK（使用者拿自己的 API Key 运行）
 - **流式生成的长回复不折叠**：成本在流式过程中已经付过，结束时再折起来等于把用户正在读的内容抽走。组件记一个 `streamedHere` 就够。
 - **展开前先画「展开中…」**：双 `requestAnimationFrame` 让提示先上屏，再让那条消息去渲染；否则两个状态挤在同一帧，提示会被渲染卡住、等于没做。
 
+## 决策 36：四处名字各按出处保留，只统一用户看得见的那一个
+
+**问题**：同一个东西有四个名字。目录 `DeepSeek 复刻APP`、remote `DeepSeek-APP-Replica`、`package.json` 的 `chat-demo`、README 标题 `DeepSeek APP Replica`，而手机桌面上叫 `DS Echo`（决策 23）。0.2.0 的变更日志把这件事记成「已知问题」。
+
+**取舍**：统一成一个名字能少解释一句，但四处各有自己的读者，改一处就要动另一个系统。
+
+**逐处结论**（2026-11-23 定，依据项目作者口述）：
+
+| 位置 | 谁读它 | 结论 |
+| --- | --- | --- |
+| 桌面目录 `DeepSeek 复刻APP` | 只有本机路径 | 临时名，保留。代价是路径含中文，需要 `android.overridePathCheck=true` 放行构建 |
+| remote `DeepSeek-APP-Replica` | GitHub 仓库地址 | 保留。改名要动 GitHub 与本地 remote，成本最高、收益最低 |
+| `package.json` name `chat-demo` | npm 包名，与 App 无关；实际只被读 `version` | 保留。它取自上游项目名 `deepseek-ai/chat-demo`，属有出处的沿用 |
+| README 标题 `DeepSeek APP Replica` | 对外第一眼 | 旧称，与显示名并存；随对外发布一起处理，不单独动 |
+| 手机显示名 `DS Echo` | 唯一进用户眼睛的 | 已统一（决策 23） |
+| `appId` `com.yang.adeepseek` | 安卓应用身份 | **永不改**。改它等于换一个应用，覆盖安装会并排出两个图标，旧对话留在旧包里 |
+
+**代价**：四处仍不统一，第一次看仓库的人要花一句话解释。`chat-demo` 这一处还容易被误读成「没改完的遗留」。
+
+**什么时候该推翻**：真要对外公开发布时（README 已写明必须换名换图标），四个名字一起改，`appId` 仍不能动，等于改名不搬家。
+
 ## 尚未决策（悬空）
 
-- **项目命名**：目录 `DeepSeek 复刻APP` / remote `DeepSeek-APP-Replica` / `package.json` name `chat-demo` / README 标题 `DeepSeek APP Replica`。四处不统一，`package.json` 未改。改不改、改成什么，待定。
+- **项目命名**：已在决策 36 结案。此处留索引，不再展开。
 - **`services/chat/` 的测试策略**：那块逻辑最重（本地库、分支、导入导出），但全是带运行时依赖的模块。已按决策 6 的路子抽出 `history/result.ts` 与 `test/import-result.test.ts`；存储层（`db.ts` 的 merge 分支）与解析层（`importArchive` 的宽容分支）仍未覆盖，要么继续抽纯函数，要么破例引入打包器，未定。

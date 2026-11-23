@@ -825,3 +825,16 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 更新过的文件或工件：`AssistantMessage.{tsx,module.css}`、`Sider.module.css`、`SessionItem.module.css`、`platform.ts`、`SettingsDialog.tsx`、`format.ts`、`longMessage.ts`（新）、`i18n/{zh,en}.ts`、`test/{long-message,native-chunk-plan,format}.test.ts`、`_probe/{long-message,wallpaper-surfaces}.mjs`、`CHANGELOG.md`、`package.json`（0.4.19）、本文件
 - **当前状态：以上改动全部未提交**（工作区 16 个文件）。打包用的 APK 已出，等真机验完再 commit / tag / Release
 - 下一步最佳动作：装 `DS-Echo-0.4.19-20261122-debug.apk` 到手机，按桌面「怎么验.txt」走一遍；重点：A58 类旧机不白屏、长会话滑动、导出大历史、壁纸模式各处表面
+
+### Session 035
+
+- 日期：2026-11-23
+- 本轮目标：文档同步。作者交代了项目命名的由来，把「项目命名」从悬空项结案；不动任何代码
+- 已完成：
+  - `ARCHITECTURE.md` 新增**决策 36**：四处名字逐处给结论与代价（目录名是临时取的；remote 保留；`chat-demo` 沿用上游 `deepseek-ai/chat-demo` 的名字；README 标题随对外发布一起处理；显示名 `DS Echo`；`appId` 永不改）。「尚未决策」里该条改为索引
+  - `CHANGELOG.md` 的 0.2.0「项目名四处不统一」追加结论指向，原文保留
+  - 依据为作者 2026-11-23 口述：「文件夹名是当时临时取的名字」「demo 的名字是官方 DeepSeek 公布的那个项目来的」
+- 运行过的验证：改动只落在 Markdown；按提交纪律仍跑三道门，全绿（`pnpm type` 0；`pnpm lint` 0 警告 0 错误、156 个文件；`pnpm test` 211 条全过）
+- 未验证：无（不涉设备、不涉产物）
+- 更新过的文件或工件：`ARCHITECTURE.md`、`CHANGELOG.md`、本文件
+- 下一步最佳动作：`release/DS-Echo-0.4.19-20261122-debug.apk` 仍在等真机复验（见 Session 034 的未验证项）；文档侧无遗留
