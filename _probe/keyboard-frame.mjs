@@ -149,7 +149,7 @@ await sleep(2200)
 const overlayText = await evaluate(`(function () {
   var nodes = document.querySelectorAll('div')
   for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].textContent.indexOf('视口读数（#kbdiag）') === 0) return nodes[i].textContent
+    if (nodes[i].textContent.indexOf('视口读数') === 0) return nodes[i].textContent
   }
   return null
 })()`)
@@ -162,13 +162,39 @@ const plainOverlay = await evaluate(`(function () {
     setTimeout(function () {
       var nodes = document.querySelectorAll('div')
       for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i].textContent.indexOf('视口读数（#kbdiag）') === 0) return resolve(true)
+        if (nodes[i].textContent.indexOf('视口读数') === 0) return resolve(true)
       }
       resolve(false)
     }, 300)
   })
 })()`)
 check('去掉 hash 后浮层消失', plainOverlay === false)
+
+// 自动弹出：键盘弹着、但焦点输入框越出可见区域时，浮层要自己出来（微信里改地址等于刷新，现场会没）
+await send('Page.navigate', { url: `http://127.0.0.1:${WEB}/` })
+await sleep(2200)
+await evaluate(`(function () {
+  window.__vv = 415
+  window.__inner = 740
+  Object.defineProperty(window, 'innerHeight', { configurable: true, get: function () { return window.__inner } })
+  Object.defineProperty(window.visualViewport, 'height', { configurable: true, get: function () { return window.__vv } })
+  window.visualViewport.dispatchEvent(new Event('resize'))
+  var el = document.querySelector('textarea')
+  el.focus()
+  el.getBoundingClientRect = function () {
+    return { top: 0, bottom: 900, left: 0, right: 0, width: 100, height: 900 }
+  }
+  return true
+})()`)
+await sleep(1800)
+const autoOpened = await evaluate(`(function () {
+  var nodes = document.querySelectorAll('div')
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].textContent.indexOf('视口读数') === 0) return nodes[i].textContent.indexOf('出问题那一刻的读数') >= 0
+  }
+  return false
+})()`)
+check('输入框越出可见区域时浮层自动弹出并记下读数', autoOpened === true)
 
 const failed = results.filter((x) => !x).length
 console.log(`\n键盘跟随探针 ${results.length - failed}/${results.length}`)
