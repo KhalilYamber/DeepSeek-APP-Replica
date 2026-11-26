@@ -863,3 +863,6 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 下一步最佳动作：打 APK 装到手机按四条验（回车换行、键盘不遮挡、拼音不误发、改消息框换行）；iPad 按 `known-devices.md` 的三步取证，决定 `recallKeyboard` 留不留
 - 打包（2026-11-26 11:15）：`pnpm build` → `pnpm exec cap sync android` → `android\gradlew.bat assembleDebug`。产物 `release/DS-Echo-0.4.19-20261126-debug.apk`（6,656,401 字节），桌面另存 `D:\快速访问_from用户\Desktop\DeepSeek复刻\DS-Echo-输入法修复-20261126\`（作者 2026-11-26 定：桌面成果统一放 `DeepSeek复刻\`，不再在桌面根目录新建文件夹）
 - 打包时踩到的坑：**本机 Gradle 找不到 Java**（`JAVA_HOME` 没设、PATH 里也没有 `java`）。JDK 在 `D:\jdk21`，构建前要先 `$env:JAVA_HOME='D:\jdk21'`。另外 `cap sync` 之后 `windowSoftInputMode` 仍在 manifest 里，这条「sync 不覆盖 manifest」的判断这次拿到了实证
+- 发布（2026-11-26 11:38）：`git push origin main`，`f0c8664..2c0b34e` 共 9 个提交推上去（走本地代理 `127.0.0.1:7897`）。CI run **45750184587** 两个作业都 success（门禁 / 发布网页版），线上 <https://khalilyamber.github.io/DeepSeek-APP-Replica/> 已更新
+- 线上核验：首页带 `interactive-widget=resizes-content`；主 chunk 里 `enterkeyhint`、`pointer: coarse`、`composingRecently`、`MacIntel`、`maxTouchPoints` 全部命中，说明 iPad 那条分支也在线上包里
+- **坑：线上主 chunk 名与本地不同**（线上 `main.43d4802b.js`，本地 `main.6d88e29e.js`）。本地连构两次都是同一个名字，即本机构建是确定的，差异来自 CI 的构建环境（大概率是路径派生的模块标识）。所以**别拿 chunk 名跨机器比对来判「部署的是不是这份源码」**，要看内容标记；上一轮进度里「线上 chunk 与本地同名」那句只在本机构建之间成立
