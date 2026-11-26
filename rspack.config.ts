@@ -110,6 +110,13 @@ export const createConfig = ({
           toType: 'file',
           transform: (input: Buffer) => input.toString('utf8').replace(/__APP_VERSION__/g, version),
         },
+        // 第二轮自诊：只验「手指点能不能唤出键盘」，不再用脚本聚焦（iOS 上脚本聚焦本来就不弹键盘）
+        {
+          from: path.resolve(root, 'src/kbdiag2.html'),
+          to: 'kbdiag2.html',
+          toType: 'file',
+          transform: (input: Buffer) => input.toString('utf8').replace(/__APP_VERSION__/g, version),
+        },
       ],
     }),
   ],

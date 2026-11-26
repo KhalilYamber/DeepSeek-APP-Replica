@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="application-version" content="__APP_VERSION__" />
+    <title>Echo 键盘自诊 · 第二轮</title>
+    <style>
+      :root { color-scheme: light dark; font: 16px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+      body { margin: 0 auto; max-width: 720px; padding: 18px 16px 60px; color: #1f2328; background: #fff; }
+      @media (prefers-color-scheme: dark) {
+        body { color: #e6e8eb; background: #1b1d21; }
+        .box { border-color: #3a3d42; background: #232529; }
+        textarea, [contenteditable] { color: #e6e8eb; background: #16181b; border-color: #3a3d42; }
+        .btn { color: #e6e8eb; background: #2c2f34; border-color: #3a3d42; }
+      }
+      h1 { font-size: 19px; margin: 0 0 6px; }
+      h2 { font-size: 16px; margin: 24px 0 6px; }
+      p { margin: 6px 0; }
+      .muted { color: #6b7280; font-size: 14px; }
+      .box { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; margin: 10px 0; background: #fafbfc; }
+      #kb { font-weight: 700; }
+      #kb.on { color: #1a7f37; }
+      #kb.off { color: #b42318; }
+      textarea, [contenteditable] {
+        width: 100%; box-sizing: border-box; min-height: 84px; padding: 10px 12px;
+        border: 1px solid #d0d7de; border-radius: 10px; font: inherit;
+      }
+      .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .btn { padding: 9px 13px; border: 1px solid #d0d7de; border-radius: 10px; background: #fff; font: inherit; }
+      .btn:active { transform: scale(0.97); }
+      #log { margin: 0; max-height: 220px; overflow: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+      .big { font-size: 15px; }
+    </style>
+  </head>
+  <body>
+    <h1>Echo 键盘自诊 · 第二轮</h1>
+    <p class="muted">上一轮七个方案全是脚本调 focus，而 iOS 上脚本聚焦本来就不弹键盘，所以那轮结果说明不了问题。这一轮改成：<strong>只用手指点，看键盘出不出来</strong>。</p>
+
+    <div class="box big">
+      键盘：<span id="kb" class="off">不在</span>
+      <span class="muted" id="vp"></span>
+    </div>
+
+    <div class="box">
+      <strong>顺序</strong>
+      <p>1）先做实验一的对照：手指点下面的框，键盘应该出来。<br />
+      2）再用笔写几个字，然后用手指点，看键盘还出不出来。<br />
+      3）然后试实验三、四，各点一次它的按钮，再<strong>用手指</strong>点那个新框。</p>
+      <p class="muted">每次点完请按一下「出来了 / 没出来」，结果会存起来，刷新也不丢。</p>
+    </div>
+
+    <h2>实验一：干净状态下，手指点</h2>
+    <div class="box">
+      <textarea id="f1" placeholder="用手指点这里，看键盘出不出来"></textarea>
+      <div class="btns">
+        <button class="btn" data-answer="e1:yes">键盘出来了</button>
+        <button class="btn" data-answer="e1:no">键盘没出来</button>
+      </div>
+    </div>
+
+    <h2>实验二：用笔写过字之后，手指点</h2>
+    <div class="box">
+      <textarea id="f2" placeholder="先用 Apple Pencil 在这里写几个字，再用手指点它"></textarea>
+      <div class="btns">
+        <button class="btn" data-answer="e2:yes">键盘出来了</button>
+        <button class="btn" data-answer="e2:no">键盘没出来</button>
+      </div>
+    </div>
+
+    <h2>实验三：换一个全新的输入框，再用手指点</h2>
+    <div class="box">
+      <div class="btns"><button class="btn" id="newField">换一个全新的输入框</button></div>
+      <div id="f3wrap" style="margin-top: 10px">
+        <textarea id="f3" placeholder="（这一框先别用笔，只等它被换掉）"></textarea>
+      </div>
+      <div class="btns">
+        <button class="btn" data-answer="e3:yes">键盘出来了</button>
+        <button class="btn" data-answer="e3:no">键盘没出来</button>
+      </div>
+      <p class="muted">这个实验要回答的是：卡住的是「这一个输入框」，还是「整个页面」。换出来的新框没有自动聚焦，请用手指点它。</p>
+    </div>
+
+    <h2>实验四：换成可编辑区（contenteditable）</h2>
+    <div class="box">
+      <div class="btns"><button class="btn" id="newEditable">换成一个可编辑区</button></div>
+      <div id="f4wrap" style="margin-top: 10px">
+        <textarea id="f4" placeholder="（这一框先别用笔，只等它被换掉）"></textarea>
+      </div>
+      <div class="btns">
+        <button class="btn" data-answer="e4:yes">键盘出来了</button>
+        <button class="btn" data-answer="e4:no">键盘没出来</button>
+      </div>
+      <p class="muted">可编辑区走的是另一条输入通道，如果它能把键盘叫出来，我们就把 iPad 上的输入框换成这种。</p>
+    </div>
+
+    <h2>事件与视口</h2>
+    <div class="box">
+      <pre id="log">（在任意输入框里点一下，这里会记下收到的事件与视口高度变化）</pre>
+    </div>
+
+    <h2>报告</h2>
+    <div class="btns">
+      <button class="btn" id="copy">复制报告</button>
+      <button class="btn" id="reset">清空已记结果</button>
+    </div>
+    <div class="box"><pre id="report" class="muted" style="white-space: pre-wrap; word-break: break-all; margin: 0">（点上面的按钮生成）</pre></div>
+
+    <script>
+      var KEY = 'kbdiag2-answers'
+      var answers = {}
+      try { answers = JSON.parse(localStorage.getItem(KEY) || '{}') } catch (e) { answers = {} }
+
+      var LOG = document.getElementById('log')
+      var KB = document.getElementById('kb')
+      var VP = document.getElementById('vp')
+      var lines = []
+      var started = Date.now()
+
+      function now() { return ((Date.now() - started) / 1000).toFixed(1) + 's' }
+      function log(text) {
+        lines.push(now() + '  ' + text)
+        if (lines.length > 200) lines.shift()
+        LOG.textContent = lines.join('\n')
+        LOG.scrollTop = LOG.scrollHeight
+      }
+
+      function kbState() {
+        var vv = window.visualViewport
+        if (!vv) return { open: false, text: window.innerHeight + '/?' }
+        var diff = window.innerHeight - vv.height
+        return { open: diff > 120, text: window.innerHeight + '/' + Math.round(vv.height) }
+      }
+
+      function paint() {
+        var s = kbState()
+        KB.textContent = s.open ? '在' : '不在'
+        KB.className = s.open ? 'on' : 'off'
+        VP.textContent = '（视口 ' + s.text + '）'
+      }
+
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', function () {
+          log('视口变化 → ' + kbState().text + (kbState().open ? '（键盘在）' : '（键盘不在）'))
+          paint()
+        })
+      }
+      paint()
+
+      function watch(el, tag) {
+        ;['pointerdown', 'touchstart', 'mousedown', 'click', 'focus', 'focusin', 'focusout', 'blur'].forEach(function (type) {
+          el.addEventListener(type, function (event) {
+            var extra = ''
+            if (event.pointerType !== undefined) extra += ' pointerType=' + event.pointerType
+            if (event.touches && event.touches.length) {
+              extra += ' touchType=' + (event.touches[0].touchType || '未知')
+            }
+            log(tag + ' ' + type + extra + ' → 焦点=' + (document.activeElement && document.activeElement.tagName))
+            paint()
+          }, true)
+        })
+      }
+
+      watch(document.getElementById('f1'), 'f1')
+      watch(document.getElementById('f2'), 'f2')
+      watch(document.getElementById('f3'), 'f3')
+      watch(document.getElementById('f4'), 'f4')
+
+      document.getElementById('newField').addEventListener('click', function () {
+        var old = document.getElementById('f3')
+        var fresh = document.createElement('textarea')
+        fresh.id = 'f3'
+        fresh.placeholder = '请用手指点这个新框，看键盘出不出来'
+        old.parentNode.replaceChild(fresh, old)
+        watch(fresh, 'f3')
+        log('已换成一个全新的 textarea（没有自动聚焦）')
+      })
+
+      document.getElementById('newEditable').addEventListener('click', function () {
+        var old = document.getElementById('f4')
+        var fresh = document.createElement('div')
+        fresh.id = 'f4'
+        fresh.setAttribute('contenteditable', 'true')
+        fresh.style.minHeight = '84px'
+        fresh.style.border = '1px solid #d0d7de'
+        fresh.style.borderRadius = '10px'
+        fresh.style.padding = '10px 12px'
+        fresh.textContent = '请用手指点这里，看键盘出不出来'
+        old.parentNode.replaceChild(fresh, old)
+        watch(fresh, 'f4')
+        log('已换成 contenteditable（没有自动聚焦）')
+      })
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-answer]'), function (button) {
+        button.addEventListener('click', function () {
+          var key = button.getAttribute('data-answer')
+          answers[key] = true
+          try { localStorage.setItem(KEY, JSON.stringify(answers)) } catch (e) {}
+          log('自报结果：' + key)
+          button.style.outline = '2px solid #1a7f37'
+        })
+      })
+
+      document.getElementById('reset').addEventListener('click', function () {
+        answers = {}
+        try { localStorage.removeItem(KEY) } catch (e) {}
+        log('已清空自报结果')
+      })
+
+      document.getElementById('copy').addEventListener('click', function () {
+        var ids = [
+          ['e1', '实验一（干净状态手指点）'],
+          ['e2', '实验二（用笔写过后手指点）'],
+          ['e3', '实验三（换成全新输入框后手指点）'],
+          ['e4', '实验四（换成可编辑区后手指点）'],
+        ]
+        var summary = ids.map(function (pair) {
+          var yes = answers[pair[0] + ':yes']
+          var no = answers[pair[0] + ':no']
+          return pair[1] + '：' + (yes ? '键盘出来了' : no ? '键盘没出来' : '（没答）')
+        })
+        var text = [
+          '【Echo 键盘自诊 第二轮】',
+          '时间 ' + new Date().toISOString(),
+          '版本 ' + ((document.querySelector('meta[name="application-version"]') || {}).content || '?'),
+          'UA ' + navigator.userAgent,
+          '视口 ' + kbState().text,
+          '',
+          '— 自报结果 —',
+          summary.join('\n'),
+          '',
+          '— 事件（最近 60 条） —',
+          lines.slice(-60).join('\n') || '（空）',
+        ].join('\n')
+        document.getElementById('report').textContent = text
+        var done = false
+        try {
+          var temp = document.createElement('textarea')
+          temp.value = text
+          temp.setAttribute('readonly', 'readonly')
+          temp.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0'
+          document.body.appendChild(temp)
+          temp.select()
+          temp.setSelectionRange(0, text.length)
+          done = document.execCommand && document.execCommand('copy')
+          document.body.removeChild(temp)
+        } catch (e) { done = false }
+        document.getElementById('copy').textContent = done ? '已复制' : '复制失败：长按下面文字'
+      })
+
+      log('页面就绪')
+    </script>
+  </body>
+</html>
