@@ -22,6 +22,7 @@ import { MobileHeader } from '../components/session/MobileHeader.js'
 import { Welcome } from '../components/session/Welcome.js'
 import { ensureApiKey } from '../components/settings/settingsDialogState.js'
 import { SettingsDialog } from '../components/settings/SettingsDialog.js'
+import { ViewportOverlay } from '../components/diag/ViewportOverlay.js'
 import { DisclaimerDialog } from '../components/disclaimer/DisclaimerDialog.js'
 import { acknowledgeDisclaimer, isDisclaimerAcknowledged } from '../services/disclaimer.js'
 import { useChatBackground } from '../services/chatBackground.js'
@@ -111,7 +112,7 @@ export const App = () => {
 
   return (
     <>
-      <div ref={frameRef} className={styles.frame}>
+      <div ref={frameRef} className={styles.frame} data-app-frame="">
         {isMobile ? <MobileSider /> : siderCollapsed ? null : <Sider />}
         <main className={styles.main}>
           {background ? (
@@ -177,6 +178,8 @@ export const App = () => {
         <SearchPanel />
       </div>
       <SettingsDialog />
+      {/* 地址里带 #kbdiag 才出现：真机上看视口读数用，平常不渲染任何东西 */}
+      <ViewportOverlay />
       {disclaimerOpen ? (
         <DisclaimerDialog
           onClose={() => {

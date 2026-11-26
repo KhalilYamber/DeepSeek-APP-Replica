@@ -59,6 +59,25 @@ const VIEWPORT_WATCH_MS = 1000
 const FRAME_CLAMPED_ATTR = 'data-frame-clamped'
 
 /**
+ * 最近一次视口判定的读数与结论。只给 `#kbdiag` 那层浮层用——
+ * iPad 上偶发的「输入框被顶上去」必须靠真机读数定位，猜不出来。
+ */
+export type ClampSnapshot = {
+  reading: {
+    innerHeight: number
+    visualHeight: number | undefined
+    offsetTop: number | undefined
+    scale: number | undefined
+  }
+  decision: { mode: string; height?: number; top?: number }
+  at: number
+}
+
+let lastClamp: ClampSnapshot | null = null
+
+export const getLastClamp = () => lastClamp
+
+/**
  * 移动端页面跟随视觉视口，键盘弹出后顶栏和输入框仍留在可见区域。
  *
  * 判定交给 `resolveFrameOverride`（纯函数），这里只负责接线与复核：
@@ -109,7 +128,9 @@ export const useMobileViewport = (enabled: boolean) => {
     }
 
     const apply = () => {
-      const decision = resolveFrameOverride(read())
+      const reading = read()
+      const decision = resolveFrameOverride(reading)
+      lastClamp = { reading, decision, at: Date.now() }
       if (decision.mode === 'keep') {
         return
       }

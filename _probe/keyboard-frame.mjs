@@ -143,6 +143,33 @@ const restored = JSON.parse(await frameState())
 check('收键盘后标记撤掉', restored.attr === false, JSON.stringify(restored))
 check('高度回到布局视口高度', restored.height === '740px', restored.height)
 
+// #kbdiag 浮层：只在地址带 hash 时出现，且要能读数
+await send('Page.navigate', { url: `http://127.0.0.1:${WEB}/#kbdiag` })
+await sleep(2200)
+const overlayText = await evaluate(`(function () {
+  var nodes = document.querySelectorAll('div')
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].textContent.indexOf('视口读数（#kbdiag）') === 0) return nodes[i].textContent
+  }
+  return null
+})()`)
+check('#kbdiag 时浮层出现', typeof overlayText === 'string', String(overlayText).slice(0, 40))
+check('浮层里有视口读数', typeof overlayText === 'string' && overlayText.includes('inner=') && overlayText.includes('clamp='))
+
+const plainOverlay = await evaluate(`(function () {
+  location.hash = ''
+  return new Promise(function (resolve) {
+    setTimeout(function () {
+      var nodes = document.querySelectorAll('div')
+      for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].textContent.indexOf('视口读数（#kbdiag）') === 0) return resolve(true)
+      }
+      resolve(false)
+    }, 300)
+  })
+})()`)
+check('去掉 hash 后浮层消失', plainOverlay === false)
+
 const failed = results.filter((x) => !x).length
 console.log(`\n键盘跟随探针 ${results.length - failed}/${results.length}`)
 
