@@ -22,10 +22,15 @@ const subscribeMedia = (media: MediaQueryList) => (onChange: () => void) => {
   return () => media.removeEventListener('change', onChange)
 }
 
-export const useIsMobile = () => useSyncExternalStore(subscribeMedia(query), () => query.matches)
+// 订阅函数必须稳定：useSyncExternalStore 把它当 effect 依赖，每次渲染新建一个就会退订重订。
+// 输入框每敲一个字重渲染一次，这里不稳定等于每个字重挂一遍监听。
+const subscribeMobile = subscribeMedia(query)
+const subscribeCoarse = subscribeMedia(coarseQuery)
+
+export const useIsMobile = () => useSyncExternalStore(subscribeMobile, () => query.matches)
 
 export const useIsCoarsePointer = () =>
-  useSyncExternalStore(subscribeMedia(coarseQuery), () => coarseQuery.matches)
+  useSyncExternalStore(subscribeCoarse, () => coarseQuery.matches)
 
 /**
  * 回车是否代表发送。
