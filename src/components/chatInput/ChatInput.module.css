@@ -221,6 +221,9 @@
   visibility: hidden;
   pointer-events: none;
   max-height: 336px;
+  /* 从 .textarea 继承来的 auto 会让这一层自己滚：超出上限后两层各自滚动，
+     可用宽度差一个滚动条，高度就会算偏一两个字。这一层只负责撑高度 */
+  overflow: hidden;
 }
 
 @media not all and (min-width: 768px),

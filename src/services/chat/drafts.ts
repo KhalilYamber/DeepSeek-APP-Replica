@@ -79,7 +79,6 @@ useDrafts.subscribe((state) => {
   persist(state.drafts)
 })
 
-
 export const getDraft = (sessionId: string | null): Draft =>
   useDrafts.getState().drafts.get(sessionId) ?? EMPTY_DRAFT
 
@@ -95,8 +94,13 @@ const updateDraft = (sessionId: string | null, update: (draft: Draft) => Draft) 
     return { drafts }
   })
 
-export const setDraftText = (sessionId: string | null, text: string) =>
+export const setDraftText = (sessionId: string | null, text: string) => {
+  // 输入法重复抛同一个值时不重建 Map，省掉一次全量重渲染
+  if (getDraft(sessionId).text === text) {
+    return
+  }
   updateDraft(sessionId, (draft) => ({ ...draft, text }))
+}
 
 const upload = (attachment: DraftAttachment, apiKey: string) => {
   // 上传任务负责记录错误，输入框的附件卡片展示失败及重试入口。
