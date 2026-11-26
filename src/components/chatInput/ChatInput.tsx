@@ -9,8 +9,6 @@ import {
 } from '../base/icons.js'
 import { setSearch, setThinking, useSettings } from '../../services/settings.js'
 import {
-  isIosTouchDevice,
-  isKeyboardHidden,
   useEnterSends,
   useIsMobile,
   useTouchFirst,
@@ -114,38 +112,6 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   )
   const dragging = useFileDrop(acceptFiles)
 
-  /**
-   * iPadOS 的键盘只由「手指点按造成的焦点切换」唤起。用过 Apple Pencil 手写之后，
-   * 输入框会停在「已聚焦、键盘没弹」的状态，手指再点已聚焦的输入框不会重新弹键盘，
-   * 只有笔还能写。这里靠一次真正的失焦再聚焦把它救回来。
-   *
-   * 两个事件的取舍：
-   * - 有 Pointer Events 时用 `pointerdown`，因为能读 `pointerType`，可以放过笔与鼠标；
-   * - 没有 Pointer Events 的内核（iPad 上的第三方浏览器常见）只派发 `touchstart`，所以两个都挂。
-   * 同一手势会连发两个事件，`lastGestureAt` 让 400ms 内只处理一次；
-   * 笔的那一下也会压住窗口，避免它后面紧跟的 `touchstart` 把输入框夺走焦点。
-   */
-  const lastGestureAt = useRef(0)
-  const recallKeyboard = (pointerType?: string) => {
-    if (!isIosTouchDevice()) {
-      return
-    }
-    const now = Date.now()
-    if (now - lastGestureAt.current < 400) {
-      return
-    }
-    lastGestureAt.current = now
-    if (pointerType !== undefined && pointerType !== 'touch') {
-      return
-    }
-    const textarea = textareaRef.current
-    if (!textarea || document.activeElement !== textarea || !isKeyboardHidden()) {
-      return
-    }
-    textarea.blur()
-    requestAnimationFrame(() => textarea.focus({ preventScroll: true }))
-  }
-
   /** 转写结果插入到光标处，并把光标移到插入内容之后 */
   const voice = useVoiceInput((transcript) => {
     const textarea = textareaRef.current
@@ -232,8 +198,6 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           onChange={(event) => setText(event.target.value)}
           onCompositionStart={ime.onCompositionStart}
           onCompositionEnd={ime.onCompositionEnd}
-          onPointerDown={(event) => recallKeyboard(event.pointerType)}
-          onTouchStart={() => recallKeyboard()}
           onMouseDown={(event) => {
             // 首次点击时手动聚焦，避免 Safari 把整个页面滚到输入框位置。
             if (isMobile && event.button === 0 && document.activeElement !== event.currentTarget) {
