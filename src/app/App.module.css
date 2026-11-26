@@ -8,6 +8,15 @@
   background-color: var(--dsw-alias-bg-base);
 }
 
+/* 键盘弹起时 JS 会把可见高度写成内联值，并打上这个标记。
+   桌面布局也要走同一条路：iPad 横屏就是桌面布局，缺了这条，输入框会被键盘盖住，
+   系统再把整页平移上来，屏幕上露出大片空白、输入框跑到导航栏下面。 */
+.frame[data-frame-clamped] {
+  position: fixed;
+  top: var(--app-viewport-top, 0px);
+  bottom: auto;
+}
+
 .main {
   position: relative;
   display: flex;

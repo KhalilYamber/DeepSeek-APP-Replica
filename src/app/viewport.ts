@@ -55,6 +55,8 @@ export const useEnterSends = () => !useIsMobile() && !useTouchFirst()
 
 /** 接管期间每秒复核一次：不少内核收键盘时既不发 resize 也不发 focusout */
 const VIEWPORT_WATCH_MS = 1000
+/** 键盘接管时打在这帧上的标记：CSS 靠它把定位改成贴着视觉视口，桌面布局也要 */
+const FRAME_CLAMPED_ATTR = 'data-frame-clamped'
 
 /**
  * 移动端页面跟随视觉视口，键盘弹出后顶栏和输入框仍留在可见区域。
@@ -113,10 +115,14 @@ export const useMobileViewport = (enabled: boolean) => {
       }
       if (decision.mode === 'css') {
         // 没键盘：按布局视口取全高，同样用像素写——高度从此不依赖 dvh 这类新单位
+        frame.removeAttribute(FRAME_CLAMPED_ATTR)
         const height = Math.round(window.innerHeight)
         write(height > 0 ? `${height}px` : '', height > 0 ? '0px' : '')
         return
       }
+      // 键盘把可见区域压矮了：让 CSS 把这帧改成「贴着视觉视口」的定位。
+      // iPad 横屏走的是桌面布局，那条定位规则原先只在移动端 @media 里，这里靠属性补上。
+      frame.setAttribute(FRAME_CLAMPED_ATTR, '')
       write(`${decision.height}px`, `${decision.top}px`)
     }
     const scheduleFrame = () => {
@@ -151,6 +157,7 @@ export const useMobileViewport = (enabled: boolean) => {
       document.removeEventListener('focusin', onFocusChange)
       document.removeEventListener('focusout', onFocusChange)
       document.removeEventListener('visibilitychange', onVisibilityChange)
+      frame.removeAttribute(FRAME_CLAMPED_ATTR)
       write('', '')
     }
   }, [enabled])

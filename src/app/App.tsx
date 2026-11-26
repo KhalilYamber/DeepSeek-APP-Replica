@@ -4,6 +4,7 @@ import { setSiderCollapsed, useSettings } from '../services/settings.js'
 import {
   useIsMobile,
   useMobileViewport,
+  useTouchFirst,
   useViewportLayoutSync,
 } from './viewport.js'
 import { useNativeShell } from './useNativeShell.js'
@@ -39,6 +40,7 @@ import styles from './App.module.css'
 export const App = () => {
   const t = useTranslate()
   const isMobile = useIsMobile()
+  const touchFirst = useTouchFirst()
   const locale = useSettings((state) => state.locale)
   // 移动端侧边栏以独立抽屉管理开合状态
   const storedSiderCollapsed = useSettings((state) => state.siderCollapsed)
@@ -55,7 +57,9 @@ export const App = () => {
   const sessionLoadError = useChatStore((state) =>
     state.activeId === null ? false : state.sessionLoadErrors[state.activeId] === true
   )
-  const frameRef = useMobileViewport(isMobile)
+  // iPad 上是桌面布局，但键盘照样会把可见区域压矮：这里也得跟视觉视口走，
+  // 否则输入框留在整页底部、被键盘盖住，系统再把整页平移上来，露出大片空白。
+  const frameRef = useMobileViewport(isMobile || touchFirst)
   const streaming = useChatStore((state) =>
     state.activeId === null ? false : Object.hasOwn(state.streaming, state.activeId)
   )
