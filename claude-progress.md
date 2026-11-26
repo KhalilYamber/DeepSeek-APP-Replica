@@ -838,3 +838,26 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 未验证：无（不涉设备、不涉产物）
 - 更新过的文件或工件：`ARCHITECTURE.md`、`CHANGELOG.md`、本文件
 - 下一步最佳动作：`release/DS-Echo-0.4.19-20261122-debug.apk` 仍在等真机复验（见 Session 034 的未验证项）；文档侧无遗留
+
+### Session 036
+
+- 日期：2026-11-26
+- 本轮目标：修输入法耦合。作者的原始反馈是「手机上按回车只会发送、没法换行」；中途追加一条「iPad 上用 Apple Pencil 写过字之后，键盘再也调不出来」
+- 已完成：
+  - **回车语义按输入设备判定**：`useEnterSends()`（窄屏 / 矮屏，或 `(pointer: coarse)` → 换行；宽屏且鼠标为主 → 发送）。发送框与改消息框共用同一判据；`enterKeyHint` 同步（桌面 `send`、手指输入 `enter`）；空输入框上回车不再插入看不见的换行
+  - **组字守卫**：新增 `src/utils/imeEnter.ts`（纯函数、零运行时 import）与 `src/components/base/useImeEnter.ts`；五处 `onKeyDown` 统一接入（发送框、改消息、会话改名、分组改名、API Key）。判据是 `isComposing` / `keyCode === 229` / 「组字刚在同一轮事件里结束」，不用毫秒窗口，避免吞掉确认候选后立刻按下的那一下
+  - **触屏不再自动聚焦 + iPad 唤回键盘**：`autoFocus={!isMobile && !coarsePointer}`；`recallKeyboard` 只在 iOS/iPadOS + `pointerType === 'touch'` + 「已聚焦但键盘没起」时 `blur()` 后下一帧 `focus()`
+  - **键盘让位显式化**：`AndroidManifest.xml` 补 `adjustResize`；`index.html` 的 viewport 补 `interactive-widget=resizes-content`
+  - **两处打磨**：高度镜像层加 `overflow: hidden`；`setDraftText` 值相同时不重建草稿表
+- 运行过的验证：
+  - 四道静态门：type 0 / lint 0 警告 0 错误（158 文件）/ test **217 条**全过 / build 成功
+  - `_probe/ime-enter.mjs` **8/8**（新建）：桌面 1280×900 无触摸 → 粗指针 false、`enterkeyhint=send`、回车后草稿被清空；手机 390×844 触摸仿真 → 粗指针 true、`enterkeyhint=enter`、回车后草稿仍是「第一行」
+  - 回归：`_probe/draft-persist.mjs` 4/4；`measure-layout --check` 10 档与基线一致（容差 1px）；`scan-compat` error 0
+  - `./init.ps1` 全绿。**兼容扫描的 hint 从 1 变 2**：新增那条是 `viewport.ts` 里 `isIosTouchDevice()` 的 UA 平台判断，判的是「这是不是 iPadOS」而不是拿版本号推能力；扫描器自己也写着「若不是做能力判断可以不管」。留着不处理，下一个人看到 hint 2 不必去追
+- **未验证（按 inferred 记）**：真正的换行插入（探针的合成 `keydown` 不触发默认插入）；手机真机竖屏与横屏；iPad 三步取证；`adjustResize` 与 `interactive-widget` 在真机上的键盘让位表现
+- 踩到的坑：
+  1. `Select-String -Path src\**\*.tsx` 在 PowerShell 不做递归展开，那次「文案里 Shift 0 处」是空跑；换检索工具重做才是真结论
+  2. 探针原打算用「设置弹窗有没有弹出来」判断是否发送，但首启点掉免责声明、未填 Key 时设置弹窗会自动出现，判据被污染；改成看「输入框是否被清空」（`clearSentDraft` 同步执行，发送必然清空）
+  3. 想顺带给移动端加「发送后保持焦点」，发现做不了：欢迎页首发消息会让 `ChatInput` 整个换实例（`Welcome.tsx:18` → `SessionView.tsx:43`），旧实例的 ref 落不到新实例，本轮不做
+- 更新过的文件或工件：`src/app/viewport.ts`、`src/components/chatInput/ChatInput.tsx`、`src/components/chatInput/ChatInput.module.css`、`src/components/messages/UserMessage.tsx`、`src/components/settings/ApiKeyField.tsx`、`src/components/sider/{Sider,SessionItem}.tsx`、`src/services/chat/drafts.ts`、`src/utils/imeEnter.ts`（新）、`src/components/base/useImeEnter.ts`（新）、`src/index.html`、`android/app/src/main/AndroidManifest.xml`、`test/ime-enter.test.ts`（新）、`_probe/ime-enter.mjs`（新）、`AGENTS.md`、`ARCHITECTURE.md`（决策 37）、`CHANGELOG.md`、`README.md`、`docs/{使用说明,known-devices}.md`、`feature_list.json`（`ime-001` / `ime-002`，均 `inferred`）
+- 下一步最佳动作：打 APK 装到手机按四条验（回车换行、键盘不遮挡、拼音不误发、改消息框换行）；iPad 按 `known-devices.md` 的三步取证，决定 `recallKeyboard` 留不留

@@ -14,6 +14,7 @@
 | Android 12 出厂 / Chromium 93 级别 WebView（反馈来自 OPPO A58x） | 装得上、开得开，但打开就是白屏 | 当时以为是 `dvh` 不被识别导致 `height` 被丢弃，改成「先 `100vh` 后 `100dvh`」双声明。**这个修法本身是错的**：双声明只在「整条声明在解析期就被丢掉」时有效；`var()` 的兜底不会被解析期丢弃，所以第二条照样生效、照样在计算期失效。详见上一行 | 已由上一行的方案取代。**这条留着是提醒：0.4.0～0.4.1「已修好」的结论是在 Chrome 157 上验的，而 Chrome 157 支持 `dvh`，永远验不出这个毛病** | 同上 |
 | 本机 Chrome 157（Windows，`tools/shot.mjs` 用的那台） | `node tools/shot.mjs` 起不来，CDP 连不上 DevTools，出不了图 | 该版本上 `--headless=new` 起不来 DevTools | 已改 `--headless`；顺带把 `--user-data-dir` 由相对路径改绝对路径。**已确认**：改后截图正常产出（2026-11-16） | 跑一次 `node tools/shot.mjs <url> <out.png>`，能落下 png 即为好 |
 | Chromium 93 级别 WebView（`structuredClone` 需 Chrome 98+） | 打开**带 Mermaid 图**的对话时图表区报错、图不出来；纯文字对话不受影响 | mermaid 的异步 chunk 里用了 `structuredClone`，这是 `node_modules` 被 bundle 进来的，源码层没有。老内核上是 `undefined`，调用即 TypeError | 已在 `src/app/polyfills.ts` 加兜底（JSON 深拷贝），`tools/scan-compat.mjs` 会检查兜底痕迹是否在入口 chunk 里。**未真机确认** | 真机打开一个带流程图的对话，看图能否渲染 |
+| **iPad 第 9 代 / iPadOS（Safari 里的网页版）**，2026-11-26 由作者反馈 | 用 Apple Pencil 在输入框写过字之后，**软键盘再也调不出来**，只能用笔继续写；手指点输入框没反应 | 两个因素叠在一起：① iPad 宽 810 点走桌面布局，`autoFocus` 为真，页面一加载就用脚本聚焦输入框，而脚本聚焦在 iPadOS 上弹不出键盘，输入框当场就进了「已聚焦、键盘未弹」的状态；② 手写（Scribble）同样把输入框留在这个状态，而 iPadOS 的键盘只由「手指点按造成的焦点切换」唤起，点一个已聚焦的输入框不会重新弹。本仓库原先没有任何一处做失焦再聚焦 | 2026-11-26 改：触屏设备不再自动聚焦（`ChatInput.tsx` 的 `autoFocus={!isMobile && !coarsePointer}`）；iOS/iPadOS 上手指点按「已聚焦但键盘没起」的输入框时，强制 `blur()` + 下一帧 `focus()`（`ChatInput.tsx` 的 `recallKeyboard`）。**未在 iPad 上验证**，标 inferred | iPad 上打开网页版走三步：① 打开后先别点，看输入框里有没有已经在闪的光标；② 用笔写几个字，再用手点输入框，看键盘回不回来；③ 若不回来，点页面空白处让输入框失焦再点一次，看回不回来。第 3 步能回来说明「已聚焦」就是病根；三步都不回来则要另找办法，`recallKeyboard` 可单独撤掉 |
 
 **经验**：这一条值得记住——**排查白屏先看「JS 有没有跑起来」，再看 CSS**。拿 `logcat` 或兜底页的「根容器高度」判断：容器存在但空的，多半是 JS 崩了；容器都没有的，是 HTML/资源层面的事。
 
@@ -40,6 +41,8 @@
 | 软键盘弹出会不会把布局视口压到 480 以下，导致**打字途中**从桌面布局切成移动端 | 矮屏规则用的是 `(max-height: 479px)`。若 Android WebView 在 `adjustResize` 下真的把**布局视口**压矮（而不是只改 `visualViewport`），那平板横屏打字时会中途切一次布局 | 只证明了「布局视口一旦低于 480 就会切移动端」（1280×450 实测），**没验过键盘是否会真把布局视口压矮**——本机无软键盘 | 真机上在 768 宽以上横屏点输入框，看布局跳不跳。跳的话把阈值调小（如 `420px`），或改用 `min-height` 反向写法 |
 | `@container` 换成类名后，带附件消息的缩略图在窄容器下的表现 | 原 `@container (max-width: 63px)` 改成了 `.reasonCompact` 类名，触发条件改为「与文档混排时缩略图为 64px」。构造上等价，但没发过一条真实消息看画面 | 构造等价 + 产物核对，**没有真发消息截图** | 发一条带「失败附件 + 文档」的消息，看缩略图是否仍按预期收窄 |
 | Chromium 93 上的实际表现 | 本轮所有修复的**目标环境**就是它，但手上没有这个内核的设备 | 全部 `inferred`。产物形态 + 同引擎实测 + 规范推演，不等同真机 | 找一台 Android 12 出厂的机器装 debug 包，按下面「真机验证的操作步骤」走一遍 |
+| 键盘让位改成 `adjustResize` 之后的真机表现 | `AndroidManifest.xml` 的 `adjustResize` 与 `index.html` 的 `interactive-widget=resizes-content` 会让布局视口真的变矮，`max-height: 519px` 那条断点就会在**平板横屏打字时**触发，布局中途从桌面切成移动端 | 只验过视口逻辑本身（`_probe/ime-enter.mjs` 8/8、`measure-layout` 10 档与基线一致），**没有真机、没有软键盘** | 真机竖屏打字看输入框是否被顶到键盘上方、收键盘后是否恢复全高；平板横屏若见布局跳变，按上一条把阈值调小（如 `420px`） |
+| Android 15+ 强制边到边时 `adjustResize` 是否还有效 | `targetSdkVersion = 36`，Android 15 起系统强制边到边，`windowSoftInputMode` 可能被忽略，正确做法会变成自己处理 IME insets | 本轮没处理，也没在 Android 15+ 设备上验过 | 拿到 Android 15+ 设备时，先看键盘弹起时输入框是否被遮挡；被遮挡说明这一行在该系统上无效，需要走 insets |
 
 ## 怎么往里加一条
 

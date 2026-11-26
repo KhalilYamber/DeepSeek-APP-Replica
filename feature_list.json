@@ -1,6 +1,6 @@
 {
   "project": "DeepSeek APP Replica（官方 chat-demo 前端 + Capacitor 8 安卓壳）",
-  "last_updated": "2026-11-22",
+  "last_updated": "2026-11-26",
   "rules": {
     "single_active_feature": true,
     "passing_requires_evidence": true,
@@ -15,8 +15,42 @@
     "inferred": "有充分依据（规范推演、等价环境实测、产物检查）但未在目标设备上确认。可以认为大概率是对的，不可以当成已验过。",
     "passing": "要求的验证已通过，证据已记录。只用于不涉及设备行为的条目（静态门、纯逻辑、产物检查）；涉及设备行为的一律用 verified 或 inferred 表示证据等级，不许标 passing。"
   },
-  "note": "清单 60 条（截至 0.4.19 打包）。口径：涉及设备行为的一律标 verified 或 inferred，不许标 passing——标签只说明「在哪种环境验过」，不说明「大概没问题」。本轮新增 surface-001（壁纸表面）与 export-001（分块导出）；侧栏密度与超长回复折叠的证据记在 claude-progress Session 034，尚未拆成独立条目。",
+  "note": "清单 62 条（截至本轮输入法改动）。口径：涉及设备行为的一律标 verified 或 inferred，不许标 passing——标签只说明「在哪种环境验过」，不说明「大概没问题」。本轮新增 ime-001（回车语义按输入设备判定）与 ime-002（触屏不自动聚焦、iPad 唤回键盘）；两者的证据都停在网页层探针与代码推演，真机未验。",
   "features": [
+    {
+      "id": "ime-001",
+      "priority": 1,
+      "area": "chatInput",
+      "title": "回车语义按输入设备判定：手指输入换行、鼠标发送",
+      "user_visible_behavior": "手机或平板（手指输入）上按回车是换行，发送只走右下角按钮，键盘上那个键也显示为换行；宽屏且鼠标为主的设备回车仍然发送、Shift+Enter 换行，键帽显示「发送」。空输入框上按回车不再插入看不见的换行。",
+      "status": "inferred",
+      "verification": [
+        "`_probe/ime-enter.mjs` 8/8：桌面档 1280×900 无触摸 → 粗指针 false、`enterkeyhint=send`、回车后草稿被清空（= 已发送）；手机档 390×844 触摸仿真 → 粗指针 true、`enterkeyhint=enter`、回车后草稿仍是「第一行」（= 未发送）",
+        "`test/ime-enter.test.ts` 6/6：组字中 / `keyCode 229` / 组字刚结束 / 普通回车四态，外加结束标记只在同一轮内有效",
+        "回归：`_probe/draft-persist.mjs` 4/4；`measure-layout --check` 10 档与基线一致（容差 1px）；`scan-compat` error 0",
+        "四道静态门：type / lint（0 警告 0 错误）/ test（217 条）/ build"
+      ],
+      "evidence": [
+        "2026-11-26 本机 Chrome 157 无头（390×844@3x 与 1280×900），CDP 合成 keydown；判据是输入框的值，因为 `clearSentDraft` 是同步调用，发送必然清空"
+      ],
+      "notes": "探针只证明「不再进入发送分支」：合成的 keydown 不触发浏览器默认插入，**真正的换行插入必须在真机上验**。手机竖屏、窄窗口桌面、横屏三种真机情况都还没走过，故标 inferred。"
+    },
+    {
+      "id": "ime-002",
+      "priority": 1,
+      "area": "chatInput",
+      "title": "触屏设备不自动聚焦输入框；iPad 手写后能唤回键盘",
+      "user_visible_behavior": "触屏设备打开应用时不再自动把光标放进输入框。iPad 上用 Apple Pencil 写过字之后，用手指点一下输入框即可把软键盘调回来（原来只能继续用笔写）。",
+      "status": "inferred",
+      "verification": [
+        "`pnpm type` / `lint`（0 警告 0 错误）/ `test`（217 条）/ `build` 全绿",
+        "`_probe/ime-enter.mjs` 在触摸仿真下读到 `(pointer: coarse)` 为真——自动聚焦的开关就依赖这个读数"
+      ],
+      "evidence": [
+        "2026-11-26 作者在 iPad 第 9 代上反馈：网页版用笔写过字后软键盘再也调不出来，只能继续用笔写。本轮只有代码推演，没有 iPad 取证"
+      ],
+      "notes": "**未在 iPad 上验证**。机制推断：iPad 宽 810 走桌面布局 → `autoFocus` 为真 → 脚本聚焦弹不出键盘 → 输入框停在「已聚焦、键盘未弹」；iPadOS 的键盘只由手指点按造成的焦点切换唤起。`recallKeyboard` 只对 `pointerType === 'touch'` 生效，妙控键盘触控板点击是 `mouse`，不会每次点击都跳光标。三步取证写在 `docs/known-devices.md` 的 iPad 一行，验不出来可单独撤掉这一条。"
+    },
     {
       "id": "surface-001",
       "priority": 1,
