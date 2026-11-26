@@ -866,3 +866,19 @@ DSH、Codex、Claude Code 都可以用。agent 不会自动维护它，靠 AGENT
 - 发布（2026-11-26 11:38）：`git push origin main`，`f0c8664..2c0b34e` 共 9 个提交推上去（走本地代理 `127.0.0.1:7897`）。CI run **45750184587** 两个作业都 success（门禁 / 发布网页版），线上 <https://khalilyamber.github.io/DeepSeek-APP-Replica/> 已更新
 - 线上核验：首页带 `interactive-widget=resizes-content`；主 chunk 里 `enterkeyhint`、`pointer: coarse`、`composingRecently`、`MacIntel`、`maxTouchPoints` 全部命中，说明 iPad 那条分支也在线上包里
 - **坑：线上主 chunk 名与本地不同**（线上 `main.43d4802b.js`，本地 `main.6d88e29e.js`）。本地连构两次都是同一个名字，即本机构建是确定的，差异来自 CI 的构建环境（大概率是路径派生的模块标识）。所以**别拿 chunk 名跨机器比对来判「部署的是不是这份源码」**，要看内容标记；上一轮进度里「线上 chunk 与本地同名」那句只在本机构建之间成立
+
+### Session 037
+
+- 日期：2026-11-26（接 Session 036，同一轮任务的续）
+- 本轮目标：处理作者的真机反馈
+- 真机结论（两条）：
+  1. **手机端通过**：作者原话「手机的apk我装了，验收了，输入法你修好了」。`ime-001` 据此从 `inferred` 升 `verified`
+  2. **iPad 端没修好**：手写之后仍调不出键盘。作者补充「在微信打开也是有这个问题；不只是夸克浏览器」——**与浏览器无关，是 iPadOS/WKWebView 这一层的事**，我原来的「Safari 焦点切换」解释只覆盖了一半
+- 作者提供的诊断读数：iPadOS 18.7、UA `AppleWebKit/601.1.46 … Quark/10.17.5.652`、视口 1080×730（桌面布局）、内核识别不出、**应用版本显示 0.4.19**（版本号当时没升，无法据此判断加载的是不是新构建）
+- 本轮改动（版本 → **0.4.20**）：
+  - 触屏判据从「只看 `(pointer: coarse)`」扩成「粗指针，或有触摸点且不能悬停」：第三方浏览器把 pointer 报成细指针时，自动聚焦与回车发送会一起回来
+  - `recallKeyboard` 同时挂 `pointerdown` 与 `touchstart`，400ms 内只处理一次；笔的那一下也压住窗口，避免紧跟的 `touchstart` 抢焦点
+  - 新增 `src/kbdiag.html`（构建时拷到 `dist/kbdiag.html`）：环境读数 + 输入框事件日志 + 七种恢复方案实测 + 一键复制报告
+- 运行过的验证：type / lint（0 警告 0 错误）/ test（217）/ build 全绿；`dist/kbdiag.html` 用无头 Chrome 冒烟通过（环境表 11 行、方案 A 能出结论、报告 578 字）
+- **未验证（按 inferred 记）**：iPad 上的实际效果。七个恢复方案哪个有效要作者在 iPad 上试
+- 下一步最佳动作：让作者打开 `kbdiag.html`，用笔写字后逐个试 A–G，把报告贴回来；哪个方案能把键盘唤回来就照它改。若全无效，说明页面层 JS 救不回来，得换思路（例如输入框旁给一个显式「唤出键盘」入口）

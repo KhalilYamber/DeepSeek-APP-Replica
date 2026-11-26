@@ -23,17 +23,19 @@
       "area": "chatInput",
       "title": "回车语义按输入设备判定：手指输入换行、鼠标发送",
       "user_visible_behavior": "手机或平板（手指输入）上按回车是换行，发送只走右下角按钮，键盘上那个键也显示为换行；宽屏且鼠标为主的设备回车仍然发送、Shift+Enter 换行，键帽显示「发送」。空输入框上按回车不再插入看不见的换行。",
-      "status": "inferred",
+      "status": "verified",
       "verification": [
-        "`_probe/ime-enter.mjs` 8/8：桌面档 1280×900 无触摸 → 粗指针 false、`enterkeyhint=send`、回车后草稿被清空（= 已发送）；手机档 390×844 触摸仿真 → 粗指针 true、`enterkeyhint=enter`、回车后草稿仍是「第一行」（= 未发送）",
+        "**作者真机验收通过（2026-11-26）**：装 `DS-Echo-0.4.19-20261126-debug.apk` 后原话「手机的apk我装了，验收了，输入法你修好了」",
+        "`_probe/ime-enter.mjs` 13/13：桌面档 1280×900 无触摸 → 粗指针 false、`enterkeyhint=send`、回车后草稿被清空（= 已发送）；手机档 390×844 触摸仿真 → 粗指针 true、`enterkeyhint=enter`、回车后草稿仍是「第一行」（= 未发送），另加一条「同页点发送按钮能发出去」的对照",
         "`test/ime-enter.test.ts` 6/6：组字中 / `keyCode 229` / 组字刚结束 / 普通回车四态，外加结束标记只在同一轮内有效",
         "回归：`_probe/draft-persist.mjs` 4/4；`measure-layout --check` 10 档与基线一致（容差 1px）；`scan-compat` error 0",
         "四道静态门：type / lint（0 警告 0 错误）/ test（217 条）/ build"
       ],
       "evidence": [
+        "2026-11-26 作者在安卓手机上装 debug APK 实测：回车与换行按预期工作，输入法拼字不再误发",
         "2026-11-26 本机 Chrome 157 无头（390×844@3x 与 1280×900），CDP 合成 keydown；判据是输入框的值，因为 `clearSentDraft` 是同步调用，发送必然清空"
       ],
-      "notes": "探针只证明「不再进入发送分支」：合成的 keydown 不触发浏览器默认插入，**真正的换行插入必须在真机上验**。手机竖屏、窄窗口桌面、横屏三种真机情况都还没走过，故标 inferred。"
+      "notes": "手机端已由作者真机验收，状态升为 `verified`。探针本身只能证明「不再进入发送分支」（合成 keydown 不触发浏览器默认插入），换行插入这一层靠的是作者真机。"
     },
     {
       "id": "ime-002",
@@ -44,12 +46,14 @@
       "status": "inferred",
       "verification": [
         "`pnpm type` / `lint`（0 警告 0 错误）/ `test`（217 条）/ `build` 全绿",
-        "`_probe/ime-enter.mjs` 在触摸仿真下读到 `(pointer: coarse)` 为真——自动聚焦的开关就依赖这个读数"
+        "`_probe/ime-enter.mjs` 在触摸仿真下读到 `(pointer: coarse)` 为真——自动聚焦的开关就依赖这个读数",
+        "`dist/kbdiag.html` 本机无头 Chrome 冒烟：环境表 11 行、事件日志有输出、方案 A 能出「执行前后视口高度 + 焦点」结论、报告可生成"
       ],
       "evidence": [
-        "2026-11-26 作者在 iPad 第 9 代上反馈：网页版用笔写过字后软键盘再也调不出来，只能继续用笔写。本轮只有代码推演，没有 iPad 取证"
+        "**2026-11-26 真机结论：没修好。** 作者在 iPad 第 9 代上复验 0.4.19 的修法，仍调不出键盘，并补充「在微信打开也是有这个问题；不只是夸克浏览器」——说明与浏览器无关，是 iPadOS 层面的事",
+        "同次诊断读数（作者提供）：iPadOS 18.7、UA `AppleWebKit/601.1.46 … Quark/10.17.5.652`、视口 1080×730（走桌面布局）、内核识别不出、应用版本显示 0.4.19（版本号没升，无法据此判断加载的是不是新构建）"
       ],
-      "notes": "**未在 iPad 上验证**。机制推断：iPad 宽 810 走桌面布局 → `autoFocus` 为真 → 脚本聚焦弹不出键盘 → 输入框停在「已聚焦、键盘未弹」；iPadOS 的键盘只由手指点按造成的焦点切换唤起。`recallKeyboard` 只对 `pointerType === 'touch'` 生效，妙控键盘触控板点击是 `mouse`，不会每次点击都跳光标。三步取证写在 `docs/known-devices.md` 的 iPad 一行，验不出来可单独撤掉这一条。"
+      "notes": "**未在 iPad 上验证通过。** 0.4.19 的做法（touch-first 判断 + `blur()` 后 rAF 聚焦）在真机上无效，0.4.20 又改了两处：① 触屏判据从单看 `(pointer: coarse)` 扩成「粗指针，或有触摸点且不能悬停」，防止第三方浏览器把它报成细指针导致自动聚焦回来；② 恢复逻辑同时挂 `pointerdown` 与 `touchstart`，照顾不派发 Pointer Events 的内核。仍属推断，下一步靠 `kbdiag.html` 的七种恢复方案在真机上取证：哪个方案能把键盘唤回来，就照哪个改。微信与夸克都复现这一点指向 WKWebView 的输入会话被 Scribble 占住，页面层 JS 是否救得回来还不确定。"
     },
     {
       "id": "surface-001",
