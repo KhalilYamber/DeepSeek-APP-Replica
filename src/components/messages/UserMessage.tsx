@@ -1,7 +1,8 @@
 import { useTranslate } from '../../i18n/index.js'
 import clsx from 'clsx'
 import { memo, useLayoutEffect, useRef, useState } from 'react'
-import { useIsMobile } from '../../app/viewport.js'
+import { useEnterSends } from '../../app/viewport.js'
+import { useImeEnter } from '../base/useImeEnter.js'
 import { IconEditOutline16 } from '../base/icons.js'
 import { editMessage, retryUpload } from '../../services/chat/store.js'
 import { stopReadAloud } from '../../services/speech/readAloud.js'
@@ -43,7 +44,8 @@ export const UserMessage = memo(function UserMessage({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(message.content)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const isMobile = useIsMobile()
+  const entersToSend = useEnterSends()
+  const ime = useImeEnter()
   // 头像网页版与 APK 都显示（原先按「只给网页版」用 isNativeApp() 挡掉，2026-11-19 打开）
   const canSend = !busy && (draft.trim() !== '' || message.files.length > 0)
   // 图片与文档混排时缩略图只有 64px
@@ -65,9 +67,7 @@ export const UserMessage = memo(function UserMessage({
   }
 
   return (
-    <div
-      className={clsx(styles.container, isFirst && styles.isFirst, styles.withAvatar)}
-    >
+    <div className={clsx(styles.container, isFirst && styles.isFirst, styles.withAvatar)}>
       <MessageAvatar role="user" />
       {message.files.length > 0 ? (
         <div className={clsx(styles.files, withDocuments && styles.filesWithDocuments)}>
@@ -92,13 +92,20 @@ export const UserMessage = memo(function UserMessage({
             value={draft}
             disabled={busy}
             onChange={(event) => setDraft(event.target.value)}
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing) {
+              if (ime.claims(event)) {
                 return
               }
               if (event.key === 'Escape') {
                 setEditing(false)
-              } else if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !isMobile) {
+              } else if (
+                event.key === 'Enter' &&
+                !event.shiftKey &&
+                !event.ctrlKey &&
+                entersToSend
+              ) {
                 event.preventDefault()
                 sendEdit()
               }

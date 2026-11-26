@@ -1,11 +1,17 @@
 import clsx from 'clsx'
 import { memo, useState } from 'react'
 import { useTranslate } from '../../i18n/index.js'
-import { IconEditOutline16, IconEllipsisOutline16, IconGroupOutline16, IconTrashOutline16 } from '../base/icons.js'
+import {
+  IconEditOutline16,
+  IconEllipsisOutline16,
+  IconGroupOutline16,
+  IconTrashOutline16,
+} from '../base/icons.js'
 import { renameSession, selectSession } from '../../services/chat/store.js'
 import type { SessionSummary } from '../../services/chat/types.js'
 import { IconButton } from '../base/IconButton.js'
 import { Menu } from '../base/Menu.js'
+import { useImeEnter } from '../base/useImeEnter.js'
 import { closeMobileSider } from './mobileSiderState.js'
 import styles from './SessionItem.module.css'
 
@@ -22,6 +28,7 @@ export const SessionItem = memo(function SessionItem({
 }) {
   const t = useTranslate()
   const [editing, setEditing] = useState(false)
+  const ime = useImeEnter()
   const displayTitle = session.title || t('untitledChat')
 
   if (editing) {
@@ -38,8 +45,13 @@ export const SessionItem = memo(function SessionItem({
         autoFocus
         onFocus={(event) => event.target.select()}
         onBlur={(event) => finish(event.target.value)}
+        onCompositionStart={ime.onCompositionStart}
+        onCompositionEnd={ime.onCompositionEnd}
         onKeyDown={(event) => {
-          if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+          if (ime.claims(event)) {
+            return
+          }
+          if (event.key === 'Enter') {
             finish(event.currentTarget.value)
           } else if (event.key === 'Escape') {
             setEditing(false)

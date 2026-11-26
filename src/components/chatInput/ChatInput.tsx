@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import type { PointerEvent } from 'react'
 import {
   IconGlobeLanguageOutline14,
   IconPaperclipOutline16,
@@ -8,7 +9,14 @@ import {
   IconThinkOutline14,
 } from '../base/icons.js'
 import { setSearch, setThinking, useSettings } from '../../services/settings.js'
-import { useIsMobile } from '../../app/viewport.js'
+import {
+  isIosTouchDevice,
+  isKeyboardHidden,
+  useEnterSends,
+  useIsCoarsePointer,
+  useIsMobile,
+} from '../../app/viewport.js'
+import { useImeEnter } from '../base/useImeEnter.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
 import {
   addDraftFiles,
@@ -53,6 +61,9 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const thinking = useSettings((state) => state.thinking)
   const importingHistory = useChatStore((state) => state.importingHistory)
   const isMobile = useIsMobile()
+  const coarsePointer = useIsCoarsePointer()
+  const entersToSend = useEnterSends()
+  const ime = useImeEnter()
   const search = useSettings((state) => state.search)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -103,6 +114,25 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
     [sessionId]
   )
   const dragging = useFileDrop(acceptFiles)
+
+  /**
+   * iPadOS 的键盘只由「手指点按造成的焦点切换」唤起。用过 Apple Pencil 手写之后，
+   * 输入框会停在「已聚焦、键盘没弹」的状态，手指再点已聚焦的输入框不会重新弹键盘，
+   * 只有笔还能写。这里靠一次真正的失焦再聚焦把它救回来。
+   *
+   * 只对手指生效：妙控键盘上触控板点击的 pointerType 是 mouse，不会每次点击都跳光标。
+   */
+  const recallKeyboard = (event: PointerEvent<HTMLTextAreaElement>) => {
+    if (event.pointerType !== 'touch' || !isIosTouchDevice()) {
+      return
+    }
+    const textarea = event.currentTarget
+    if (document.activeElement !== textarea || !isKeyboardHidden()) {
+      return
+    }
+    textarea.blur()
+    requestAnimationFrame(() => textarea.focus({ preventScroll: true }))
+  }
 
   /** 转写结果插入到光标处，并把光标移到插入内容之后 */
   const voice = useVoiceInput((transcript) => {
@@ -181,11 +211,16 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           className={clsx(styles.textarea, recording && isMobile && styles.textareaHidden)}
           placeholder={t('chatInputPlaceholderChat')}
           rows={2}
-          // 移动端不自动聚焦，避免一打开就弹出键盘
-          autoFocus={!isMobile}
+          // 移动端与触屏设备不自动聚焦：脚本聚焦弹不出键盘，只会把输入框摆在「已聚焦」状态
+          autoFocus={!isMobile && !coarsePointer}
+          // 键盘上那个键的图标与真实行为对齐：桌面显示「发送」，手指输入显示「换行」
+          enterKeyHint={entersToSend ? 'send' : 'enter'}
           disabled={importingHistory}
           value={text}
           onChange={(event) => setText(event.target.value)}
+          onCompositionStart={ime.onCompositionStart}
+          onCompositionEnd={ime.onCompositionEnd}
+          onPointerDown={recallKeyboard}
           onMouseDown={(event) => {
             // 首次点击时手动聚焦，避免 Safari 把整个页面滚到输入框位置。
             if (isMobile && event.button === 0 && document.activeElement !== event.currentTarget) {
@@ -194,10 +229,21 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
             }
           }}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-              event.preventDefault()
-              send()
+            if (ime.claims(event)) {
+              return
             }
+            if (event.key !== 'Enter' || event.shiftKey) {
+              return
+            }
+            if (!entersToSend) {
+              // 手指输入的设备：回车就是换行。空框上不插入看不见的换行，免得发送键一直是灰的
+              if (text === '') {
+                event.preventDefault()
+              }
+              return
+            }
+            event.preventDefault()
+            send()
           }}
           onPaste={(event) => {
             const files = Array.from(event.clipboardData.files)

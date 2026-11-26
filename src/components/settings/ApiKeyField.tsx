@@ -3,6 +3,7 @@ import { IconEditOutline16 } from '../base/icons.js'
 import { useSettings } from '../../services/settings.js'
 import { useIsMobile } from '../../app/viewport.js'
 import { IconButton } from '../base/IconButton.js'
+import { useImeEnter } from '../base/useImeEnter.js'
 import { useApiKeyForm } from './useApiKeyForm.js'
 import { useTranslate } from '../../i18n/index.js'
 import styles from './Settings.module.css'
@@ -21,6 +22,7 @@ type ApiKeyEditor = ReturnType<typeof useApiKeyEditor>
 export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
   const t = useTranslate()
   const isMobile = useIsMobile()
+  const ime = useImeEnter()
   const { apiKey, editing, setEditing, form, showInput } = editor
 
   return (
@@ -48,8 +50,13 @@ export const ApiKeyField = ({ editor }: { editor: ApiKeyEditor }) => {
               autoFocus={!isMobile || editing}
               value={form.value}
               onChange={(event) => form.setValue(event.target.value)}
+              onCompositionStart={ime.onCompositionStart}
+              onCompositionEnd={ime.onCompositionEnd}
               onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                if (ime.claims(event)) {
+                  return
+                }
+                if (event.key === 'Enter') {
                   void form.submit()
                 }
               }}

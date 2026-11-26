@@ -30,6 +30,7 @@ import { Button } from '../base/Button.js'
 import { IconButton } from '../base/IconButton.js'
 import { Menu } from '../base/Menu.js'
 import { Modal } from '../base/Modal.js'
+import { useImeEnter } from '../base/useImeEnter.js'
 import { showToast } from '../base/toastState.js'
 import { openSettings } from '../settings/settingsDialogState.js'
 import { closeMobileSider, useMobileSider } from './mobileSiderState.js'
@@ -40,6 +41,7 @@ import styles from './Sider.module.css'
 /** 展开的侧边栏：名称与收起按钮、开启新对话、搜索、会话分组、按时间分组的会话、底部设置；移动端放在抽屉里 */
 export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const t = useTranslate()
+  const ime = useImeEnter()
   const sessions = useChatStore((state) => state.sessions)
   const groups = useChatStore((state) => state.groups)
   const activeId = useChatStore((state) => state.activeId)
@@ -94,8 +96,7 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
   const toggleGroup = (key: string) => toggleGroupCollapsed(key)
 
   const groupKeys = sessionGroups.map((item) => item.key)
-  const allCollapsed =
-    groupKeys.length > 0 && groupKeys.every((key) => collapsedKeys.includes(key))
+  const allCollapsed = groupKeys.length > 0 && groupKeys.every((key) => collapsedKeys.includes(key))
   const toggleAllGroups = () => setAllGroupsCollapsed(groupKeys, !allCollapsed)
 
   const startChatInGroup = (groupId: string | null, label: string) => {
@@ -336,7 +337,11 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
           }}
           footer={
             <>
-              <Button variant="outlined" disabled={groupPending} onClick={() => setGroupEditor(null)}>
+              <Button
+                variant="outlined"
+                disabled={groupPending}
+                onClick={() => setGroupEditor(null)}
+              >
                 {t('cancel')}
               </Button>
               <Button
@@ -358,8 +363,13 @@ export const Sider = ({ mobile = false }: { mobile?: boolean }) => {
                 current ? { ...current, name: event.target.value } : current
               )
             }
+            onCompositionStart={ime.onCompositionStart}
+            onCompositionEnd={ime.onCompositionEnd}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+              if (ime.claims(event)) {
+                return
+              }
+              if (event.key === 'Enter') {
                 void submitGroup()
               }
             }}

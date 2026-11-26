@@ -14,14 +14,43 @@ import { resolveFrameOverride } from './viewportClamp.js'
 const query = window.matchMedia(
   'not all and (min-width: 768px), (max-height: 519px), (min-aspect-ratio: 1/1) and (max-height: 699px)'
 )
+/** 主指针是粗的（手指）：手机、平板、纯触屏设备。它们没有 Shift 键 */
+const coarseQuery = window.matchMedia('(pointer: coarse)')
 
-const subscribe = (onChange: () => void) => {
-  query.addEventListener('change', onChange)
-  return () => query.removeEventListener('change', onChange)
+const subscribeMedia = (media: MediaQueryList) => (onChange: () => void) => {
+  media.addEventListener('change', onChange)
+  return () => media.removeEventListener('change', onChange)
 }
 
-export const useIsMobile = () => useSyncExternalStore(subscribe, () => query.matches)
+export const useIsMobile = () => useSyncExternalStore(subscribeMedia(query), () => query.matches)
 
+export const useIsCoarsePointer = () =>
+  useSyncExternalStore(subscribeMedia(coarseQuery), () => coarseQuery.matches)
+
+/**
+ * 回车是否代表发送。
+ *
+ * 手指输入的设备没有 Shift 键，回车只能是换行；笔记本接鼠标时主指针是细的，保留回车发送。
+ * 主判据仍是宽度与高度断点（与全仓 `@media` 是同一组数字），粗指针只用来覆盖大屏触屏设备。
+ */
+export const useEnterSends = () => !useIsMobile() && !useIsCoarsePointer()
+
+/** 视觉视口比布局视口矮这一截，才认为软键盘弹着；与 `index.html` 兜底脚本同一判据 */
+const KEYBOARD_MIN_HEIGHT = 120
+
+/** 软键盘是否收起。安卓压布局时两边一起变矮，这条只对 iOS 那种「只缩视觉视口」有意义 */
+export const isKeyboardHidden = () => {
+  const viewport = window.visualViewport
+  return !viewport || window.innerHeight - viewport.height < KEYBOARD_MIN_HEIGHT
+}
+
+/**
+ * iPadOS 的「键盘只由手指点按唤起」是系统行为：已经聚焦的输入框再点不会重新弹键盘。
+ * 用过 Apple Pencil（Scribble）后输入框正好停在这个状态，所以只在这类设备上做恢复。
+ */
+export const isIosTouchDevice = () =>
+  /iP(hone|ad|od)/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 
 /** 接管期间每秒复核一次：不少内核收键盘时既不发 resize 也不发 focusout */
 const VIEWPORT_WATCH_MS = 1000
