@@ -16,6 +16,8 @@ const query = window.matchMedia(
 )
 /** 主指针是粗的（手指）：手机、平板、纯触屏设备。它们没有 Shift 键 */
 const coarseQuery = window.matchMedia('(pointer: coarse)')
+/** 主指针能悬停：鼠标、触控板。触屏设备通常为 none */
+const hoverQuery = window.matchMedia('(hover: hover)')
 
 const subscribeMedia = (media: MediaQueryList) => (onChange: () => void) => {
   media.addEventListener('change', onChange)
@@ -26,19 +28,30 @@ const subscribeMedia = (media: MediaQueryList) => (onChange: () => void) => {
 // 输入框每敲一个字重渲染一次，这里不稳定等于每个字重挂一遍监听。
 const subscribeMobile = subscribeMedia(query)
 const subscribeCoarse = subscribeMedia(coarseQuery)
+const subscribeHover = subscribeMedia(hoverQuery)
 
 export const useIsMobile = () => useSyncExternalStore(subscribeMobile, () => query.matches)
 
-export const useIsCoarsePointer = () =>
-  useSyncExternalStore(subscribeCoarse, () => coarseQuery.matches)
+/**
+ * 这台设备是不是「以手指为主」。
+ *
+ * 不能只看 `(pointer: coarse)`：iPad 上的第三方浏览器（夸克一类）会把它报成细指针，
+ * 于是回车被当成发送、输入框被自动聚焦，两个毛病一起回来。所以再补一条
+ * 「有触摸点且不能悬停」的判据；带鼠标的触屏笔电因为 `hover: hover` 为真，不会误判。
+ */
+export const useTouchFirst = () => {
+  const coarse = useSyncExternalStore(subscribeCoarse, () => coarseQuery.matches)
+  const hover = useSyncExternalStore(subscribeHover, () => hoverQuery.matches)
+  return coarse || (navigator.maxTouchPoints > 0 && !hover)
+}
 
 /**
  * 回车是否代表发送。
  *
  * 手指输入的设备没有 Shift 键，回车只能是换行；笔记本接鼠标时主指针是细的，保留回车发送。
- * 主判据仍是宽度与高度断点（与全仓 `@media` 是同一组数字），粗指针只用来覆盖大屏触屏设备。
+ * 主判据仍是宽度与高度断点（与全仓 `@media` 是同一组数字），触屏判据只用来覆盖大屏触屏设备。
  */
-export const useEnterSends = () => !useIsMobile() && !useIsCoarsePointer()
+export const useEnterSends = () => !useIsMobile() && !useTouchFirst()
 
 /** 视觉视口比布局视口矮这一截，才认为软键盘弹着；与 `index.html` 兜底脚本同一判据 */
 const KEYBOARD_MIN_HEIGHT = 120

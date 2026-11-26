@@ -103,6 +103,13 @@ export const createConfig = ({
           toType: 'file',
           transform: (input: Buffer) => input.toString('utf8').replace(/__APP_VERSION__/g, version),
         },
+        // 键盘自诊页：iPad 上「手写之后键盘调不出来」只能靠真机取证，页里带恢复方案实测
+        {
+          from: path.resolve(root, 'src/kbdiag.html'),
+          to: 'kbdiag.html',
+          toType: 'file',
+          transform: (input: Buffer) => input.toString('utf8').replace(/__APP_VERSION__/g, version),
+        },
       ],
     }),
   ],

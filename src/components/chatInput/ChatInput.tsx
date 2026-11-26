@@ -1,6 +1,5 @@
 import clsx from 'clsx'
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
-import type { PointerEvent } from 'react'
 import {
   IconGlobeLanguageOutline14,
   IconPaperclipOutline16,
@@ -13,8 +12,8 @@ import {
   isIosTouchDevice,
   isKeyboardHidden,
   useEnterSends,
-  useIsCoarsePointer,
   useIsMobile,
+  useTouchFirst,
 } from '../../app/viewport.js'
 import { useImeEnter } from '../base/useImeEnter.js'
 import { sendMessage, stopReply, useChatStore } from '../../services/chat/store.js'
@@ -61,7 +60,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
   const thinking = useSettings((state) => state.thinking)
   const importingHistory = useChatStore((state) => state.importingHistory)
   const isMobile = useIsMobile()
-  const coarsePointer = useIsCoarsePointer()
+  const touchFirst = useTouchFirst()
   const entersToSend = useEnterSends()
   const ime = useImeEnter()
   const search = useSettings((state) => state.search)
@@ -120,14 +119,27 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
    * 输入框会停在「已聚焦、键盘没弹」的状态，手指再点已聚焦的输入框不会重新弹键盘，
    * 只有笔还能写。这里靠一次真正的失焦再聚焦把它救回来。
    *
-   * 只对手指生效：妙控键盘上触控板点击的 pointerType 是 mouse，不会每次点击都跳光标。
+   * 两个事件的取舍：
+   * - 有 Pointer Events 时用 `pointerdown`，因为能读 `pointerType`，可以放过笔与鼠标；
+   * - 没有 Pointer Events 的内核（iPad 上的第三方浏览器常见）只派发 `touchstart`，所以两个都挂。
+   * 同一手势会连发两个事件，`lastGestureAt` 让 400ms 内只处理一次；
+   * 笔的那一下也会压住窗口，避免它后面紧跟的 `touchstart` 把输入框夺走焦点。
    */
-  const recallKeyboard = (event: PointerEvent<HTMLTextAreaElement>) => {
-    if (event.pointerType !== 'touch' || !isIosTouchDevice()) {
+  const lastGestureAt = useRef(0)
+  const recallKeyboard = (pointerType?: string) => {
+    if (!isIosTouchDevice()) {
       return
     }
-    const textarea = event.currentTarget
-    if (document.activeElement !== textarea || !isKeyboardHidden()) {
+    const now = Date.now()
+    if (now - lastGestureAt.current < 400) {
+      return
+    }
+    lastGestureAt.current = now
+    if (pointerType !== undefined && pointerType !== 'touch') {
+      return
+    }
+    const textarea = textareaRef.current
+    if (!textarea || document.activeElement !== textarea || !isKeyboardHidden()) {
       return
     }
     textarea.blur()
@@ -212,7 +224,7 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           placeholder={t('chatInputPlaceholderChat')}
           rows={2}
           // 移动端与触屏设备不自动聚焦：脚本聚焦弹不出键盘，只会把输入框摆在「已聚焦」状态
-          autoFocus={!isMobile && !coarsePointer}
+          autoFocus={!isMobile && !touchFirst}
           // 键盘上那个键的图标与真实行为对齐：桌面显示「发送」，手指输入显示「换行」
           enterKeyHint={entersToSend ? 'send' : 'enter'}
           disabled={importingHistory}
@@ -220,7 +232,8 @@ const Input = ({ sessionId }: { sessionId: string | null }) => {
           onChange={(event) => setText(event.target.value)}
           onCompositionStart={ime.onCompositionStart}
           onCompositionEnd={ime.onCompositionEnd}
-          onPointerDown={recallKeyboard}
+          onPointerDown={(event) => recallKeyboard(event.pointerType)}
+          onTouchStart={() => recallKeyboard()}
           onMouseDown={(event) => {
             // 首次点击时手动聚焦，避免 Safari 把整个页面滚到输入框位置。
             if (isMobile && event.button === 0 && document.activeElement !== event.currentTarget) {

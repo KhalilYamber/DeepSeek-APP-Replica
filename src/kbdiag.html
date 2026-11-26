@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content" />
+    <meta name="application-version" content="__APP_VERSION__" />
+    <title>Echo 键盘自诊</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font: 16px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 760px;
+        padding: 20px 16px 48px;
+        color: #1f2328;
+        background: #fff;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { color: #e6e8eb; background: #1b1d21; }
+        .box { border-color: #3a3d42; background: #232529; }
+        textarea { color: #e6e8eb; background: #16181b; border-color: #3a3d42; }
+        .btn { color: #e6e8eb; background: #2c2f34; border-color: #3a3d42; }
+      }
+      h1 { font-size: 20px; margin: 0 0 6px; }
+      h2 { font-size: 16px; margin: 26px 0 8px; }
+      p { margin: 8px 0; }
+      .muted { color: #6b7280; font-size: 14px; }
+      .box { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; margin: 12px 0; background: #fafbfc; }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      td { padding: 4px 0; vertical-align: top; }
+      td:first-child { width: 42%; color: #6b7280; }
+      code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; word-break: break-all; }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 96px;
+        padding: 10px 12px;
+        border: 1px solid #d0d7de;
+        border-radius: 10px;
+        font: inherit;
+      }
+      .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+      .btn {
+        padding: 10px 14px;
+        border: 1px solid #d0d7de;
+        border-radius: 10px;
+        background: #fff;
+        font: inherit;
+        cursor: pointer;
+      }
+      .btn:active { transform: scale(0.97); }
+      #log {
+        margin: 0;
+        max-height: 240px;
+        overflow: auto;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .result { margin-top: 6px; font-size: 14px; }
+      .ok { color: #1a7f37; }
+      .no { color: #b42318; }
+    </style>
+  </head>
+  <body>
+    <h1>Echo 键盘自诊</h1>
+    <p class="muted">用途：查清「用 Apple Pencil 写过字之后，软键盘再也调不出来」在这台 iPad 上到底是什么机制，以及哪种恢复办法真能奏效。</p>
+
+    <div class="box">
+      <strong>怎么用</strong>
+      <p>
+        ① 点下面的输入框，用笔写几个字，确认键盘消失。<br />
+        ② 依次点「方案 A」到「方案 G」，每点一个就看键盘有没有回来，记下哪个有效（也可能全都没效）。<br />
+        ③ 点最下面的「复制报告」，把整段文字发给我。
+      </p>
+      <p class="muted">每一步都会记录执行前后的视口高度：键盘弹起来时，视口高度会明显变矮。</p>
+    </div>
+
+    <h2>一、输入区</h2>
+    <textarea id="field" placeholder="点这里，然后用 Apple Pencil 写几个字"></textarea>
+    <div class="btns" style="margin-top: 8px">
+      <button class="btn" id="clear">清空</button>
+      <button class="btn" id="blur">主动失焦</button>
+    </div>
+
+    <h2>二、环境</h2>
+    <div class="box">
+      <table id="env"></table>
+    </div>
+
+    <h2>三、事件</h2>
+    <div class="box">
+      <pre id="log">（在输入框里点一下、写一个字，这里会记下收到的事件）</pre>
+    </div>
+
+    <h2>四、恢复方案（逐个试）</h2>
+    <div class="box">
+      <div class="btns">
+        <button class="btn" data-plan="A">方案 A：失焦 + 立即聚焦</button>
+        <button class="btn" data-plan="B">方案 B：失焦 + setTimeout 聚焦</button>
+        <button class="btn" data-plan="C">方案 C：失焦 + rAF 聚焦</button>
+        <button class="btn" data-plan="D">方案 D：切换 readonly</button>
+        <button class="btn" data-plan="E">方案 E：换 inputmode</button>
+        <button class="btn" data-plan="F">方案 F：重挂输入框</button>
+        <button class="btn" data-plan="G">方案 G：先聚焦别处再回来</button>
+      </div>
+      <div id="planOut" class="result muted">还没试过任何方案。</div>
+    </div>
+
+    <h2>五、报告</h2>
+    <div class="btns">
+      <button class="btn" id="copy">复制报告</button>
+    </div>
+    <div class="box">
+      <pre id="report" class="muted" style="white-space: pre-wrap; word-break: break-all; margin: 0">（点上面的按钮生成）</pre>
+    </div>
+
+    <script>
+      var FIELD = document.getElementById('field')
+      var LOG = document.getElementById('log')
+      var planOut = document.getElementById('planOut')
+      var reportEl = document.getElementById('report')
+      var events = []
+      var planResults = []
+
+      function keyboardHidden() {
+        var vv = window.visualViewport
+        if (!vv) return 'unknown'
+        return window.innerHeight - vv.height > 120 ? 'no(键盘在)' : 'yes(键盘不在)'
+      }
+
+      function snapshot() {
+        var vv = window.visualViewport
+        return {
+          active: document.activeElement ? document.activeElement.tagName.toLowerCase() : 'none',
+          inner: window.innerHeight,
+          vv: vv ? Math.round(vv.height) : null,
+          keyboard: keyboardHidden(),
+        }
+      }
+
+      function line(name, extra) {
+        var s = snapshot()
+        events.push(
+          name +
+            (extra ? ' ' + extra : '') +
+            ' | 焦点=' + s.active +
+            ' | 视口=' + s.inner + '/' + s.vv +
+            ' | ' + s.keyboard
+        )
+        if (events.length > 60) events.shift()
+        LOG.textContent = events.join('\n')
+      }
+
+      function envTable() {
+        var rows = [
+          ['应用版本', (document.querySelector('meta[name="application-version"]') || {}).content || '?'],
+          ['UA', navigator.userAgent],
+          ['platform', navigator.platform || '?'],
+          ['maxTouchPoints', String(navigator.maxTouchPoints)],
+          ['PointerEvent', typeof window.PointerEvent],
+          ['ontouchstart', 'ontouchstart' in window ? '有' : '无'],
+          ['(pointer: coarse)', matchMedia('(pointer: coarse)').matches ? '真' : '假'],
+          ['(any-pointer: coarse)', matchMedia('(any-pointer: coarse)').matches ? '真' : '假'],
+          ['(hover: hover)', matchMedia('(hover: hover)').matches ? '真' : '假'],
+          ['visualViewport', window.visualViewport ? '有' : '无'],
+          ['现状', line('init') || events[events.length - 1]],
+        ]
+        document.getElementById('env').innerHTML = rows
+          .map(function (r) {
+            return '<tr><td>' + r[0] + '</td><td><code>' + String(r[1]) + '</code></td></tr>'
+          })
+          .join('')
+      }
+
+      ;['pointerdown', 'touchstart', 'touchmove', 'mousedown', 'click', 'focus', 'focusin', 'focusout', 'compositionstart', 'compositionend'].forEach(
+        function (type) {
+          FIELD.addEventListener(type, function (event) {
+            var extra = ''
+            if (event.pointerType !== undefined) extra += 'pointerType=' + event.pointerType
+            if (event.touches && event.touches.length) {
+              var touch = event.touches[0]
+              extra += ' touchType=' + (touch.touchType || '未知') + ' 笔尖?=' + (touch.touchType === 'stylus' ? '是' : '否')
+            }
+            line(type, extra)
+          }, true)
+        }
+      )
+
+      document.getElementById('clear').addEventListener('click', function () {
+        FIELD.value = ''
+        line('clear')
+      })
+      document.getElementById('blur').addEventListener('click', function () {
+        FIELD.blur()
+        line('主动 blur')
+      })
+
+      function after(plan, label, before) {
+        setTimeout(function () {
+          var s = snapshot()
+          var got = s.vv !== null && s.inner - s.vv > 120
+          var text = label + '：执行前 ' + before.inner + '/' + before.vv + ' → 执行后 ' + s.inner + '/' + s.vv + '，焦点=' + s.active + '，键盘' + (got ? '回来了' : '没回来')
+          planResults.push(text)
+          planOut.textContent = text
+          planOut.className = 'result ' + (got ? 'ok' : 'no')
+        }, 700)
+      }
+
+      function cloneField() {
+        var fresh = FIELD.cloneNode(true)
+        fresh.value = FIELD.value
+        FIELD.parentNode.replaceChild(fresh, FIELD)
+        FIELD = fresh
+        line('输入框已重挂')
+      }
+
+      var plans = {
+        A: function () {
+          FIELD.blur()
+          FIELD.focus()
+        },
+        B: function () {
+          FIELD.blur()
+          setTimeout(function () { FIELD.focus() }, 0)
+        },
+        C: function () {
+          FIELD.blur()
+          requestAnimationFrame(function () { FIELD.focus() })
+        },
+        D: function () {
+          FIELD.readOnly = true
+          setTimeout(function () {
+            FIELD.readOnly = false
+            FIELD.focus()
+          }, 30)
+        },
+        E: function () {
+          FIELD.setAttribute('inputmode', FIELD.getAttribute('inputmode') === 'text' ? 'search' : 'text')
+          FIELD.blur()
+          setTimeout(function () { FIELD.focus() }, 30)
+        },
+        F: function () {
+          cloneField()
+          setTimeout(function () { FIELD.focus() }, 30)
+        },
+        G: function () {
+          FIELD.blur()
+          document.body.focus()
+          setTimeout(function () { FIELD.focus() }, 60)
+        },
+      }
+
+      var labels = {
+        A: '方案 A（失焦+立即聚焦）',
+        B: '方案 B（失焦+setTimeout）',
+        C: '方案 C（失焦+rAF）',
+        D: '方案 D（切换 readonly）',
+        E: '方案 E（换 inputmode）',
+        F: '方案 F（重挂输入框）',
+        G: '方案 G（先聚焦别处）',
+      }
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-plan]'), function (button) {
+        button.addEventListener('click', function () {
+          var plan = button.getAttribute('data-plan')
+          var before = snapshot()
+          line('试' + plan + ' 前')
+          try {
+            plans[plan]()
+          } catch (err) {
+            planOut.textContent = labels[plan] + '：报错 ' + err
+            return
+          }
+          after(plan, labels[plan], before)
+        })
+      })
+
+      document.getElementById('copy').addEventListener('click', function () {
+        var env = Array.prototype.map
+          .call(document.querySelectorAll('#env tr'), function (tr) {
+            return tr.children[0].textContent + '：' + tr.children[1].textContent
+          })
+          .join('\n')
+        var text = [
+          '【Echo 键盘自诊报告】',
+          '时间 ' + new Date().toISOString(),
+          '',
+          '— 环境 —',
+          env,
+          '',
+          '— 事件（最近） —',
+          events.slice(-30).join('\n') || '（空）',
+          '',
+          '— 恢复方案 —',
+          planResults.join('\n') || '（还没试）',
+        ].join('\n')
+        reportEl.textContent = text
+        var done = false
+        try {
+          var temp = document.createElement('textarea')
+          temp.value = text
+          temp.setAttribute('readonly', 'readonly')
+          temp.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0'
+          document.body.appendChild(temp)
+          temp.select()
+          temp.setSelectionRange(0, text.length)
+          done = document.execCommand && document.execCommand('copy')
+          document.body.removeChild(temp)
+        } catch (err) {
+          done = false
+        }
+        document.getElementById('copy').textContent = done ? '已复制' : '复制失败：长按下面文字'
+      })
+
+      envTable()
+      line('页面就绪')
+    </script>
+  </body>
+</html>
