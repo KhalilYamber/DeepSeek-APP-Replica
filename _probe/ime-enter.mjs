@@ -1,7 +1,8 @@
 // 探针：回车的发送语义按输入设备判定。
 // 桌面（鼠标为主）回车应当发送；手机（手指输入）回车应当只是换行。
 // 判据只有一个：回车之后输入框的值。发送成功会同步清空草稿（store.ts 的 clearSentDraft），
-// 不发送则原值留着。先跑桌面档证明这台环境真的能发出去，再跑手机档，免得「发不出去」被误当成通过。
+// 不发送则原值留着。每档都先证明「这一页确实能发出去」：桌面档靠回车本身，手机档靠点发送按钮做对照，
+// 否则「回车没发」可能只是页面还没就绪，会假通过。
 // 局限：合成的 keydown 不会触发浏览器的默认插入，所以这里只证明「没有进入发送分支」，
 // 真正的换行插入必须在真机上验。
 // 用法：先 pnpm build，再 node _probe/ime-enter.mjs
@@ -141,14 +142,22 @@ const readState = () =>
     }
   })()`)
 
-/** 写入文本并派发一次回车；返回是否找到输入框 */
-const pressEnter = () =>
+/** 写入文本，不派发任何按键 */
+const typeText = () =>
   evaluate(`(function () {
     var el = document.querySelector('textarea')
     if (!el) return false
     var type = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
     type.call(el, ${JSON.stringify(TEXT)})
     el.dispatchEvent(new Event('input', { bubbles: true }))
+    return true
+  })()`)
+
+/** 派发一次回车 */
+const dispatchEnter = () =>
+  evaluate(`(function () {
+    var el = document.querySelector('textarea')
+    if (!el) return false
     var event = new KeyboardEvent('keydown', {
       key: 'Enter',
       code: 'Enter',
@@ -164,6 +173,26 @@ const pressEnter = () =>
     return true
   })()`)
 
+/** 点右下角发送按钮：用来证明「这一页确实能发出去」，否则「回车没发」可能是页面还没就绪 */
+const clickSend = () =>
+  evaluate(`(function () {
+    var button = document.querySelector('button[aria-label="发送"]')
+    if (!button) return false
+    button.click()
+    return true
+  })()`)
+
+/** 反复读输入框，直到它变空或次数用完 */
+const waitCleared = async (times = 6) => {
+  let value = null
+  for (let i = 0; i < times; i++) {
+    await sleep(400)
+    value = (await readState()).value
+    if (value === '') break
+  }
+  return value
+}
+
 // 桌面档：鼠标为主，回车应当发送
 await load({ width: 1280, height: 900, mobile: false })
 const desktopEnv = await readState()
@@ -172,16 +201,11 @@ console.log(
 )
 check('桌面档判定为鼠标输入', desktopEnv.coarse === false)
 check('桌面档键帽语义是「发送」', desktopEnv.hint === 'send', String(desktopEnv.hint))
+check('桌面档找到输入框并写入文字', (await typeText()) === true)
 
-const desktopPressed = await pressEnter()
-check('桌面档找到输入框并派发回车', desktopPressed === true)
-
-let desktopValue = null
-for (let i = 0; i < 6; i++) {
-  await sleep(500)
-  desktopValue = (await readState()).value
-  if (desktopValue === '') break
-}
+const desktopPressed = await dispatchEnter()
+check('桌面档派发回车', desktopPressed === true)
+const desktopValue = await waitCleared()
 check('桌面档回车把消息发出去了（草稿被清空）', desktopValue === '', JSON.stringify(desktopValue))
 
 // 手机档：手指输入，回车应当只是换行
@@ -193,8 +217,22 @@ console.log(
 check('手机档判定为手指输入', mobileEnv.coarse === true)
 check('手机档键帽语义是「换行」', mobileEnv.hint === 'enter', String(mobileEnv.hint))
 
-const mobilePressed = await pressEnter()
-check('手机档找到输入框并派发回车', mobilePressed === true)
+// 先做对照：同一个页面上点发送按钮能发出去，证明应用已就绪
+check('手机档找到输入框并写入文字', (await typeText()) === true)
+const clicked = await clickSend()
+check('手机档找到发送按钮', clicked === true)
+const sentByButton = await waitCleared()
+check(
+  '手机档点发送按钮能发出去（对照，证明页面就绪）',
+  sentByButton === '',
+  JSON.stringify(sentByButton)
+)
+
+// 再验回车：同一页面上回车不该发送
+await sleep(400)
+check('手机档重新写入文字', (await typeText()) === true)
+const mobilePressed = await dispatchEnter()
+check('手机档派发回车', mobilePressed === true)
 await sleep(600)
 const mobileValue = (await readState()).value
 check('手机档回车没有发送（草稿仍在）', mobileValue === TEXT, JSON.stringify(mobileValue))
